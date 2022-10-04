@@ -1,4 +1,4 @@
-name: Frappe Linter
+name: CapKPI Linter
 on:
   pull_request:
     branches:

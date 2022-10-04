@@ -24,8 +24,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          GIT_AUTHOR_NAME: "Frappe PR Bot"
-          GIT_AUTHOR_EMAIL: "developers@frappe.io"
-          GIT_COMMITTER_NAME: "Frappe PR Bot"
-          GIT_COMMITTER_EMAIL: "developers@frappe.io"
+          GIT_AUTHOR_NAME: "CapKPI PR Bot"
+          GIT_AUTHOR_EMAIL: "developers@capkpi.com"
+          GIT_COMMITTER_NAME: "CapKPI PR Bot"
+          GIT_COMMITTER_EMAIL: "developers@capkpi.com"
         run: npx semantic-release 

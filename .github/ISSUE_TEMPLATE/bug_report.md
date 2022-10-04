@@ -1,13 +1,13 @@
 ---
 name: Bug report
-about: Report a bug encountered while using the Frappe Framework
+about: Report a bug encountered while using the CapKPI Framework
 labels: bug
 ---
 
 <!--
-Welcome to the Frappe Framework issue tracker! Before creating an issue, please heed the following:
+Welcome to the CapKPI Framework issue tracker! Before creating an issue, please heed the following:
 
-1. This tracker should only be used to report bugs and request features / enhancements to Frappe
+1. This tracker should only be used to report bugs and request features / enhancements to CapKPI
     - For questions and general support, use https://stackoverflow.com/questions/tagged/frappe
     - For documentation issues, refer to https://frappeframework.com/docs/user/en or the developer cheetsheet https://github.com/frappe/frappe/wiki/Developer-Cheatsheet
 2. Use the search function before creating a new issue. Duplicates will be closed and directed to
@@ -44,4 +44,4 @@ Welcome to the Frappe Framework issue tracker! Before creating an issue, please 
 
 ## Additional information
 
-OS version / distribution, `Frappe` install method, etc.
+OS version / distribution, `CapKPI` install method, etc.

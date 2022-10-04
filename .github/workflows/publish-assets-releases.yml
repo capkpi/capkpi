@@ -1,4 +1,4 @@
-name: 'Frappe Assets'
+name: 'CapKPI Assets'
 
 on:
   release:

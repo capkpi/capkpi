@@ -1,8 +1,8 @@
 const path = require('path');
 const fs = require('fs');
 
-const frappe_path = process.cwd();
-const bench_path = path.resolve(frappe_path, '..', '..');
+const capkpi_path = process.cwd();
+const bench_path = path.resolve(capkpi_path, '..', '..');
 const sites_path = path.resolve(bench_path, 'sites');
 const apps_list =
 	fs.readFileSync(
@@ -77,7 +77,7 @@ function run_serially(tasks) {
 const get_app_path = app => app_paths[app];
 
 const get_options_for_scss = () => {
-	const node_modules_path = path.resolve(get_app_path('frappe'), '..', 'node_modules');
+	const node_modules_path = path.resolve(get_app_path('capkpi'), '..', 'node_modules');
 	const app_paths = apps_list.map(get_app_path).map(app_path => path.resolve(app_path, '..'));
 	return {
 		includePaths: [

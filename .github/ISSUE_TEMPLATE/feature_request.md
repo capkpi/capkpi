@@ -1,13 +1,13 @@
 ---
 name: Feature request
-about: Suggest an idea to improve Frappe
+about: Suggest an idea to improve CapKPI
 labels: feature-request
 ---
 
 <!--
-Welcome to the Frappe Framework issue tracker! Before creating an issue, please heed the following:
+Welcome to the CapKPI Framework issue tracker! Before creating an issue, please heed the following:
 
-1. This tracker should only be used to report bugs and request features / enhancements to Frappe
+1. This tracker should only be used to report bugs and request features / enhancements to CapKPI
     - For questions and general support, refer to https://stackoverflow.com/questions/tagged/frappe
     - For documentation issues, use https://frappeframework.com/docs/user/en or the developer cheetsheet https://frappeframework.com/docs/user/en/bench/resources/bench-commands-cheatsheet
 2. Use the search function before creating a new issue. Duplicates will be closed and directed to

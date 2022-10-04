@@ -32,37 +32,37 @@ io.on('connection', function (socket) {
 
 	socket.user = cookie.parse(socket.request.headers.cookie).user_id;
 
-	// frappe.chat
-	socket.on("frappe.chat.room:subscribe", function (rooms) {
+	// capkpi.chat
+	socket.on("capkpi.chat.room:subscribe", function (rooms) {
 		if (!Array.isArray(rooms)) {
 			rooms = [rooms];
 		}
 
 		for (var room of rooms) {
-			log('frappe.chat: Subscribing ' + socket.user + ' to room ' + room);
+			log('capkpi.chat: Subscribing ' + socket.user + ' to room ' + room);
 			room = get_chat_room(socket, room);
 
-			log('frappe.chat: Subscribing ' + socket.user + ' to event ' + room);
+			log('capkpi.chat: Subscribing ' + socket.user + ' to event ' + room);
 			socket.join(room);
 		}
 	});
 
-	socket.on("frappe.chat.message:typing", function (data) {
+	socket.on("capkpi.chat.message:typing", function (data) {
 		const user = data.user;
 		const room = get_chat_room(socket, data.room);
 
-		log('frappe.chat: Dispatching ' + user + ' typing to room ' + room);
+		log('capkpi.chat: Dispatching ' + user + ' typing to room ' + room);
 
-		io.to(room).emit('frappe.chat.room:typing', {
+		io.to(room).emit('capkpi.chat.room:typing', {
 			room: data.room,
 			user: user
 		});
 	});
-	// end frappe.chat
+	// end capkpi.chat
 
 	let retries = 0;
 	let join_chat_room = () => {
-		request.get(get_url(socket, '/api/method/frappe.realtime.get_user_info'))
+		request.get(get_url(socket, '/api/method/capkpi.realtime.get_user_info'))
 			.type('form')
 			.query({
 				sid: sid
@@ -250,9 +250,9 @@ function get_task_room(socket, task_id) {
 	return get_site_name(socket) + ':task_progress:' + task_id;
 }
 
-// frappe.chat
+// capkpi.chat
 // If you're thinking on multi-site or anything, please
-// update frappe.async as well.
+// update capkpi.async as well.
 function get_chat_room(socket, room) {
 	var room = get_site_name(socket) + ":room:" + room;
 
@@ -262,8 +262,8 @@ function get_chat_room(socket, room) {
 function get_site_name(socket) {
 	var hostname_from_host = get_hostname(socket.request.headers.host);
 
-	if (socket.request.headers['x-frappe-site-name']) {
-		return get_hostname(socket.request.headers['x-frappe-site-name']);
+	if (socket.request.headers['x-capkpi-site-name']) {
+		return get_hostname(socket.request.headers['x-capkpi-site-name']);
 	} else if (['localhost', '127.0.0.1'].indexOf(hostname_from_host) !== -1 &&
 		conf.default_site) {
 		// from currentsite.txt since host is localhost
@@ -293,7 +293,7 @@ function get_url(socket, path) {
 function can_subscribe_doc(args) {
 	if (!args) return;
 	if (!args.doctype || !args.docname) return;
-	request.get(get_url(args.socket, '/api/method/frappe.realtime.can_subscribe_doc'))
+	request.get(get_url(args.socket, '/api/method/capkpi.realtime.can_subscribe_doc'))
 		.type('form')
 		.query({
 			sid: args.sid,

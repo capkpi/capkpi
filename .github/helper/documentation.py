@@ -5,8 +5,8 @@ from urllib.parse import urlparse
 
 docs_repos = [
 	"frappe_docs",
-	"erpnext_documentation",
-	"erpnext_com",
+	"erp_documentation",
+	"erp_com",
 	"frappe_io",
 ]
 

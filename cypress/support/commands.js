@@ -56,7 +56,7 @@ Cypress.Commands.add('call', (method, args) => {
 					headers: {
 						Accept: 'application/json',
 						'Content-Type': 'application/json',
-						'X-Frappe-CSRF-Token': csrf_token
+						'X-CapKPI-CSRF-Token': csrf_token
 					}
 				})
 				.then(res => {
@@ -80,7 +80,7 @@ Cypress.Commands.add('get_list', (doctype, fields = [], filters = []) => {
 					url,
 					headers: {
 						Accept: 'application/json',
-						'X-Frappe-CSRF-Token': csrf_token
+						'X-CapKPI-CSRF-Token': csrf_token
 					}
 				})
 				.then(res => {
@@ -101,7 +101,7 @@ Cypress.Commands.add('get_doc', (doctype, name) => {
 					url: `/api/resource/${doctype}/${name}`,
 					headers: {
 						Accept: 'application/json',
-						'X-Frappe-CSRF-Token': csrf_token
+						'X-CapKPI-CSRF-Token': csrf_token
 					}
 				})
 				.then(res => {
@@ -122,7 +122,7 @@ Cypress.Commands.add('remove_doc', (doctype, name) => {
 					url: `/api/resource/${doctype}/${name}`,
 					headers: {
 						Accept: 'application/json',
-						'X-Frappe-CSRF-Token': csrf_token
+						'X-CapKPI-CSRF-Token': csrf_token
 					}
 				})
 				.then(res => {
@@ -269,7 +269,7 @@ Cypress.Commands.add('insert_doc', (doctype, args, ignore_duplicate) => {
 					headers: {
 						Accept: 'application/json',
 						'Content-Type': 'application/json',
-						'X-Frappe-CSRF-Token': csrf_token
+						'X-CapKPI-CSRF-Token': csrf_token
 					},
 					failOnStatusCode: !ignore_duplicate
 				})

@@ -19,10 +19,10 @@ const {
 	get_options
 } = require('./config');
 
-const skip_frappe = process.argv.includes("--skip_frappe")
+const skip_capkpi = process.argv.includes("--skip_capkpi")
 
-if (skip_frappe) {
-	let idx = apps_list.indexOf("frappe");
+if (skip_capkpi) {
+	let idx = apps_list.indexOf("capkpi");
 	if (idx > -1) {
 		apps_list.splice(idx, 1);
 	}
@@ -89,7 +89,7 @@ function build_assets(app) {
 	return build_from_(options);
 }
 
-function build_files(files, app="frappe") {
+function build_files(files, app="capkpi") {
 	let ret;
 	for (let file of files) {
 		let options = get_options(file, app);
@@ -114,16 +114,16 @@ function build(inputOptions, outputOptions) {
 function concatenate_files() {
 	// only concatenates files, not processed through rollup
 
-	const files_to_concat = Object.keys(get_build_json('frappe'))
+	const files_to_concat = Object.keys(get_build_json('capkpi'))
 		.filter(filename => filename.startsWith('concat:'));
 
 	files_to_concat.forEach(output_file => {
-		const input_files = get_build_json('frappe')[output_file];
+		const input_files = get_build_json('capkpi')[output_file];
 
 		const file_content = input_files.map(file_name => {
-			let prefix = get_app_path('frappe');
+			let prefix = get_app_path('capkpi');
 			if (file_name.startsWith('node_modules/')) {
-				prefix = path.resolve(get_app_path('frappe'), '..');
+				prefix = path.resolve(get_app_path('capkpi'), '..');
 			}
 			const full_path = path.resolve(prefix, file_name);
 			return `/* ${file_name} */\n` + fs.readFileSync(full_path);
@@ -148,7 +148,7 @@ function run_build_command_for_apps() {
 }
 
 function run_build_command_for_app(app) {
-	if (app === 'frappe') return;
+	if (app === 'capkpi') return;
 	let root_app_path = path.resolve(get_app_path(app), '..');
 	let package_json = path.resolve(root_app_path, 'package.json');
 	if (fs.existsSync(package_json)) {

@@ -25,10 +25,10 @@ context('Data Field Input Validation in New Form', () => {
 		});
 
 		it('should validate URL', () => {
-			validateField('url', 'jkl', 'https://frappe.io');
+			validateField('url', 'jkl', 'https://capkpi.com');
 			validateField('url', 'abcd.com', 'http://google.com/home');
-			validateField('url', '&&http://google.uae', 'gopher://frappe.io');
-			validateField('url', 'ftt2:://google.in?q=news', 'ftps2://frappe.io/__/#home');
+			validateField('url', '&&http://google.uae', 'gopher://capkpi.com');
+			validateField('url', 'ftt2:://google.in?q=news', 'ftps2://capkpi.com/__/#home');
 			validateField('url', 'ftt2://', 'ntps://localhost'); // For intranet URLs
 		});
 

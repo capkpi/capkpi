@@ -13,7 +13,7 @@ context('URL Data Field Input', () => {
 	describe('URL Data Field Input ', () => {
 		it('should not show URL link button without focus', () => {
 			cy.new_form(doctype_name);
-			cy.get_field('url').clear().type('https://frappe.io');
+			cy.get_field('url').clear().type('https://capkpi.com');
 			cy.get_field('url').blur().wait(500);
 			cy.get('.link-btn').should('not.be.visible');
 		});
@@ -29,8 +29,8 @@ context('URL Data Field Input', () => {
 		});
 
 		it('should have valid URL link with target _blank', () => {
-			cy.get_field('url').clear().type('https://frappe.io');
-			cy.get('.link-btn .btn-open').should('have.attr', 'href', 'https://frappe.io');
+			cy.get_field('url').clear().type('https://capkpi.com');
+			cy.get('.link-btn .btn-open').should('have.attr', 'href', 'https://capkpi.com');
 			cy.get('.link-btn .btn-open').should('have.attr', 'target', '_blank');
 		});
 

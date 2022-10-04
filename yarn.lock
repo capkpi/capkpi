@@ -595,9 +595,9 @@ aggregate-error@^3.0.0:
     clean-stack "^2.0.0"
     indent-string "^4.0.0"
 
-"air-datepicker@github:frappe/air-datepicker":
+"air-datepicker@github:capkpi/air-datepicker":
   version "2.2.3"
-  resolved "https://codeload.github.com/frappe/air-datepicker/tar.gz/ed37b94d95c68d8544357e330be0c89d044a3eea"
+  resolved "https://codeload.github.com/capkpi/air-datepicker/tar.gz/ed37b94d95c68d8544357e330be0c89d044a3eea"
   dependencies:
     jquery ">=2.0.0 <4.0.0"
 
@@ -2531,23 +2531,23 @@ fragment-cache@^0.2.1:
   dependencies:
     map-cache "^0.2.2"
 
-frappe-charts@^2.0.0-rc13:
+capkpi-charts@^2.0.0-rc13:
   version "2.0.0-rc13"
-  resolved "https://registry.yarnpkg.com/frappe-charts/-/frappe-charts-2.0.0-rc13.tgz#fdb251d7ae311c41e38f90a3ae108070ec6b9072"
+  resolved "https://registry.yarnpkg.com/capkpi-charts/-/capkpi-charts-2.0.0-rc13.tgz#fdb251d7ae311c41e38f90a3ae108070ec6b9072"
   integrity sha512-Bv7IfllIrjRbKWHn5b769dOSenqdBixAr6m5kurf8ZUOJSLOgK4HOXItJ7BA8n9PvviH9/k5DaloisjLM2Bm1w==
 
-frappe-datatable@^1.16.4:
+capkpi-datatable@^1.16.4:
   version "1.16.4"
-  resolved "https://registry.yarnpkg.com/frappe-datatable/-/frappe-datatable-1.16.4.tgz#cb26f197c3cd404a5b13f016ef81c394e06f56fe"
+  resolved "https://registry.yarnpkg.com/capkpi-datatable/-/capkpi-datatable-1.16.4.tgz#cb26f197c3cd404a5b13f016ef81c394e06f56fe"
   integrity sha512-VoiTLnkuObMa3FxITrvP32UYN9v4WQ0j4qlCiDuqdXha9/BVSxwDt2BTK+cvaRloGcds5G2Hm9IRbltRRGGhxA==
   dependencies:
     hyperlist "^1.0.0-beta"
     lodash "^4.17.5"
     sortablejs "^1.7.0"
 
-frappe-gantt@^0.6.0:
+capkpi-gantt@^0.6.0:
   version "0.6.0"
-  resolved "https://registry.yarnpkg.com/frappe-gantt/-/frappe-gantt-0.6.0.tgz#fece2fdecc0b8d6065d3c420d9681b719b827047"
+  resolved "https://registry.yarnpkg.com/capkpi-gantt/-/capkpi-gantt-0.6.0.tgz#fece2fdecc0b8d6065d3c420d9681b719b827047"
   integrity sha512-/P7s9edP6EoLD09EX2HPqsy1u0v4zYcurMy4ByExArvj7t0UDJlpxp88nISFtMkQe+aofaO9dR0fd61ZwX0O6g==
 
 fresh@0.5.2:

@@ -10,7 +10,7 @@ const postcss = require('rollup-plugin-postcss');
 const buble = require('rollup-plugin-buble');
 const { terser } = require('rollup-plugin-terser');
 const vue = require('rollup-plugin-vue');
-const frappe_html = require('./frappe-html-plugin');
+const capkpi_html = require('./capkpi-html-plugin');
 const less_loader = require('./less-loader');
 
 const production = process.env.FRAPPE_ENV === 'production';
@@ -46,7 +46,7 @@ function get_rollup_options_for_js(output_file, input_files) {
 		// enables array of inputs
 		multi_entry(),
 		// .html -> .js
-		frappe_html(),
+		capkpi_html(),
 		// ignore css imports
 		ignore_css(),
 		// .vue -> .js
@@ -128,7 +128,7 @@ function get_rollup_options_for_css(output_file, input_files) {
 				['less', {
 					// import other less/css files starting from these folders
 					paths: [
-						path.resolve(get_public_path('frappe'), 'less')
+						path.resolve(get_public_path('capkpi'), 'less')
 					]
 				}],
 				['sass', {
@@ -167,7 +167,7 @@ function get_rollup_options_for_css(output_file, input_files) {
 	};
 }
 
-function get_options(file, app="frappe") {
+function get_options(file, app="capkpi") {
 	const build_json = get_build_json(app);
 	if (!build_json) return [];
 

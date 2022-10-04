@@ -1,8 +1,8 @@
 <div align="center">
     <h1>
         <br>
-        <a href="https://frappeframework.com">
-            <img src=".github/frappe-framework-logo.svg" height="50">
+        <a href="https://capkpiframework.com">
+            <img src=".github/capkpi-framework-logo.svg" height="50">
         </a>
     </h1>
     <h3>
@@ -14,43 +14,43 @@
 </div>
 
 <div align="center">
-    <a href="https://github.com/frappe/frappe/actions/workflows/ci-tests.yml">
-        <img src="https://github.com/frappe/frappe/actions/workflows/ci-tests.yml/badge.svg?branch=develop">
+    <a href="https://github.com/capkpi/capkpi/actions/workflows/ci-tests.yml">
+        <img src="https://github.com/capkpi/capkpi/actions/workflows/ci-tests.yml/badge.svg?branch=develop">
     </a>
-    <a href='https://frappeframework.com/docs'>
+    <a href='https://capkpiframework.com/docs'>
         <img src='https://img.shields.io/badge/docs-📖-7575FF.svg?style=flat-square'/>
     </a>
-	<a href='https://www.codetriage.com/frappe/frappe'>
-		<img src='https://www.codetriage.com/frappe/frappe/badges/users.svg'>
+	<a href='https://www.codetriage.com/capkpi/capkpi'>
+		<img src='https://www.codetriage.com/capkpi/capkpi/badges/users.svg'>
 	</a>
-    <a href='https://coveralls.io/github/frappe/frappe?branch=develop'>
-        <img src='https://coveralls.io/repos/github/frappe/frappe/badge.svg?branch=develop'>
+    <a href='https://coveralls.io/github/capkpi/capkpi?branch=develop'>
+        <img src='https://coveralls.io/repos/github/capkpi/capkpi/badge.svg?branch=develop'>
     </a>
 </div>
 
 
 
-Full-stack web application framework that uses Python and MariaDB on the server side and a tightly integrated client side library. Built for [ERPNext](https://erpnext.com)
+Full-stack web application framework that uses Python and MariaDB on the server side and a tightly integrated client side library. Built for [ERP](https://capkpi.com)
 
 ### Table of Contents
-* [Installation](https://frappeframework.com/docs/user/en/installation)
-* [Documentation](https://frappeframework.com/docs)
+* [Installation](https://capkpiframework.com/docs/user/en/installation)
+* [Documentation](https://capkpiframework.com/docs)
 * [License](#license)
 
 ### Installation
 
-* [Install via Docker](https://github.com/frappe/frappe_docker)
-* [Install via Frappe Bench](https://github.com/frappe/bench)
+* [Install via Docker](https://github.com/capkpi/capkpi_docker)
+* [Install via CapKPI Bench](https://github.com/capkpi/bench)
 
 ## Contributing
 
-1. [Contribution Guidelines](https://github.com/frappe/erpnext/wiki/Contribution-Guidelines)
-1. [Translations](https://translate.erpnext.com)
+1. [Contribution Guidelines](https://github.com/capkpi/erp/wiki/Contribution-Guidelines)
+1. [Translations](https://translate.capkpi.com)
 
 ### Website
 
 For details and documentation, see the website
-[https://frappeframework.com](https://frappeframework.com)
+[https://capkpiframework.com](https://capkpiframework.com)
 
 ### License
 This repository has been released under the [MIT License](LICENSE).

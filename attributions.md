@@ -1,4 +1,4 @@
-## Frappe framework includes these public works
+## CapKPI framework includes these public works
 
 ### Javascript / CSS
 
