@@ -16,7 +16,7 @@
   "bugs": {
     "url": "https://github.com/capkpi/capkpi/issues"
   },
-  "homepage": "https://capkpiframework.com",
+  "homepage": "https://capkpi.com",
   "dependencies": {
     "ace-builds": "^1.11.2",
     "air-datepicker": "github:capkpi/air-datepicker",
