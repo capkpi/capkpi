@@ -11,10 +11,10 @@ import requests
 from six import string_types
 from six.moves import range
 
-import frappe
-import frappe.permissions
-from frappe import _
-from frappe.utils import (
+import capkpi
+import capkpi.permissions
+from capkpi import _
+from capkpi.utils import (
 	cint,
 	cstr,
 	duration_to_seconds,
@@ -24,13 +24,13 @@ from frappe.utils import (
 	get_url,
 	getdate,
 )
-from frappe.utils.csvutils import getlink
-from frappe.utils.dateutils import parse_date
+from capkpi.utils.csvutils import getlink
+from capkpi.utils.dateutils import parse_date
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_data_keys():
-	return frappe._dict(
+	return capkpi._dict(
 		{
 			"data_separator": _("Start entering data below this line"),
 			"main_table": _("Table") + ":",
@@ -41,7 +41,7 @@ def get_data_keys():
 	)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def upload(
 	rows=None,
 	submit_after_import=None,
@@ -62,11 +62,11 @@ def upload(
 
 	# for translations
 	if user:
-		frappe.cache().hdel("lang", user)
-		frappe.set_user_lang(user)
+		capkpi.cache().hdel("lang", user)
+		capkpi.set_user_lang(user)
 
 	if data_import_doc and isinstance(data_import_doc, string_types):
-		data_import_doc = frappe.get_doc("Data Import Legacy", data_import_doc)
+		data_import_doc = capkpi.get_doc("Data Import Legacy", data_import_doc)
 	if data_import_doc and from_data_import == "Yes":
 		no_email = data_import_doc.no_email
 		ignore_encoding_errors = data_import_doc.ignore_encoding_errors
@@ -76,7 +76,7 @@ def upload(
 		skip_errors = data_import_doc.skip_errors
 	else:
 		# extra input params
-		params = json.loads(frappe.form_dict.get("params") or "{}")
+		params = json.loads(capkpi.form_dict.get("params") or "{}")
 		if params.get("submit_after_import"):
 			submit_after_import = True
 		if params.get("ignore_encoding_errors"):
@@ -90,20 +90,20 @@ def upload(
 		if not params.get("skip_errors"):
 			skip_errors = params.get("skip_errors")
 
-	frappe.flags.in_import = True
-	frappe.flags.mute_emails = no_email
+	capkpi.flags.in_import = True
+	capkpi.flags.mute_emails = no_email
 
 	def get_data_keys_definition():
 		return get_data_keys()
 
 	def bad_template():
-		frappe.throw(
+		capkpi.throw(
 			_("Please do not change the rows above {0}").format(get_data_keys_definition().data_separator)
 		)
 
 	def check_data_length():
 		if not data:
-			frappe.throw(_("No data found in the file. Please reattach the new file with data."))
+			capkpi.throw(_("No data found in the file. Please reattach the new file with data."))
 
 	def get_start_row():
 		for i, row in enumerate(rows):
@@ -128,7 +128,7 @@ def upload(
 				# filter empty columns if they exist at the end
 				columns = columns[: -1 * len(empty_cols)]
 			else:
-				frappe.msgprint(
+				capkpi.msgprint(
 					_("Please make sure that there are no empty columns in the file."), raise_exception=1
 				)
 
@@ -222,7 +222,7 @@ def upload(
 
 			return doc, attachments, last_error_row_idx
 		else:
-			doc = frappe._dict(zip(columns, rows[start_idx][1:]))
+			doc = capkpi._dict(zip(columns, rows[start_idx][1:]))
 			doc["doctype"] = doctype
 			return doc, [], None
 
@@ -237,7 +237,7 @@ def upload(
 		return True
 
 	def validate_naming(doc):
-		autoname = frappe.get_meta(doctype).autoname
+		autoname = capkpi.get_meta(doctype).autoname
 		if autoname:
 			if autoname[0:5] == "field":
 				autoname = autoname[6:]
@@ -247,21 +247,21 @@ def upload(
 				return True
 
 			if (autoname not in doc) or (not doc[autoname]):
-				from frappe.model.base_document import get_controller
+				from capkpi.model.base_document import get_controller
 
 				if not hasattr(get_controller(doctype), "autoname"):
-					frappe.throw(_("{0} is a mandatory field").format(autoname))
+					capkpi.throw(_("{0} is a mandatory field").format(autoname))
 		return True
 
-	users = frappe.db.sql_list("select name from tabUser")
+	users = capkpi.db.sql_list("select name from tabUser")
 
 	def prepare_for_insert(doc):
 		# don't block data import if user is not set
 		# migrating from another system
 		if not doc.owner in users:
-			doc.owner = frappe.session.user
+			doc.owner = capkpi.session.user
 		if not doc.modified_by in users:
-			doc.modified_by = frappe.session.user
+			doc.modified_by = capkpi.session.user
 
 	def is_valid_url(url):
 		is_valid = False
@@ -284,7 +284,7 @@ def upload(
 		if not is_valid_url(file_url):
 			return
 
-		files = frappe.db.sql(
+		files = capkpi.db.sql(
 			"""Select name from `tabFile` where attached_to_doctype='{doctype}' and
 			attached_to_name='{docname}' and (file_url='{file_url}' or thumbnail_url='{file_url}')""".format(
 				doctype=doctype, docname=docname, file_url=file_url
@@ -295,7 +295,7 @@ def upload(
 			# file is already attached
 			return
 
-		_file = frappe.get_doc(
+		_file = capkpi.get_doc(
 			{
 				"doctype": "File",
 				"file_url": file_url,
@@ -310,22 +310,22 @@ def upload(
 	# header
 	filename, file_extension = ["", ""]
 	if not rows:
-		_file = frappe.get_doc("File", {"file_url": data_import_doc.import_file})
+		_file = capkpi.get_doc("File", {"file_url": data_import_doc.import_file})
 		fcontent = _file.get_content()
 		filename, file_extension = _file.get_extension()
 
 		if file_extension == ".xlsx" and from_data_import == "Yes":
-			from frappe.utils.xlsxutils import read_xlsx_file_from_attached_file
+			from capkpi.utils.xlsxutils import read_xlsx_file_from_attached_file
 
 			rows = read_xlsx_file_from_attached_file(file_url=data_import_doc.import_file)
 
 		elif file_extension == ".csv":
-			from frappe.utils.csvutils import read_csv_content
+			from capkpi.utils.csvutils import read_csv_content
 
 			rows = read_csv_content(fcontent, ignore_encoding_errors)
 
 		else:
-			frappe.throw(_("Unsupported File Format"))
+			capkpi.throw(_("Unsupported File Format"))
 
 	start_row = get_start_row()
 	header = rows[:start_row]
@@ -334,7 +334,7 @@ def upload(
 		doctype = get_header_row(get_data_keys_definition().main_table)[1]
 		columns = filter_empty_columns(get_header_row(get_data_keys_definition().columns)[1:])
 	except Exception:
-		frappe.throw(_("Cannot change header content"))
+		capkpi.throw(_("Cannot change header content"))
 	doctypes = []
 	column_idx_to_fieldname = {}
 	column_idx_to_fieldtype = {}
@@ -342,7 +342,7 @@ def upload(
 	if skip_errors:
 		data_rows_with_error = header
 
-	if submit_after_import and not cint(frappe.db.get_value("DocType", doctype, "is_submittable")):
+	if submit_after_import and not cint(capkpi.db.get_value("DocType", doctype, "is_submittable")):
 		submit_after_import = False
 
 	parenttype = get_header_row(get_data_keys_definition().parent_table)
@@ -351,8 +351,8 @@ def upload(
 		parenttype = parenttype[1]
 
 	# check permissions
-	if not frappe.permissions.can_import(parenttype or doctype):
-		frappe.flags.mute_emails = False
+	if not capkpi.permissions.can_import(parenttype or doctype):
+		capkpi.flags.mute_emails = False
 		return {"messages": [_("Not allowed to Import") + ": " + _(doctype)], "error": True}
 
 	# Throw expception in case of the empty data file
@@ -393,19 +393,19 @@ def upload(
 	# publish realtime task update
 	def publish_progress(achieved, reload=False):
 		if data_import_doc:
-			frappe.publish_realtime(
+			capkpi.publish_realtime(
 				"data_import_progress",
 				{
 					"progress": str(int(100.0 * achieved / total)),
 					"data_import": data_import_doc.name,
 					"reload": reload,
 				},
-				user=frappe.session.user,
+				user=capkpi.session.user,
 			)
 
 	error_flag = rollback_flag = False
 
-	batch_size = frappe.conf.data_import_batch_size or 1000
+	batch_size = capkpi.conf.data_import_batch_size or 1000
 
 	for batch_start in range(0, total, batch_size):
 		batch = data[batch_start : batch_start + batch_size]
@@ -428,12 +428,12 @@ def upload(
 
 				original = None
 				if parentfield:
-					parent = frappe.get_doc(parenttype, doc["parent"])
+					parent = capkpi.get_doc(parenttype, doc["parent"])
 					doc = parent.append(parentfield, doc)
 					parent.save()
 				else:
-					if overwrite and doc.get("name") and frappe.db.exists(doctype, doc["name"]):
-						original = frappe.get_doc(doctype, doc["name"])
+					if overwrite and doc.get("name") and capkpi.db.exists(doctype, doc["name"]):
+						original = capkpi.get_doc(doctype, doc["name"])
 						original_name = original.name
 						original.update(doc)
 						# preserve original name for case sensitivity
@@ -443,7 +443,7 @@ def upload(
 						doc = original
 					else:
 						if not update_only:
-							doc = frappe.get_doc(doc)
+							doc = capkpi.get_doc(doc)
 							prepare_for_insert(doc)
 							doc.flags.ignore_links = ignore_links
 							doc.insert()
@@ -510,19 +510,19 @@ def upload(
 				error_flag = True
 
 				# build error message
-				if frappe.local.message_log:
+				if capkpi.local.message_log:
 					err_msg = "\n".join(
 						[
 							'<p class="border-bottom small">{}</p>'.format(json.loads(msg).get("message"))
-							for msg in frappe.local.message_log
+							for msg in capkpi.local.message_log
 						]
 					)
 				else:
 					err_msg = '<p class="border-bottom small">{}</p>'.format(cstr(e))
 
-				error_trace = frappe.get_traceback()
+				error_trace = capkpi.get_traceback()
 				if error_trace:
-					error_log_doc = frappe.log_error(error_trace)
+					error_log_doc = capkpi.log_error(error_trace)
 					error_link = get_absolute_url("Error Log", error_log_doc.name)
 				else:
 					error_link = None
@@ -530,7 +530,7 @@ def upload(
 				log(
 					**{
 						"row": row_idx + 1,
-						"title": "Error for row %s" % (len(row) > 1 and frappe.safe_decode(row[1]) or ""),
+						"title": "Error for row %s" % (len(row) > 1 and capkpi.safe_decode(row[1]) or ""),
 						"message": err_msg,
 						"indicator": "red",
 						"link": error_link,
@@ -546,16 +546,16 @@ def upload(
 				else:
 					rollback_flag = True
 			finally:
-				frappe.local.message_log = []
+				capkpi.local.message_log = []
 
 		start_row += batch_size
 		if rollback_flag:
-			frappe.db.rollback()
+			capkpi.db.rollback()
 		else:
-			frappe.db.commit()
+			capkpi.db.commit()
 
-	frappe.flags.mute_emails = False
-	frappe.flags.in_import = False
+	capkpi.flags.mute_emails = False
+	capkpi.flags.in_import = False
 
 	log_message = {"messages": import_log, "error": error_flag}
 	if data_import_doc:
@@ -567,15 +567,15 @@ def upload(
 			# write the file with the faulty row
 			file_name = "error_" + filename + file_extension
 			if file_extension == ".xlsx":
-				from frappe.utils.xlsxutils import make_xlsx
+				from capkpi.utils.xlsxutils import make_xlsx
 
 				xlsx_file = make_xlsx(data_rows_with_error, "Data Import Template")
 				file_data = xlsx_file.getvalue()
 			else:
-				from frappe.utils.csvutils import to_csv
+				from capkpi.utils.csvutils import to_csv
 
 				file_data = to_csv(data_rows_with_error)
-			_file = frappe.get_doc(
+			_file = capkpi.get_doc(
 				{
 					"doctype": "File",
 					"file_name": file_name,
@@ -600,7 +600,7 @@ def upload(
 			publish_progress(100, True)
 		else:
 			publish_progress(0, True)
-		frappe.db.commit()
+		capkpi.db.commit()
 	else:
 		return log_message
 
@@ -610,13 +610,13 @@ def get_parent_field(doctype, parenttype):
 
 	# get parentfield
 	if parenttype:
-		for d in frappe.get_meta(parenttype).get_table_fields():
+		for d in capkpi.get_meta(parenttype).get_table_fields():
 			if d.options == doctype:
 				parentfield = d.fieldname
 				break
 
 		if not parentfield:
-			frappe.msgprint(_("Did not find {0} for {0} ({1})").format("parentfield", parenttype, doctype))
+			capkpi.msgprint(_("Did not find {0} for {0} ({1})").format("parentfield", parenttype, doctype))
 			raise Exception
 
 	return parentfield
@@ -626,4 +626,4 @@ def delete_child_rows(rows, doctype):
 	"""delete child rows for all parents"""
 	for p in list(set([r[1] for r in rows])):
 		if p:
-			frappe.db.sql("""delete from `tab{0}` where parent=%s""".format(doctype), p)
+			capkpi.db.sql("""delete from `tab{0}` where parent=%s""".format(doctype), p)

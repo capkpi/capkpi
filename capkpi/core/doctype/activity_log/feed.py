@@ -5,15 +5,15 @@ from __future__ import unicode_literals
 
 from six import string_types
 
-import frappe
-import frappe.permissions
-from frappe import _
-from frappe.core.doctype.activity_log.activity_log import add_authentication_log
-from frappe.utils import get_fullname
+import capkpi
+import capkpi.permissions
+from capkpi import _
+from capkpi.core.doctype.activity_log.activity_log import add_authentication_log
+from capkpi.utils import get_fullname
 
 
 def update_feed(doc, method=None):
-	if frappe.flags.in_patch or frappe.flags.in_install or frappe.flags.in_import:
+	if capkpi.flags.in_patch or capkpi.flags.in_install or capkpi.flags.in_import:
 		return
 
 	if doc._action != "save" or doc.flags.ignore_feed:
@@ -29,26 +29,26 @@ def update_feed(doc, method=None):
 			if isinstance(feed, string_types):
 				feed = {"subject": feed}
 
-			feed = frappe._dict(feed)
+			feed = capkpi._dict(feed)
 			doctype = feed.doctype or doc.doctype
 			name = feed.name or doc.name
 
 			# delete earlier feed
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""delete from `tabActivity Log`
 				where
 					reference_doctype=%s and reference_name=%s
 					and link_doctype=%s""",
 				(doctype, name, feed.link_doctype),
 			)
-			frappe.get_doc(
+			capkpi.get_doc(
 				{
 					"doctype": "Activity Log",
 					"reference_doctype": doctype,
 					"reference_name": name,
 					"subject": feed.subject,
 					"full_name": get_fullname(doc.owner),
-					"reference_owner": frappe.db.get_value(doctype, name, "owner"),
+					"reference_owner": capkpi.db.get_value(doctype, name, "owner"),
 					"link_doctype": feed.link_doctype,
 					"link_name": feed.link_name,
 				}
@@ -63,22 +63,22 @@ def login_feed(login_manager):
 
 def logout_feed(user, reason):
 	if user and user != "Guest":
-		subject = _("{0} logged out: {1}").format(get_fullname(user), frappe.bold(reason))
+		subject = _("{0} logged out: {1}").format(get_fullname(user), capkpi.bold(reason))
 		add_authentication_log(subject, user, operation="Logout")
 
 
 def get_feed_match_conditions(user=None, doctype="Comment"):
 	if not user:
-		user = frappe.session.user
+		user = capkpi.session.user
 
 	conditions = [
 		"`tab{doctype}`.owner={user} or `tab{doctype}`.reference_owner={user}".format(
-			user=frappe.db.escape(user), doctype=doctype
+			user=capkpi.db.escape(user), doctype=doctype
 		)
 	]
 
-	user_permissions = frappe.permissions.get_user_permissions(user)
-	can_read = frappe.get_user().get_can_read()
+	user_permissions = capkpi.permissions.get_user_permissions(user)
+	can_read = capkpi.get_user().get_can_read()
 
 	can_read_doctypes = [
 		"'{}'".format(dt) for dt in list(set(can_read) - set(list(user_permissions)))
@@ -98,7 +98,7 @@ def get_feed_match_conditions(user=None, doctype="Comment"):
 			can_read_docs = []
 			for dt, obj in user_permissions.items():
 				for n in obj:
-					can_read_docs.append("{}|{}".format(frappe.db.escape(dt), frappe.db.escape(n.get("doc", ""))))
+					can_read_docs.append("{}|{}".format(capkpi.db.escape(dt), capkpi.db.escape(n.get("doc", ""))))
 
 			if can_read_docs:
 				conditions.append(

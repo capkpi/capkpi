@@ -8,13 +8,13 @@ import functools
 from past.builtins import cmp
 from six import iteritems
 
-import frappe
-from frappe import _
-from frappe.contacts.address_and_contact import set_link_title
-from frappe.core.doctype.dynamic_link.dynamic_link import deduplicate_dynamic_links
-from frappe.model.document import Document
-from frappe.model.naming import append_number_if_name_exists
-from frappe.utils import cint, cstr, has_gravatar
+import capkpi
+from capkpi import _
+from capkpi.contacts.address_and_contact import set_link_title
+from capkpi.core.doctype.dynamic_link.dynamic_link import deduplicate_dynamic_links
+from capkpi.model.document import Document
+from capkpi.model.naming import append_number_if_name_exists
+from capkpi.utils import cint, cstr, has_gravatar
 
 
 class Contact(Document):
@@ -24,7 +24,7 @@ class Contact(Document):
 			filter(None, [cstr(self.get(f)).strip() for f in ["first_name", "last_name"]])
 		)
 
-		if frappe.db.exists("Contact", self.name):
+		if capkpi.db.exists("Contact", self.name):
 			self.name = append_number_if_name_exists("Contact", self.name)
 
 		# concat party name if reqd
@@ -45,13 +45,13 @@ class Contact(Document):
 			self.image = has_gravatar(self.email_id)
 
 		if self.get("sync_with_google_contacts") and not self.get("google_contacts"):
-			frappe.throw(_("Select Google Contacts to which contact should be synced."))
+			capkpi.throw(_("Select Google Contacts to which contact should be synced."))
 
 		deduplicate_dynamic_links(self)
 
 	def set_user(self):
 		if not self.user and self.email_id:
-			self.user = frappe.db.get_value("User", {"email": self.email_id})
+			self.user = capkpi.db.get_value("User", {"email": self.email_id})
 
 	def get_link_for(self, link_doctype):
 		"""Return the link name, if exists for the given link DocType"""
@@ -73,14 +73,14 @@ class Contact(Document):
 				return True
 
 	def add_email(self, email_id, is_primary=0, autosave=False):
-		if not frappe.db.exists("Contact Email", {"email_id": email_id, "parent": self.name}):
+		if not capkpi.db.exists("Contact Email", {"email_id": email_id, "parent": self.name}):
 			self.append("email_ids", {"email_id": email_id, "is_primary": is_primary})
 
 			if autosave:
 				self.save(ignore_permissions=True)
 
 	def add_phone(self, phone, is_primary_phone=0, is_primary_mobile_no=0, autosave=False):
-		if not frappe.db.exists("Contact Phone", {"phone": phone, "parent": self.name}):
+		if not capkpi.db.exists("Contact Phone", {"phone": phone, "parent": self.name}):
 			self.append(
 				"phone_nos",
 				{
@@ -99,7 +99,7 @@ class Contact(Document):
 			return
 
 		if len([email.email_id for email in self.email_ids if email.is_primary]) > 1:
-			frappe.throw(_("Only one {0} can be set as primary.").format(frappe.bold("Email ID")))
+			capkpi.throw(_("Only one {0} can be set as primary.").format(capkpi.bold("Email ID")))
 
 		primary_email_exists = False
 		for d in self.email_ids:
@@ -122,8 +122,8 @@ class Contact(Document):
 		is_primary = [phone.phone for phone in self.phone_nos if phone.get(field_name)]
 
 		if len(is_primary) > 1:
-			frappe.throw(
-				_("Only one {0} can be set as primary.").format(frappe.bold(frappe.unscrub(fieldname)))
+			capkpi.throw(
+				_("Only one {0} can be set as primary.").format(capkpi.bold(capkpi.unscrub(fieldname)))
 			)
 
 		primary_number_exists = False
@@ -139,7 +139,7 @@ class Contact(Document):
 
 def get_default_contact(doctype, name):
 	"""Returns default contact for the given doctype, name"""
-	out = frappe.db.sql(
+	out = capkpi.db.sql(
 		'''select parent,
 			IFNULL((select is_primary_contact from tabContact c where c.name = dl.parent), 0)
 				as is_primary_contact
@@ -158,15 +158,15 @@ def get_default_contact(doctype, name):
 		return None
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def invite_user(contact):
-	contact = frappe.get_doc("Contact", contact)
+	contact = capkpi.get_doc("Contact", contact)
 
 	if not contact.email_id:
-		frappe.throw(_("Please set Email Address"))
+		capkpi.throw(_("Please set Email Address"))
 
 	if contact.has_permission("write"):
-		user = frappe.get_doc(
+		user = capkpi.get_doc(
 			{
 				"doctype": "User",
 				"first_name": contact.first_name,
@@ -180,9 +180,9 @@ def invite_user(contact):
 		return user.name
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_contact_details(contact):
-	contact = frappe.get_doc("Contact", contact)
+	contact = capkpi.get_doc("Contact", contact)
 	out = {
 		"contact_person": contact.get("name"),
 		"contact_display": " ".join(
@@ -199,9 +199,9 @@ def get_contact_details(contact):
 
 def update_contact(doc, method):
 	"""Update contact when user is updated, if contact is found. Called via hooks"""
-	contact_name = frappe.db.get_value("Contact", {"email_id": doc.name})
+	contact_name = capkpi.db.get_value("Contact", {"email_id": doc.name})
 	if contact_name:
-		contact = frappe.get_doc("Contact", contact_name)
+		contact = capkpi.get_doc("Contact", contact_name)
 		for key in ("first_name", "last_name", "phone"):
 			if doc.get(key):
 				contact.set(key, doc.get(key))
@@ -209,21 +209,21 @@ def update_contact(doc, method):
 		contact.save(ignore_permissions=True)
 
 
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
+@capkpi.whitelist()
+@capkpi.validate_and_sanitize_search_inputs
 def contact_query(doctype, txt, searchfield, start, page_len, filters):
-	from frappe.desk.reportview import get_match_cond
+	from capkpi.desk.reportview import get_match_cond
 
 	if (
-		not frappe.get_meta("Contact").get_field(searchfield)
-		and searchfield not in frappe.db.DEFAULT_COLUMNS
+		not capkpi.get_meta("Contact").get_field(searchfield)
+		and searchfield not in capkpi.db.DEFAULT_COLUMNS
 	):
 		return []
 
 	link_doctype = filters.pop("link_doctype")
 	link_name = filters.pop("link_name")
 
-	return frappe.db.sql(
+	return capkpi.db.sql(
 		"""select
 			`tabContact`.name, `tabContact`.first_name, `tabContact`.last_name
 		from
@@ -252,7 +252,7 @@ def contact_query(doctype, txt, searchfield, start, page_len, filters):
 	)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def address_query(links):
 	import json
 
@@ -263,12 +263,12 @@ def address_query(links):
 	result = []
 
 	for link in links:
-		if not frappe.has_permission(
+		if not capkpi.has_permission(
 			doctype=link.get("link_doctype"), ptype="read", doc=link.get("link_name")
 		):
 			continue
 
-		res = frappe.db.sql(
+		res = capkpi.db.sql(
 			"""
 			SELECT `tabAddress`.name
 			FROM `tabAddress`, `tabDynamic Link`
@@ -293,7 +293,7 @@ def get_contact_with_phone_number(number):
 	if not number:
 		return
 
-	contacts = frappe.get_all(
+	contacts = capkpi.get_all(
 		"Contact Phone", filters=[["phone", "like", "%{0}".format(number)]], fields=["parent"], limit=1
 	)
 
@@ -301,7 +301,7 @@ def get_contact_with_phone_number(number):
 
 
 def get_contact_name(email_id):
-	contact = frappe.get_list(
+	contact = capkpi.get_list(
 		"Contact Email", filters={"email_id": email_id}, fields=["parent"], limit=1
 	)
 	return contact[0].parent if contact else None
@@ -309,7 +309,7 @@ def get_contact_name(email_id):
 
 def get_contacts_linking_to(doctype, docname, fields=None):
 	"""Return a list of contacts containing a link to the given document."""
-	return frappe.get_list(
+	return capkpi.get_list(
 		"Contact",
 		fields=fields,
 		filters=[
@@ -321,12 +321,12 @@ def get_contacts_linking_to(doctype, docname, fields=None):
 
 def get_contacts_linked_from(doctype, docname, fields=None):
 	"""Return a list of contacts that are contained in (linked from) the given document."""
-	link_fields = frappe.get_meta(doctype).get("fields", {"fieldtype": "Link", "options": "Contact"})
+	link_fields = capkpi.get_meta(doctype).get("fields", {"fieldtype": "Link", "options": "Contact"})
 	if not link_fields:
 		return []
 
-	contact_names = frappe.get_value(doctype, docname, fieldname=[f.fieldname for f in link_fields])
+	contact_names = capkpi.get_value(doctype, docname, fieldname=[f.fieldname for f in link_fields])
 	if not contact_names:
 		return []
 
-	return frappe.get_list("Contact", fields=fields, filters={"name": ("in", contact_names)})
+	return capkpi.get_list("Contact", fields=fields, filters={"name": ("in", contact_names)})

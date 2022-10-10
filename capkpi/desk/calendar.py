@@ -5,16 +5,16 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe import _
+import capkpi
+from capkpi import _
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def update_event(args, field_map):
 	"""Updates Event (called via calendar) based on passed `field_map`"""
-	args = frappe._dict(json.loads(args))
-	field_map = frappe._dict(json.loads(field_map))
-	w = frappe.get_doc(args.doctype, args.name)
+	args = capkpi._dict(json.loads(args))
+	field_map = capkpi._dict(json.loads(field_map))
+	w = capkpi.get_doc(args.doctype, args.name)
 	w.set(field_map.start, args[field_map.start])
 	w.set(field_map.end, args.get(field_map.end))
 	w.save()
@@ -22,21 +22,21 @@ def update_event(args, field_map):
 
 def get_event_conditions(doctype, filters=None):
 	"""Returns SQL conditions with user permissions and filters for event queries"""
-	from frappe.desk.reportview import get_filters_cond
+	from capkpi.desk.reportview import get_filters_cond
 
-	if not frappe.has_permission(doctype):
-		frappe.throw(_("Not Permitted"), frappe.PermissionError)
+	if not capkpi.has_permission(doctype):
+		capkpi.throw(_("Not Permitted"), capkpi.PermissionError)
 
 	return get_filters_cond(doctype, filters, [], with_match_conditions=True)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_events(doctype, start, end, field_map, filters=None, fields=None):
 
-	field_map = frappe._dict(json.loads(field_map))
-	fields = frappe.parse_json(fields)
+	field_map = capkpi._dict(json.loads(field_map))
+	fields = capkpi.parse_json(fields)
 
-	doc_meta = frappe.get_meta(doctype)
+	doc_meta = capkpi.get_meta(doctype)
 	for d in doc_meta.fields:
 		if d.fieldtype == "Color":
 			field_map.update({"color": d.fieldname})
@@ -58,4 +58,4 @@ def get_events(doctype, start, end, field_map, filters=None, fields=None):
 		[doctype, end_date, ">=", start],
 	]
 
-	return frappe.get_list(doctype, fields=fields, filters=filters)
+	return capkpi.get_list(doctype, fields=fields, filters=filters)

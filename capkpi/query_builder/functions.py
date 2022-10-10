@@ -1,8 +1,8 @@
 from pypika.functions import *
 from pypika.terms import Arithmetic, ArithmeticExpression, CustomFunction, Function
 
-from frappe.query_builder.custom import GROUP_CONCAT, MATCH, STRING_AGG, TO_TSVECTOR
-from frappe.query_builder.utils import ImportMapper, db_type_is
+from capkpi.query_builder.custom import GROUP_CONCAT, MATCH, STRING_AGG, TO_TSVECTOR
+from capkpi.query_builder.utils import ImportMapper, db_type_is
 
 from .utils import Column
 

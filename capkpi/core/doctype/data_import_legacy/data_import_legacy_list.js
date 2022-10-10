@@ -1,4 +1,4 @@
-frappe.listview_settings['Data Import Legacy'] = {
+capkpi.listview_settings['Data Import Legacy'] = {
 	add_fields: ["import_status"],
 	has_indicator_for_draft: 1,
 	get_indicator: function(doc) {

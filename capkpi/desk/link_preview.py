@@ -1,13 +1,13 @@
 import json
 
-import frappe
-from frappe.model import no_value_fields, table_fields
+import capkpi
+from capkpi.model import no_value_fields, table_fields
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_preview_data(doctype, docname):
 	preview_fields = []
-	meta = frappe.get_meta(doctype)
+	meta = capkpi.get_meta(doctype)
 	if not meta.show_preview_popup:
 		return
 
@@ -32,7 +32,7 @@ def get_preview_data(doctype, docname):
 	preview_fields.append(image_field)
 	preview_fields.append("name")
 
-	preview_data = frappe.get_list(doctype, filters={"name": docname}, fields=preview_fields, limit=1)
+	preview_data = capkpi.get_list(doctype, filters={"name": docname}, fields=preview_fields, limit=1)
 
 	if not preview_data:
 		return
@@ -47,7 +47,7 @@ def get_preview_data(doctype, docname):
 
 	for key, val in preview_data.items():
 		if val and meta.has_field(key) and key not in [image_field, title_field, "name"]:
-			formatted_preview_data[meta.get_field(key).label] = frappe.format(
+			formatted_preview_data[meta.get_field(key).label] = capkpi.format(
 				val,
 				meta.get_field(key).fieldtype,
 				translated=True,

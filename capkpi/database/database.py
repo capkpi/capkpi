@@ -14,14 +14,14 @@ from typing import Dict, List, Union
 from pypika.terms import NullValue
 from six import integer_types, string_types, text_type
 
-import frappe
-import frappe.defaults
-import frappe.model.meta
-from frappe import _
-from frappe.database.query import Query
-from frappe.model.utils.link_count import flush_local_link_count
-from frappe.query_builder.utils import DocType
-from frappe.utils import cast, get_datetime, get_table_name, getdate, now, sbool
+import capkpi
+import capkpi.defaults
+import capkpi.model.meta
+from capkpi import _
+from capkpi.database.query import Query
+from capkpi.model.utils.link_count import flush_local_link_count
+from capkpi.query_builder.utils import DocType
+from capkpi.utils import cast, get_datetime, get_table_name, getdate, now, sbool
 
 
 class Database(object):
@@ -51,27 +51,27 @@ class Database(object):
 	]
 	MAX_WRITES_PER_TRANSACTION = 200_000
 
-	class InvalidColumnName(frappe.ValidationError):
+	class InvalidColumnName(capkpi.ValidationError):
 		pass
 
 	def __init__(self, host=None, user=None, password=None, ac_name=None, use_default=0, port=None):
 		self.setup_type_map()
-		self.host = host or frappe.conf.db_host or "127.0.0.1"
-		self.port = port or frappe.conf.db_port or ""
-		self.user = user or frappe.conf.db_name
-		self.db_name = frappe.conf.db_name
+		self.host = host or capkpi.conf.db_host or "127.0.0.1"
+		self.port = port or capkpi.conf.db_port or ""
+		self.user = user or capkpi.conf.db_name
+		self.db_name = capkpi.conf.db_name
 		self._conn = None
 
 		if ac_name:
-			self.user = ac_name or frappe.conf.db_name
+			self.user = ac_name or capkpi.conf.db_name
 
 		if use_default:
-			self.user = frappe.conf.db_name
+			self.user = capkpi.conf.db_name
 
 		self.transaction_writes = 0
 		self.auto_commit_on_many_writes = 0
 
-		self.password = password or frappe.conf.db_password
+		self.password = password or capkpi.conf.db_password
 		self.value_cache = {}
 		self.query = Query()
 
@@ -83,7 +83,7 @@ class Database(object):
 		self.cur_db_name = self.user
 		self._conn = self.get_connection()
 		self._cursor = self._conn.cursor()
-		frappe.local.rollback_observers = []
+		capkpi.local.rollback_observers = []
 
 	def use(self, db_name):
 		"""`USE` db_name."""
@@ -125,13 +125,13 @@ class Database(object):
 		Examples:
 
 		        # return customer names as dicts
-		        frappe.db.sql("select name from tabCustomer", as_dict=True)
+		        capkpi.db.sql("select name from tabCustomer", as_dict=True)
 
 		        # return names beginning with a
-		        frappe.db.sql("select name from tabCustomer where name like %s", "a%")
+		        capkpi.db.sql("select name from tabCustomer where name like %s", "a%")
 
 		        # values as dict
-		        frappe.db.sql("select name from tabCustomer where name like %(name)s and owner=%(owner)s",
+		        capkpi.db.sql("select name from tabCustomer where name like %(name)s and owner=%(owner)s",
 		                {"name": "a%", "owner":"test@example.com"})
 
 		"""
@@ -173,33 +173,33 @@ class Database(object):
 
 				self._cursor.execute(query, values)
 
-				if frappe.flags.in_migrate:
+				if capkpi.flags.in_migrate:
 					self.log_touched_tables(query, values)
 
 			else:
 				self._cursor.execute(query)
 
-				if frappe.flags.in_migrate:
+				if capkpi.flags.in_migrate:
 					self.log_touched_tables(query)
 
 			if debug:
 				time_end = time()
-				frappe.errprint(("Execution time: {0} sec").format(round(time_end - time_start, 2)))
+				capkpi.errprint(("Execution time: {0} sec").format(round(time_end - time_start, 2)))
 
 		except Exception as e:
-			if frappe.conf.db_type == "postgres":
+			if capkpi.conf.db_type == "postgres":
 				self.rollback()
 
 			elif self.is_syntax_error(e):
 				# only for mariadb
-				frappe.errprint("Syntax error in query:")
-				frappe.errprint(query)
+				capkpi.errprint("Syntax error in query:")
+				capkpi.errprint(query)
 
 			elif self.is_deadlocked(e):
-				raise frappe.QueryDeadlockError(e)
+				raise capkpi.QueryDeadlockError(e)
 
 			elif self.is_timedout(e):
-				raise frappe.QueryTimeoutError(e)
+				raise capkpi.QueryTimeoutError(e)
 
 			if ignore_ddl and (
 				self.is_missing_column(e) or self.is_table_missing(e) or self.cant_drop_field_or_key(e)
@@ -230,20 +230,20 @@ class Database(object):
 
 	def log_query(self, query, values, debug, explain):
 		# for debugging in tests
-		if frappe.conf.get("allow_tests") and frappe.cache().get_value("flag_print_sql"):
+		if capkpi.conf.get("allow_tests") and capkpi.cache().get_value("flag_print_sql"):
 			print(self.mogrify(query, values))
 
 		# debug
 		if debug:
 			if explain and query.strip().lower().startswith("select"):
 				self.explain_query(query, values)
-			frappe.errprint(self.mogrify(query, values))
+			capkpi.errprint(self.mogrify(query, values))
 
 		# info
-		if (frappe.conf.get("logging") or False) == 2:
-			frappe.log("<<<< query")
-			frappe.log(self.mogrify(query, values))
-			frappe.log(">>>>")
+		if (capkpi.conf.get("logging") or False) == 2:
+			capkpi.log("<<<< query")
+			capkpi.log(self.mogrify(query, values))
+			capkpi.log(">>>>")
 
 	def mogrify(self, query, values):
 		"""build the query string with values"""
@@ -258,17 +258,17 @@ class Database(object):
 	def explain_query(self, query, values=None):
 		"""Print `EXPLAIN` in error log."""
 		try:
-			frappe.errprint("--- query explain ---")
+			capkpi.errprint("--- query explain ---")
 			if values is None:
 				self._cursor.execute("explain " + query)
 			else:
 				self._cursor.execute("explain " + query, values)
 			import json
 
-			frappe.errprint(json.dumps(self.fetch_as_dict(), indent=1))
-			frappe.errprint("--- query explain end ---")
+			capkpi.errprint(json.dumps(self.fetch_as_dict(), indent=1))
+			capkpi.errprint("--- query explain end ---")
 		except Exception:
-			frappe.errprint("error in query explain")
+			capkpi.errprint("error in query explain")
 
 	def sql_list(self, query, values=(), debug=False):
 		"""Return data as list of single elements (first column).
@@ -276,7 +276,7 @@ class Database(object):
 		Example:
 
 		        # doctypes = ["DocType", "DocField", "User", ...]
-		        doctypes = frappe.db.sql_list("select name from DocType")
+		        doctypes = capkpi.db.sql_list("select name from DocType")
 		"""
 		return [r[0] for r in self.sql(query, values, debug=debug)]
 
@@ -309,7 +309,7 @@ class Database(object):
 				else:
 					msg = "<br><br>" + _("Too many changes to database in single action.") + "<br>"
 					msg += _("The changes have been reverted.") + "<br>"
-					raise frappe.TooManyWritesError(msg)
+					raise capkpi.TooManyWritesError(msg)
 
 	def fetch_as_dict(self, formatted=0, as_utf8=0):
 		"""Internal. Converts results to dict."""
@@ -325,13 +325,13 @@ class Database(object):
 					value = value.encode("utf-8")
 				values.append(value)
 
-			ret.append(frappe._dict(zip(keys, values)))
+			ret.append(capkpi._dict(zip(keys, values)))
 		return ret
 
 	@staticmethod
 	def clear_db_table_cache(query):
 		if query and query.strip().split()[0].lower() in {"drop", "create"}:
-			frappe.cache().delete_key("db_tables")
+			capkpi.cache().delete_key("db_tables")
 
 	@staticmethod
 	def needs_formatting(result, formatted):
@@ -444,16 +444,16 @@ class Database(object):
 		Example:
 
 		        # return first customer starting with a
-		        frappe.db.get_value("Customer", {"name": ("like a%")})
+		        capkpi.db.get_value("Customer", {"name": ("like a%")})
 
 		        # return last login of **User** `test@example.com`
-		        frappe.db.get_value("User", "test@example.com", "last_login")
+		        capkpi.db.get_value("User", "test@example.com", "last_login")
 
-		        last_login, last_ip = frappe.db.get_value("User", "test@example.com",
+		        last_login, last_ip = capkpi.db.get_value("User", "test@example.com",
 		                ["last_login", "last_ip"])
 
 		        # returns default date_format
-		        frappe.db.get_value("System Settings", None, "date_format")
+		        capkpi.db.get_value("System Settings", None, "date_format")
 		"""
 
 		ret = self.get_values(
@@ -499,10 +499,10 @@ class Database(object):
 		Example:
 
 		        # return first customer starting with a
-		        customers = frappe.db.get_values("Customer", {"name": ("like a%")})
+		        customers = capkpi.db.get_values("Customer", {"name": ("like a%")})
 
 		        # return last login of **User** `test@example.com`
-		        user = frappe.db.get_values("User", "test@example.com", "*")[0]
+		        user = capkpi.db.get_values("User", "test@example.com", "*")[0]
 		"""
 		out = None
 		if (
@@ -540,10 +540,10 @@ class Database(object):
 						limit=limit,
 					)
 				except Exception as e:
-					if ignore and (frappe.db.is_missing_column(e) or frappe.db.is_table_missing(e)):
+					if ignore and (capkpi.db.is_missing_column(e) or capkpi.db.is_table_missing(e)):
 						# table or column not found, return None
 						out = None
-					elif (not ignore) and frappe.db.is_table_missing(e):
+					elif (not ignore) and capkpi.db.is_table_missing(e):
 						# table not found, look in singles
 						out = self.get_values_from_single(fields, filters, doctype, as_dict, debug, update)
 
@@ -567,8 +567,8 @@ class Database(object):
 		:param doctype: DocType name.
 		"""
 		# TODO
-		# if not frappe.model.meta.is_single(doctype):
-		# 	raise frappe.DoesNotExistError("DocType", doctype)
+		# if not capkpi.model.meta.is_single(doctype):
+		# 	raise capkpi.DoesNotExistError("DocType", doctype)
 
 		if fields == "*" or isinstance(filters, dict):
 			# check if single doc matches with filters
@@ -596,7 +596,7 @@ class Database(object):
 
 			if as_dict:
 				if r:
-					r = frappe._dict(r)
+					r = capkpi._dict(r)
 					if update:
 						r.update(update)
 					return [r]
@@ -613,7 +613,7 @@ class Database(object):
 		Example:
 
 		        # Get coulmn and value of the single doctype Accounts Settings
-		        account_settings = frappe.db.get_singles_dict("Accounts Settings")
+		        account_settings = capkpi.db.get_singles_dict("Accounts Settings")
 		"""
 		result = self.sql(
 			"""
@@ -624,17 +624,17 @@ class Database(object):
 			doctype,
 		)
 
-		dict_ = frappe._dict(result)
+		dict_ = capkpi._dict(result)
 
 		return dict_
 
 	@staticmethod
 	def get_all(*args, **kwargs):
-		return frappe.get_all(*args, **kwargs)
+		return capkpi.get_all(*args, **kwargs)
 
 	@staticmethod
 	def get_list(*args, **kwargs):
-		return frappe.get_list(*args, **kwargs)
+		return capkpi.get_list(*args, **kwargs)
 
 	def set_single_value(self, doctype, fieldname, value, *args, **kwargs):
 		"""Set field value of Single DocType.
@@ -646,7 +646,7 @@ class Database(object):
 		Example:
 
 		        # Update the `deny_multiple_sessions` field in System Settings DocType.
-		        company = frappe.db.set_single_value("System Settings", "deny_multiple_sessions", True)
+		        company = capkpi.db.set_single_value("System Settings", "deny_multiple_sessions", True)
 		"""
 		return self.set_value(doctype, doctype, fieldname, value, *args, **kwargs)
 
@@ -659,7 +659,7 @@ class Database(object):
 		Example:
 
 		        # Get the default value of the company from the Global Defaults doctype.
-		        company = frappe.db.get_single_value('Global Defaults', 'default_company')
+		        company = capkpi.db.get_single_value('Global Defaults', 'default_company')
 		"""
 
 		if not doctype in self.value_cache:
@@ -675,11 +675,11 @@ class Database(object):
 		)
 		val = val[0][0] if val else None
 
-		df = frappe.get_meta(doctype).get_field(fieldname)
+		df = capkpi.get_meta(doctype).get_field(fieldname)
 
 		if not df:
-			frappe.throw(
-				_("Invalid field name: {0}").format(frappe.bold(fieldname)), self.InvalidColumnName
+			capkpi.throw(
+				_("Invalid field name: {0}").format(capkpi.bold(fieldname)), self.InvalidColumnName
 			)
 
 		val = cast(df.fieldtype, val)
@@ -792,19 +792,19 @@ class Database(object):
 
 		if update_modified:
 			modified = modified or now()
-			modified_by = modified_by or frappe.session.user
+			modified_by = modified_by or capkpi.session.user
 			to_update.update({"modified": modified, "modified_by": modified_by})
 
 		if is_single_doctype:
-			frappe.db.delete(
+			capkpi.db.delete(
 				"Singles", filters={"field": ("in", tuple(to_update)), "doctype": dt}, debug=debug
 			)
 
 			singles_data = ((dt, key, sbool(value)) for key, value in to_update.items())
 			query = (
-				frappe.qb.into("Singles").columns("doctype", "field", "value").insert(*singles_data)
+				capkpi.qb.into("Singles").columns("doctype", "field", "value").insert(*singles_data)
 			).run(debug=debug)
-			frappe.clear_document_cache(dt, dt)
+			capkpi.clear_document_cache(dt, dt)
 
 		else:
 			table = DocType(dt)
@@ -813,17 +813,17 @@ class Database(object):
 				docnames = tuple(
 					x[0] for x in self.get_values(dt, dn, "name", debug=debug, for_update=for_update)
 				) or (NullValue(),)
-				query = frappe.qb.update(table).where(table.name.isin(docnames))
+				query = capkpi.qb.update(table).where(table.name.isin(docnames))
 
 				for docname in docnames:
-					frappe.clear_document_cache(dt, docname)
+					capkpi.clear_document_cache(dt, docname)
 
 			else:
 				query = self.query.build_conditions(table=dt, filters=dn, update=True)
 				# TODO: Fix this; doesn't work rn - gavin@capkpi.com
-				# frappe.cache().hdel_keys(dt, "document_cache")
+				# capkpi.cache().hdel_keys(dt, "document_cache")
 				# Workaround: clear all document caches
-				frappe.cache().delete_value("document_cache")
+				capkpi.cache().delete_value("document_cache")
 
 			for column, value in to_update.items():
 				query = query.set(column, value)
@@ -853,14 +853,14 @@ class Database(object):
 	@staticmethod
 	def set_temp(value):
 		"""Set a temperory value and return a key."""
-		key = frappe.generate_hash()
-		frappe.cache().hset("temp", key, value)
+		key = capkpi.generate_hash()
+		capkpi.cache().hset("temp", key, value)
 		return key
 
 	@staticmethod
 	def get_temp(key):
 		"""Return the temperory value and delete it."""
-		return frappe.cache().hget("temp", key)
+		return capkpi.cache().hget("temp", key)
 
 	def set_global(self, key, val, user="__global"):
 		"""Save a global key value. Global values will be automatically set if they match fieldname."""
@@ -878,54 +878,54 @@ class Database(object):
 	@staticmethod
 	def set_default(key, val, parent="__default", parenttype=None):
 		"""Sets a global / user default value."""
-		frappe.defaults.set_default(key, val, parent, parenttype)
+		capkpi.defaults.set_default(key, val, parent, parenttype)
 
 	@staticmethod
 	def add_default(key, val, parent="__default", parenttype=None):
 		"""Append a default value for a key, there can be multiple default values for a particular key."""
-		frappe.defaults.add_default(key, val, parent, parenttype)
+		capkpi.defaults.add_default(key, val, parent, parenttype)
 
 	@staticmethod
 	def get_defaults(key=None, parent="__default"):
 		"""Get all defaults"""
 		if key:
-			defaults = frappe.defaults.get_defaults(parent)
+			defaults = capkpi.defaults.get_defaults(parent)
 			d = defaults.get(key, None)
-			if not d and key != frappe.scrub(key):
-				d = defaults.get(frappe.scrub(key), None)
+			if not d and key != capkpi.scrub(key):
+				d = defaults.get(capkpi.scrub(key), None)
 			return d
 		else:
-			return frappe.defaults.get_defaults(parent)
+			return capkpi.defaults.get_defaults(parent)
 
 	def begin(self):
 		self.sql("START TRANSACTION")
 
 	def commit(self):
 		"""Commit current transaction. Calls SQL `COMMIT`."""
-		for method in frappe.local.before_commit:
-			frappe.call(method[0], *(method[1] or []), **(method[2] or {}))
+		for method in capkpi.local.before_commit:
+			capkpi.call(method[0], *(method[1] or []), **(method[2] or {}))
 
 		self.sql("commit")
 
-		frappe.local.rollback_observers = []
+		capkpi.local.rollback_observers = []
 		self.flush_realtime_log()
 		enqueue_jobs_after_commit()
 		flush_local_link_count()
 
 	def add_before_commit(self, method, args=None, kwargs=None):
-		frappe.local.before_commit.append([method, args, kwargs])
+		capkpi.local.before_commit.append([method, args, kwargs])
 
 	@staticmethod
 	def flush_realtime_log():
-		for args in frappe.local.realtime_log:
-			frappe.realtime.emit_via_redis(*args)
+		for args in capkpi.local.realtime_log:
+			capkpi.realtime.emit_via_redis(*args)
 
-		frappe.local.realtime_log = []
+		capkpi.local.realtime_log = []
 
 	def savepoint(self, save_point):
 		"""Savepoints work as a nested transaction.
 
-		Changes can be undone to a save point by doing frappe.db.rollback(save_point)
+		Changes can be undone to a save point by doing capkpi.db.rollback(save_point)
 
 		Note: rollback watchers can not work with save points.
 		        so only changes to database are undone when rolling back to a savepoint.
@@ -939,10 +939,10 @@ class Database(object):
 		else:
 			self.sql("rollback")
 			self.begin()
-			for obj in frappe.local.rollback_observers:
+			for obj in capkpi.local.rollback_observers:
 				if hasattr(obj, "on_rollback"):
 					obj.on_rollback()
-			frappe.local.rollback_observers = []
+			capkpi.local.rollback_observers = []
 
 	def field_exists(self, dt, fn):
 		"""Return true of field exists."""
@@ -956,7 +956,7 @@ class Database(object):
 		return self.table_exists(doctype)
 
 	def get_tables(self, cached=True):
-		tables = frappe.cache().get_value("db_tables")
+		tables = capkpi.cache().get_value("db_tables")
 		if not tables or not cached:
 			table_rows = self.sql(
 				"""
@@ -966,7 +966,7 @@ class Database(object):
 			"""
 			)
 			tables = {d[0] for d in table_rows}
-			frappe.cache().set_value("db_tables", tables)
+			capkpi.cache().set_value("db_tables", tables)
 		return tables
 
 	def a_row_exists(self, doctype):
@@ -1000,7 +1000,7 @@ class Database(object):
 	def count(self, dt, filters=None, debug=False, cache=False):
 		"""Returns `COUNT(*)` for given DocType and filters."""
 		if cache and not filters:
-			cache_count = frappe.cache().get_value("doctype:count:{}".format(dt))
+			cache_count = capkpi.cache().get_value("doctype:count:{}".format(dt))
 			if cache_count is not None:
 				return cache_count
 		if filters:
@@ -1021,7 +1021,7 @@ class Database(object):
 			)[0][0]
 
 			if cache:
-				frappe.cache().set_value("doctype:count:{}".format(dt), count, expires_in_sec=86400)
+				capkpi.cache().set_value("doctype:count:{}".format(dt), count, expires_in_sec=86400)
 
 			return count
 
@@ -1034,7 +1034,7 @@ class Database(object):
 		if not datetime:
 			return "0001-01-01 00:00:00.000000"
 
-		if isinstance(datetime, frappe.string_types):
+		if isinstance(datetime, capkpi.string_types):
 			if ":" not in datetime:
 				datetime = datetime + " 00:00:00.000000"
 		else:
@@ -1046,7 +1046,7 @@ class Database(object):
 		"""Get count of records created in the last x minutes"""
 		from dateutil.relativedelta import relativedelta
 
-		from frappe.utils import now_datetime
+		from capkpi.utils import now_datetime
 
 		return self.sql(
 			"""select count(name) from `tab{doctype}`
@@ -1058,7 +1058,7 @@ class Database(object):
 
 	def get_db_table_columns(self, table):
 		"""Returns list of column names from given table."""
-		columns = frappe.cache().hget("table_columns", table)
+		columns = capkpi.cache().hget("table_columns", table)
 		if columns is None:
 			columns = [
 				r[0]
@@ -1072,7 +1072,7 @@ class Database(object):
 			]
 
 			if columns:
-				frappe.cache().hset("table_columns", table, columns)
+				capkpi.cache().hset("table_columns", table, columns)
 
 		return columns
 
@@ -1115,7 +1115,7 @@ class Database(object):
 		def _load_system_settings():
 			return self.get_singles_dict("System Settings")
 
-		return frappe.cache().get_value("system_settings", _load_system_settings).get(key)
+		return capkpi.cache().get_value("system_settings", _load_system_settings).get(key)
 
 	def close(self):
 		"""Close database connection."""
@@ -1133,7 +1133,7 @@ class Database(object):
 
 	@staticmethod
 	def is_column_missing(e):
-		return frappe.db.is_missing_column(e)
+		return capkpi.db.is_missing_column(e)
 
 	def get_descendants(self, doctype, name):
 		"""Return descendants of the current record"""
@@ -1154,7 +1154,7 @@ class Database(object):
 		return self.is_missing_column(e) or self.is_table_missing(e)
 
 	def multisql(self, sql_dict, values=(), **kwargs):
-		current_dialect = frappe.db.db_type or "mariadb"
+		current_dialect = capkpi.db.db_type or "mariadb"
 		query = sql_dict.get(current_dialect)
 		return self.sql(query, values, **kwargs)
 
@@ -1202,7 +1202,7 @@ class Database(object):
 
 	def log_touched_tables(self, query, values=None):
 		if values:
-			query = frappe.safe_decode(self._cursor.mogrify(query, values))
+			query = capkpi.safe_decode(self._cursor.mogrify(query, values))
 		if query.strip().lower().split()[0] in ("insert", "delete", "update", "alter", "drop", "rename"):
 			# single_word_regex is designed to match following patterns
 			# `tabXxx`, tabXxx and "tabXxx"
@@ -1224,9 +1224,9 @@ class Database(object):
 			for regex in (single_word_regex, multi_word_regex):
 				tables += [groups[1] for groups in re.findall(regex, query)]
 
-			if frappe.flags.touched_tables is None:
-				frappe.flags.touched_tables = set()
-			frappe.flags.touched_tables.update(tables)
+			if capkpi.flags.touched_tables is None:
+				capkpi.flags.touched_tables = set()
+			capkpi.flags.touched_tables.update(tables)
 
 	def bulk_insert(self, doctype, fields, values, ignore_duplicates=False):
 		"""
@@ -1255,15 +1255,15 @@ class Database(object):
 
 
 def enqueue_jobs_after_commit():
-	from frappe.utils.background_jobs import (
+	from capkpi.utils.background_jobs import (
 		RQ_JOB_FAILURE_TTL,
 		RQ_RESULTS_TTL,
 		execute_job,
 		get_queue,
 	)
 
-	if frappe.flags.enqueue_after_commit and len(frappe.flags.enqueue_after_commit) > 0:
-		for job in frappe.flags.enqueue_after_commit:
+	if capkpi.flags.enqueue_after_commit and len(capkpi.flags.enqueue_after_commit) > 0:
+		for job in capkpi.flags.enqueue_after_commit:
 			q = get_queue(job.get("queue"), is_async=job.get("is_async"))
 			q.enqueue_call(
 				execute_job,
@@ -1272,4 +1272,4 @@ def enqueue_jobs_after_commit():
 				failure_ttl=RQ_JOB_FAILURE_TTL,
 				result_ttl=RQ_RESULTS_TTL,
 			)
-		frappe.flags.enqueue_after_commit = []
+		capkpi.flags.enqueue_after_commit = []

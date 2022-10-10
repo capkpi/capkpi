@@ -17,8 +17,8 @@ from __future__ import print_function, unicode_literals
 import os
 import time
 
-import frappe
-import frappe.permissions
+import capkpi
+import capkpi.permissions
 
 
 class PatchError(Exception):
@@ -27,9 +27,9 @@ class PatchError(Exception):
 
 def run_all(skip_failing=False):
 	"""run all pending patches"""
-	executed = [p[0] for p in frappe.db.sql("""select patch from `tabPatch Log`""")]
+	executed = [p[0] for p in capkpi.db.sql("""select patch from `tabPatch Log`""")]
 
-	frappe.flags.final_patches = []
+	capkpi.flags.final_patches = []
 
 	def run_patch(patch):
 		try:
@@ -47,32 +47,32 @@ def run_all(skip_failing=False):
 			run_patch(patch)
 
 	# patches to be run in the end
-	for patch in frappe.flags.final_patches:
+	for patch in capkpi.flags.final_patches:
 		patch = patch.replace("finally:", "")
 		run_patch(patch)
 
 
 def get_all_patches():
 	patches = []
-	for app in frappe.get_installed_apps():
+	for app in capkpi.get_installed_apps():
 		if app == "shopping_cart":
 			continue
 		# 3-to-4 fix
 		if app == "webnotes":
-			app = "frappe"
-		patches.extend(frappe.get_file_items(frappe.get_pymodule_path(app, "patches.txt")))
+			app = "capkpi"
+		patches.extend(capkpi.get_file_items(capkpi.get_pymodule_path(app, "patches.txt")))
 
 	return patches
 
 
 def reload_doc(args):
-	import frappe.modules
+	import capkpi.modules
 
-	run_single(method=frappe.modules.reload_doc, methodargs=args)
+	run_single(method=capkpi.modules.reload_doc, methodargs=args)
 
 
 def run_single(patchmodule=None, method=None, methodargs=None, force=False):
-	from frappe import conf
+	from capkpi import conf
 
 	# don't write txt files
 	conf.developer_mode = 0
@@ -86,33 +86,33 @@ def run_single(patchmodule=None, method=None, methodargs=None, force=False):
 def execute_patch(patchmodule, method=None, methodargs=None):
 	"""execute the patch"""
 	block_user(True)
-	frappe.db.begin()
+	capkpi.db.begin()
 	start_time = time.time()
 	try:
 		log(
 			"Executing {patch} in {site} ({db})".format(
-				patch=patchmodule or str(methodargs), site=frappe.local.site, db=frappe.db.cur_db_name
+				patch=patchmodule or str(methodargs), site=capkpi.local.site, db=capkpi.db.cur_db_name
 			)
 		)
 		if patchmodule:
 			if patchmodule.startswith("finally:"):
 				# run run patch at the end
-				frappe.flags.final_patches.append(patchmodule)
+				capkpi.flags.final_patches.append(patchmodule)
 			else:
 				if patchmodule.startswith("execute:"):
 					exec(patchmodule.split("execute:")[1], globals())
 				else:
-					frappe.get_attr(patchmodule.split()[0] + ".execute")()
+					capkpi.get_attr(patchmodule.split()[0] + ".execute")()
 				update_patch_log(patchmodule)
 		elif method:
 			method(**methodargs)
 
 	except Exception:
-		frappe.db.rollback()
+		capkpi.db.rollback()
 		raise
 
 	else:
-		frappe.db.commit()
+		capkpi.db.commit()
 		end_time = time.time()
 		block_user(False)
 		log("Success: Done in {time}s".format(time=round(end_time - start_time, 3)))
@@ -122,7 +122,7 @@ def execute_patch(patchmodule, method=None, methodargs=None):
 
 def update_patch_log(patchmodule):
 	"""update patch_file in patch log"""
-	frappe.get_doc({"doctype": "Patch Log", "patch": patchmodule}).insert(ignore_permissions=True)
+	capkpi.get_doc({"doctype": "Patch Log", "patch": patchmodule}).insert(ignore_permissions=True)
 
 
 def executed(patchmodule):
@@ -130,27 +130,27 @@ def executed(patchmodule):
 	if patchmodule.startswith("finally:"):
 		# patches are saved without the finally: tag
 		patchmodule = patchmodule.replace("finally:", "")
-	done = frappe.db.get_value("Patch Log", {"patch": patchmodule})
+	done = capkpi.db.get_value("Patch Log", {"patch": patchmodule})
 	# if done:
-	# 	print "Patch %s already executed in %s" % (patchmodule, frappe.db.cur_db_name)
+	# 	print "Patch %s already executed in %s" % (patchmodule, capkpi.db.cur_db_name)
 	return done
 
 
 def block_user(block, msg=None):
 	"""stop/start execution till patch is run"""
-	frappe.local.flags.in_patch = block
-	frappe.db.begin()
+	capkpi.local.flags.in_patch = block
+	capkpi.db.begin()
 	if not msg:
 		msg = "Patches are being executed in the system. Please try again in a few moments."
-	frappe.db.set_global("__session_status", block and "stop" or None)
-	frappe.db.set_global("__session_status_message", block and msg or None)
-	frappe.db.commit()
+	capkpi.db.set_global("__session_status", block and "stop" or None)
+	capkpi.db.set_global("__session_status_message", block and msg or None)
+	capkpi.db.commit()
 
 
 def check_session_stopped():
-	if frappe.db.get_global("__session_status") == "stop":
-		frappe.msgprint(frappe.db.get_global("__session_status_message"))
-		raise frappe.SessionStopped("Session Stopped")
+	if capkpi.db.get_global("__session_status") == "stop":
+		capkpi.msgprint(capkpi.db.get_global("__session_status_message"))
+		raise capkpi.SessionStopped("Session Stopped")
 
 
 def log(msg):

@@ -1,8 +1,8 @@
 from __future__ import unicode_literals
 
-import frappe
-from frappe.desk.form.linked_with import get_linked_doctypes
-from frappe.patches.v11_0.replicate_old_user_permissions import get_doctypes_to_skip
+import capkpi
+from capkpi.desk.form.linked_with import get_linked_doctypes
+from capkpi.patches.v11_0.replicate_old_user_permissions import get_doctypes_to_skip
 
 # `skip_for_doctype` was a un-normalized way of storing for which
 # doctypes the user permission was applicable.
@@ -15,17 +15,17 @@ from frappe.patches.v11_0.replicate_old_user_permissions import get_doctypes_to_
 
 
 def execute():
-	frappe.reload_doctype("User Permission")
+	capkpi.reload_doctype("User Permission")
 
 	# to check if we need to migrate from skip_for_doctype
-	has_skip_for_doctype = frappe.db.has_column("User Permission", "skip_for_doctype")
+	has_skip_for_doctype = capkpi.db.has_column("User Permission", "skip_for_doctype")
 	skip_for_doctype_map = {}
 
 	new_user_permissions_list = []
 
 	user_permissions_to_delete = []
 
-	for user_permission in frappe.get_all("User Permission", fields=["*"]):
+	for user_permission in capkpi.get_all("User Permission", fields=["*"]):
 		skip_for_doctype = []
 
 		# while migrating from v11 -> v11
@@ -61,7 +61,7 @@ def execute():
 					# Maintain sequence (name, user, allow, for_value, applicable_for, apply_to_all_doctypes, creation, modified)
 					new_user_permissions_list.append(
 						(
-							frappe.generate_hash("", 10),
+							capkpi.generate_hash("", 10),
 							user_permission.user,
 							user_permission.allow,
 							user_permission.for_value,
@@ -73,10 +73,10 @@ def execute():
 					)
 		else:
 			# No skip_for_doctype found! Just update apply_to_all_doctypes.
-			frappe.db.set_value("User Permission", user_permission.name, "apply_to_all_doctypes", 1)
+			capkpi.db.set_value("User Permission", user_permission.name, "apply_to_all_doctypes", 1)
 
 	if new_user_permissions_list:
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""
 			INSERT INTO `tabUser Permission`
 			(`name`, `user`, `allow`, `for_value`, `applicable_for`, `apply_to_all_doctypes`, `creation`, `modified`)
@@ -88,7 +88,7 @@ def execute():
 		)
 
 	if user_permissions_to_delete:
-		frappe.db.sql(
+		capkpi.db.sql(
 			"DELETE FROM `tabUser Permission` WHERE `name` in ({})".format(  # nosec
 				",".join(["%s"] * len(user_permissions_to_delete))
 			),

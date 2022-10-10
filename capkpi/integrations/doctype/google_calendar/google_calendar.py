@@ -12,11 +12,11 @@ from dateutil import parser
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-import frappe
-from frappe import _
-from frappe.integrations.doctype.google_settings.google_settings import get_auth_url
-from frappe.model.document import Document
-from frappe.utils import (
+import capkpi
+from capkpi import _
+from capkpi.integrations.doctype.google_settings.google_settings import get_auth_url
+from capkpi.model.document import Document
+from capkpi.utils import (
 	add_days,
 	add_to_date,
 	get_datetime,
@@ -25,7 +25,7 @@ from frappe.utils import (
 	get_weekdays,
 	now_datetime,
 )
-from frappe.utils.password import set_encrypted_password
+from capkpi.utils.password import set_encrypted_password
 
 SCOPES = "https://www.googleapis.com/auth/calendar"
 
@@ -66,12 +66,12 @@ framework_days = {
 
 class GoogleCalendar(Document):
 	def validate(self):
-		google_settings = frappe.get_single("Google Settings")
+		google_settings = capkpi.get_single("Google Settings")
 		if not google_settings.enable:
-			frappe.throw(_("Enable Google API in Google Settings."))
+			capkpi.throw(_("Enable Google API in Google Settings."))
 
 		if not google_settings.client_id or not google_settings.client_secret:
-			frappe.throw(_("Enter Client Id and Client Secret in Google Settings."))
+			capkpi.throw(_("Enter Client Id and Client Secret in Google Settings."))
 
 		return google_settings
 
@@ -79,8 +79,8 @@ class GoogleCalendar(Document):
 		google_settings = self.validate()
 
 		if not self.refresh_token:
-			button_label = frappe.bold(_("Allow Google Calendar Access"))
-			raise frappe.ValidationError(_("Click on {0} to generate Refresh Token.").format(button_label))
+			button_label = capkpi.bold(_("Allow Google Calendar Access"))
+			raise capkpi.ValidationError(_("Click on {0} to generate Refresh Token.").format(button_label))
 
 		data = {
 			"client_id": google_settings.client_id,
@@ -93,8 +93,8 @@ class GoogleCalendar(Document):
 		try:
 			r = requests.post(get_auth_url(), data=data).json()
 		except requests.exceptions.HTTPError:
-			button_label = frappe.bold(_("Allow Google Calendar Access"))
-			frappe.throw(
+			button_label = capkpi.bold(_("Allow Google Calendar Access"))
+			capkpi.throw(
 				_(
 					"Something went wrong during the token generation. Click on {0} to generate a new one."
 				).format(button_label)
@@ -103,22 +103,22 @@ class GoogleCalendar(Document):
 		return r.get("access_token")
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def authorize_access(g_calendar, reauthorize=None):
 	"""
 	If no Authorization code get it from Google and then request for Refresh Token.
 	Google Calendar Name is set to flags to set_value after Authorization Code is obtained.
 	"""
-	google_settings = frappe.get_doc("Google Settings")
-	google_calendar = frappe.get_doc("Google Calendar", g_calendar)
+	google_settings = capkpi.get_doc("Google Settings")
+	google_calendar = capkpi.get_doc("Google Calendar", g_calendar)
 
 	redirect_uri = (
 		get_request_site_address(True)
-		+ "?cmd=frappe.integrations.doctype.google_calendar.google_calendar.google_callback"
+		+ "?cmd=capkpi.integrations.doctype.google_calendar.google_calendar.google_callback"
 	)
 
 	if not google_calendar.authorization_code or reauthorize:
-		frappe.cache().hset("google_calendar", "google_calendar", google_calendar.name)
+		capkpi.cache().hset("google_calendar", "google_calendar", google_calendar.name)
 		return get_authentication_url(client_id=google_settings.client_id, redirect_uri=redirect_uri)
 	else:
 		try:
@@ -134,19 +134,19 @@ def authorize_access(g_calendar, reauthorize=None):
 			r = requests.post(get_auth_url(), data=data).json()
 
 			if "refresh_token" in r:
-				frappe.db.set_value(
+				capkpi.db.set_value(
 					"Google Calendar", google_calendar.name, "refresh_token", r.get("refresh_token")
 				)
-				frappe.db.commit()
+				capkpi.db.commit()
 
-			frappe.local.response["type"] = "redirect"
-			frappe.local.response["location"] = "/app/Form/{0}/{1}".format(
+			capkpi.local.response["type"] = "redirect"
+			capkpi.local.response["location"] = "/app/Form/{0}/{1}".format(
 				quote("Google Calendar"), quote(google_calendar.name)
 			)
 
-			frappe.msgprint(_("Google Calendar has been configured."))
+			capkpi.msgprint(_("Google Calendar has been configured."))
 		except Exception as e:
-			frappe.throw(e)
+			capkpi.throw(e)
 
 
 def get_authentication_url(client_id=None, redirect_uri=None):
@@ -157,26 +157,26 @@ def get_authentication_url(client_id=None, redirect_uri=None):
 	}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def google_callback(code=None):
 	"""
 	Authorization code is sent to callback as per the API configuration
 	"""
-	google_calendar = frappe.cache().hget("google_calendar", "google_calendar")
-	frappe.db.set_value("Google Calendar", google_calendar, "authorization_code", code)
-	frappe.db.commit()
+	google_calendar = capkpi.cache().hget("google_calendar", "google_calendar")
+	capkpi.db.set_value("Google Calendar", google_calendar, "authorization_code", code)
+	capkpi.db.commit()
 
 	authorize_access(google_calendar)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def sync(g_calendar=None):
 	filters = {"enable": 1}
 
 	if g_calendar:
 		filters.update({"name": g_calendar})
 
-	google_calendars = frappe.get_list("Google Calendar", filters=filters)
+	google_calendars = capkpi.get_list("Google Calendar", filters=filters)
 
 	for g in google_calendars:
 		return sync_events_from_google_calendar(g.name)
@@ -186,8 +186,8 @@ def get_google_calendar_object(g_calendar):
 	"""
 	Returns an object of Google Calendar along with Google Calendar doc.
 	"""
-	google_settings = frappe.get_doc("Google Settings")
-	account = frappe.get_doc("Google Calendar", g_calendar)
+	google_settings = capkpi.get_doc("Google Settings")
+	account = capkpi.get_doc("Google Calendar", g_calendar)
 
 	credentials_dict = {
 		"token": account.get_access_token(),
@@ -222,15 +222,15 @@ def check_google_calendar(account, google_calendar):
 			# If no Calendar ID create a new Calendar
 			calendar = {
 				"summary": account.calendar_name,
-				"timeZone": frappe.db.get_single_value("System Settings", "time_zone"),
+				"timeZone": capkpi.db.get_single_value("System Settings", "time_zone"),
 			}
 			created_calendar = google_calendar.calendars().insert(body=calendar).execute()
-			frappe.db.set_value(
+			capkpi.db.set_value(
 				"Google Calendar", account.name, "google_calendar_id", created_calendar.get("id")
 			)
-			frappe.db.commit()
+			capkpi.db.commit()
 	except HttpError as err:
-		frappe.throw(
+		capkpi.throw(
 			_("Google Calendar - Could not create Calendar for {0}, error code {1}.").format(
 				account.name, err.resp.status
 			)
@@ -250,7 +250,7 @@ def sync_events_from_google_calendar(g_calendar, method=None):
 		return
 
 	sync_token = account.get_password(fieldname="next_sync_token", raise_exception=False) or None
-	events = frappe._dict()
+	events = capkpi._dict()
 	results = []
 	while True:
 		try:
@@ -274,11 +274,11 @@ def sync_events_from_google_calendar(g_calendar, method=None):
 
 			if err.resp.status == 410:
 				set_encrypted_password("Google Calendar", account.name, "", "next_sync_token")
-				frappe.db.commit()
+				capkpi.db.commit()
 				msg += " " + _("Sync token was invalid and has been resetted, Retry syncing.")
-				frappe.msgprint(msg, title="Invalid Sync Token", indicator="blue")
+				capkpi.msgprint(msg, title="Invalid Sync Token", indicator="blue")
 			else:
-				frappe.throw(msg)
+				capkpi.throw(msg)
 
 		for event in events.get("items", []):
 			results.append(event)
@@ -290,8 +290,8 @@ def sync_events_from_google_calendar(g_calendar, method=None):
 			break
 
 	for idx, event in enumerate(results):
-		frappe.publish_realtime(
-			"import_google_calendar", dict(progress=idx + 1, total=len(results)), user=frappe.session.user
+		capkpi.publish_realtime(
+			"import_google_calendar", dict(progress=idx + 1, total=len(results)), user=capkpi.session.user
 		)
 
 		# If Google Calendar Event if confirmed, then create an Event
@@ -303,13 +303,13 @@ def sync_events_from_google_calendar(g_calendar, method=None):
 				except IndexError:
 					pass
 
-			if not frappe.db.exists("Event", {"google_calendar_event_id": event.get("id")}):
+			if not capkpi.db.exists("Event", {"google_calendar_event_id": event.get("id")}):
 				insert_event_to_calendar(account, event, recurrence)
 			else:
 				update_event_in_calendar(account, event, recurrence)
 		elif event.get("status") == "cancelled":
 			# If any synced Google Calendar Event is cancelled, then close the Event
-			frappe.db.set_value(
+			capkpi.db.set_value(
 				"Event",
 				{
 					"google_calendar_id": account.google_calendar_id,
@@ -318,12 +318,12 @@ def sync_events_from_google_calendar(g_calendar, method=None):
 				"status",
 				"Closed",
 			)
-			frappe.get_doc(
+			capkpi.get_doc(
 				{
 					"doctype": "Comment",
 					"comment_type": "Info",
 					"reference_doctype": "Event",
-					"reference_name": frappe.db.get_value(
+					"reference_name": capkpi.db.get_value(
 						"Event",
 						{
 							"google_calendar_id": account.google_calendar_id,
@@ -364,14 +364,14 @@ def insert_event_to_calendar(account, event, recurrence=None):
 			recurrence=recurrence, start=event.get("start"), end=event.get("end")
 		)
 	)
-	frappe.get_doc(calendar_event).insert(ignore_permissions=True)
+	capkpi.get_doc(calendar_event).insert(ignore_permissions=True)
 
 
 def update_event_in_calendar(account, event, recurrence=None):
 	"""
 	Updates Event in CapKPI Calendar if any existing Google Calendar Event is updated
 	"""
-	calendar_event = frappe.get_doc("Event", {"google_calendar_event_id": event.get("id")})
+	calendar_event = capkpi.get_doc("Event", {"google_calendar_event_id": event.get("id")})
 	calendar_event.subject = event.get("summary")
 	calendar_event.description = event.get("description")
 	calendar_event.update(
@@ -387,7 +387,7 @@ def insert_event_in_google_calendar(doc, method=None):
 	Insert Events in Google Calendar if sync_with_google_calendar is checked.
 	"""
 	if (
-		not frappe.db.exists("Google Calendar", {"name": doc.google_calendar})
+		not capkpi.db.exists("Google Calendar", {"name": doc.google_calendar})
 		or doc.pulled_from_google_calendar
 		or not doc.sync_with_google_calendar
 	):
@@ -410,12 +410,12 @@ def insert_event_in_google_calendar(doc, method=None):
 
 	try:
 		event = google_calendar.events().insert(calendarId=doc.google_calendar_id, body=event).execute()
-		frappe.db.set_value(
+		capkpi.db.set_value(
 			"Event", doc.name, "google_calendar_event_id", event.get("id"), update_modified=False
 		)
-		frappe.msgprint(_("Event Synced with Google Calendar."))
+		capkpi.msgprint(_("Event Synced with Google Calendar."))
 	except HttpError as err:
-		frappe.throw(
+		capkpi.throw(
 			_("Google Calendar - Could not insert event in Google Calendar {0}, error code {1}.").format(
 				account.name, err.resp.status
 			)
@@ -429,7 +429,7 @@ def update_event_in_google_calendar(doc, method=None):
 	# Workaround to avoid triggering updation when Event is being inserted since
 	# creation and modified are same when inserting doc
 	if (
-		not frappe.db.exists("Google Calendar", {"name": doc.google_calendar})
+		not capkpi.db.exists("Google Calendar", {"name": doc.google_calendar})
 		or doc.modified == doc.creation
 		or not doc.sync_with_google_calendar
 	):
@@ -466,9 +466,9 @@ def update_event_in_google_calendar(doc, method=None):
 		google_calendar.events().update(
 			calendarId=doc.google_calendar_id, eventId=doc.google_calendar_event_id, body=event
 		).execute()
-		frappe.msgprint(_("Event Synced with Google Calendar."))
+		capkpi.msgprint(_("Event Synced with Google Calendar."))
 	except HttpError as err:
-		frappe.throw(
+		capkpi.throw(
 			_("Google Calendar - Could not update Event {0} in Google Calendar, error code {1}.").format(
 				doc.name, err.resp.status
 			)
@@ -480,7 +480,7 @@ def delete_event_from_google_calendar(doc, method=None):
 	Delete Events from Google Calendar if CapKPI Event is deleted.
 	"""
 
-	if not frappe.db.exists("Google Calendar", {"name": doc.google_calendar}):
+	if not capkpi.db.exists("Google Calendar", {"name": doc.google_calendar}):
 		return
 
 	google_calendar, account = get_google_calendar_object(doc.google_calendar)
@@ -501,7 +501,7 @@ def delete_event_from_google_calendar(doc, method=None):
 			calendarId=doc.google_calendar_id, eventId=doc.google_calendar_event_id, body=event
 		).execute()
 	except HttpError as err:
-		frappe.msgprint(
+		capkpi.msgprint(
 			_("Google Calendar - Could not delete Event {0} from Google Calendar, error code {1}.").format(
 				doc.name, err.resp.status
 			)

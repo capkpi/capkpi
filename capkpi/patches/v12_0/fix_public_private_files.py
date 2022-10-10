@@ -1,8 +1,8 @@
-import frappe
+import capkpi
 
 
 def execute():
-	files = frappe.get_all(
+	files = capkpi.get_all(
 		"File", fields=["is_private", "file_url", "name"], filters={"is_folder": 0}
 	)
 
@@ -18,9 +18,9 @@ def execute():
 
 def generate_file(file_name):
 	try:
-		file_doc = frappe.get_doc("File", file_name)
+		file_doc = capkpi.get_doc("File", file_name)
 		# private
-		new_doc = frappe.new_doc("File")
+		new_doc = capkpi.new_doc("File")
 		new_doc.is_private = file_doc.is_private
 		new_doc.file_name = file_doc.file_name
 		# to create copy of file in right location

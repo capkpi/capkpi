@@ -2,8 +2,8 @@ context('List Paging', () => {
 	before(() => {
 		cy.login();
 		cy.visit('/app/website');
-		return cy.window().its('frappe').then(frappe => {
-			return frappe.call("frappe.tests.ui_test_helpers.create_multiple_todo_records");
+		return cy.window().its('capkpi').then(capkpi => {
+			return capkpi.call("capkpi.tests.ui_test_helpers.create_multiple_todo_records");
 		});
 	});
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2018, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Data Export', {
+capkpi.ui.form.on('Data Export', {
 	refresh: frm => {
 		frm.disable_save();
 		frm.page.set_primary_action('Export', () => {
@@ -14,7 +14,7 @@ frappe.ui.form.on('Data Export', {
 				"filters": {
 					"issingle": 0,
 					"istable": 0,
-					"name": ['in', frappe.boot.user.can_export]
+					"name": ['in', capkpi.boot.user.can_export]
 				}
 			};
 		});
@@ -22,7 +22,7 @@ frappe.ui.form.on('Data Export', {
 	reference_doctype: frm => {
 		const doctype = frm.doc.reference_doctype;
 		if (doctype) {
-			frappe.model.with_doctype(doctype, () => set_field_options(frm));
+			capkpi.model.with_doctype(doctype, () => set_field_options(frm));
 		} else {
 			reset_filter_and_field(frm);
 		}
@@ -35,9 +35,9 @@ const can_export = frm => {
 		frm.fields_multicheck[doctype].get_checked_options() : [];
 	let is_valid_form = false;
 	if (!doctype) {
-		frappe.msgprint(__('Please select the Document Type.'));
+		capkpi.msgprint(__('Please select the Document Type.'));
 	} else if (!parent_multicheck_options.length) {
-		frappe.msgprint(__('Atleast one field of Parent Document Type is mandatory'));
+		capkpi.msgprint(__('Atleast one field of Parent Document Type is mandatory'));
 	} else {
 		is_valid_form = true;
 	}
@@ -45,7 +45,7 @@ const can_export = frm => {
 };
 
 const export_data = frm => {
-	let get_template_url = '/api/method/frappe.core.doctype.data_export.exporter.export_data';
+	let get_template_url = '/api/method/capkpi.core.doctype.data_export.exporter.export_data';
 	var export_params = () => {
 		let columns = {};
 		Object.keys(frm.fields_multicheck).forEach(dt => {
@@ -83,7 +83,7 @@ const set_field_options = (frm) => {
 	parent_wrapper.empty();
 	filter_wrapper.empty();
 
-	frm.filter_list = new frappe.ui.FilterGroup({
+	frm.filter_list = new capkpi.ui.FilterGroup({
 		parent: filter_wrapper,
 		doctype: doctype,
 		on_change: () => { },
@@ -106,11 +106,11 @@ const make_multiselect_buttons = parent_wrapper => {
 		.find('.flex');
 
 	["Select All", "Unselect All"].map(d => {
-		frappe.ui.form.make_control({
+		capkpi.ui.form.make_control({
 			parent: $(button_container),
 			df: {
 				label: __(d),
-				fieldname: frappe.scrub(d),
+				fieldname: capkpi.scrub(d),
 				fieldtype: "Button",
 				click: () => {
 					checkbox_toggle(d !== 'Select All');
@@ -120,7 +120,7 @@ const make_multiselect_buttons = parent_wrapper => {
 		});
 	});
 
-	$(button_container).find('.frappe-control').map((index, button) => {
+	$(button_container).find('.capkpi-control').map((index, button) => {
 		$(button).css({"margin-right": "1em"});
 	});
 
@@ -134,7 +134,7 @@ const make_multiselect_buttons = parent_wrapper => {
 
 const get_doctypes = parentdt => {
 	return [parentdt].concat(
-		frappe.meta.get_table_fields(parentdt).map(df => df.options)
+		capkpi.meta.get_table_fields(parentdt).map(df => df.options)
 	);
 };
 
@@ -151,7 +151,7 @@ const add_doctype_field_multicheck_control = (doctype, parent_wrapper) => {
 			};
 		});
 
-	const multicheck_control = frappe.ui.form.make_control({
+	const multicheck_control = capkpi.ui.form.make_control({
 		parent: parent_wrapper,
 		df: {
 			"label": doctype,
@@ -167,5 +167,5 @@ const add_doctype_field_multicheck_control = (doctype, parent_wrapper) => {
 	return multicheck_control;
 };
 
-const filter_fields = df => frappe.model.is_value_type(df) && !df.hidden;
-const get_fields = dt => frappe.meta.get_docfields(dt).filter(filter_fields);
+const filter_fields = df => capkpi.model.is_value_type(df) && !df.hidden;
+const get_fields = dt => capkpi.meta.get_docfields(dt).filter(filter_fields);

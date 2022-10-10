@@ -9,18 +9,18 @@ import os
 
 import requests
 
-import frappe
-from frappe import _
-from frappe.frappeclient import CapKPIClient
-from frappe.model.document import Document
-from frappe.utils.background_jobs import get_jobs
-from frappe.utils.data import get_url
+import capkpi
+from capkpi import _
+from capkpi.capkpiclient import CapKPIClient
+from capkpi.model.document import Document
+from capkpi.utils.background_jobs import get_jobs
+from capkpi.utils.data import get_url
 
 
 class EventConsumer(Document):
 	def validate(self):
 		# approve subscribed doctypes for tests
-		# frappe.flags.in_test won't work here as tests are running on the consumer site
+		# capkpi.flags.in_test won't work here as tests are running on the consumer site
 		if os.environ.get("CI"):
 			for entry in self.consumer_doctypes:
 				entry.status = "Approved"
@@ -33,19 +33,19 @@ class EventConsumer(Document):
 
 			self.update_consumer_status()
 		else:
-			frappe.db.set_value(self.doctype, self.name, "incoming_change", 0)
+			capkpi.db.set_value(self.doctype, self.name, "incoming_change", 0)
 
-		frappe.cache().delete_value("event_consumer_document_type_map")
+		capkpi.cache().delete_value("event_consumer_document_type_map")
 
 	def on_trash(self):
-		for i in frappe.get_all("Event Update Log Consumer", {"consumer": self.name}):
-			frappe.delete_doc("Event Update Log Consumer", i.name)
-		frappe.cache().delete_value("event_consumer_document_type_map")
+		for i in capkpi.get_all("Event Update Log Consumer", {"consumer": self.name}):
+			capkpi.delete_doc("Event Update Log Consumer", i.name)
+		capkpi.cache().delete_value("event_consumer_document_type_map")
 
 	def update_consumer_status(self):
 		consumer_site = get_consumer_site(self.callback_url)
 		event_producer = consumer_site.get_doc("Event Producer", get_url())
-		event_producer = frappe._dict(event_producer)
+		event_producer = capkpi._dict(event_producer)
 		config = event_producer.producer_doctypes
 		event_producer.producer_doctypes = []
 		for entry in config:
@@ -56,7 +56,7 @@ class EventConsumer(Document):
 			else:
 				ref_doctype = entry.get("ref_doctype")
 
-			entry["status"] = frappe.db.get_value(
+			entry["status"] = capkpi.db.get_value(
 				"Event Consumer Document Type", {"parent": self.name, "ref_doctype": ref_doctype}, "status"
 			)
 
@@ -73,22 +73,22 @@ class EventConsumer(Document):
 		return "online"
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def register_consumer(data):
 	"""create an event consumer document for registering a consumer"""
 	data = json.loads(data)
 	# to ensure that consumer is created only once
-	if frappe.db.exists("Event Consumer", data["event_consumer"]):
+	if capkpi.db.exists("Event Consumer", data["event_consumer"]):
 		return None
 
 	user = data["user"]
-	if not frappe.db.exists("User", user):
-		frappe.throw(_("User {0} not found on the producer site").format(user))
+	if not capkpi.db.exists("User", user):
+		capkpi.throw(_("User {0} not found on the producer site").format(user))
 
-	if "System Manager" not in frappe.get_roles(user):
-		frappe.throw(_("Event Subscriber has to be a System Manager."))
+	if "System Manager" not in capkpi.get_roles(user):
+		capkpi.throw(_("Event Subscriber has to be a System Manager."))
 
-	consumer = frappe.new_doc("Event Consumer")
+	consumer = capkpi.new_doc("Event Consumer")
 	consumer.callback_url = data["event_consumer"]
 	consumer.user = data["user"]
 	consumer.api_key = data["api_key"]
@@ -113,7 +113,7 @@ def register_consumer(data):
 
 def get_consumer_site(consumer_url):
 	"""create a CapKPIClient object for event consumer site"""
-	consumer_doc = frappe.get_doc("Event Consumer", consumer_url)
+	consumer_doc = capkpi.get_doc("Event Consumer", consumer_url)
 	consumer_site = CapKPIClient(
 		url=consumer_url,
 		api_key=consumer_doc.api_key,
@@ -124,27 +124,27 @@ def get_consumer_site(consumer_url):
 
 def get_last_update():
 	"""get the creation timestamp of last update consumed"""
-	updates = frappe.get_list(
+	updates = capkpi.get_list(
 		"Event Update Log", "creation", ignore_permissions=True, limit=1, order_by="creation desc"
 	)
 	if updates:
 		return updates[0].creation
-	return frappe.utils.now_datetime()
+	return capkpi.utils.now_datetime()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def notify_event_consumers(doctype):
 	"""get all event consumers and set flag for notification status"""
-	event_consumers = frappe.get_all(
+	event_consumers = capkpi.get_all(
 		"Event Consumer Document Type", ["parent"], {"ref_doctype": doctype, "status": "Approved"}
 	)
 	for entry in event_consumers:
-		consumer = frappe.get_doc("Event Consumer", entry.parent)
+		consumer = capkpi.get_doc("Event Consumer", entry.parent)
 		consumer.flags.notified = False
 		notify(consumer)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def notify(consumer):
 	"""notify individual event consumers about a new update"""
 	consumer_status = consumer.get_consumer_status()
@@ -153,7 +153,7 @@ def notify(consumer):
 			client = get_consumer_site(consumer.callback_url)
 			client.post_request(
 				{
-					"cmd": "frappe.event_streaming.doctype.event_producer.event_producer.new_event_notification",
+					"cmd": "capkpi.event_streaming.doctype.event_producer.event_producer.new_event_notification",
 					"producer_url": get_url(),
 				}
 			)
@@ -165,10 +165,10 @@ def notify(consumer):
 
 	# enqueue another job if the site was not notified
 	if not consumer.flags.notified:
-		enqueued_method = "frappe.event_streaming.doctype.event_consumer.event_consumer.notify"
+		enqueued_method = "capkpi.event_streaming.doctype.event_consumer.event_consumer.notify"
 		jobs = get_jobs()
-		if not jobs or enqueued_method not in jobs[frappe.local.site] and not consumer.flags.notifed:
-			frappe.enqueue(
+		if not jobs or enqueued_method not in jobs[capkpi.local.site] and not consumer.flags.notifed:
+			capkpi.enqueue(
 				enqueued_method, queue="long", enqueue_after_commit=True, **{"consumer": consumer}
 			)
 
@@ -177,12 +177,12 @@ def has_consumer_access(consumer, update_log):
 	"""Checks if consumer has completely satisfied all the conditions on the doc"""
 
 	if isinstance(consumer, str):
-		consumer = frappe.get_doc("Event Consumer", consumer)
+		consumer = capkpi.get_doc("Event Consumer", consumer)
 
-	if not frappe.db.exists(update_log.ref_doctype, update_log.docname):
+	if not capkpi.db.exists(update_log.ref_doctype, update_log.docname):
 		# Delete Log
 		# Check if the last Update Log of this document was read by this consumer
-		last_update_log = frappe.get_all(
+		last_update_log = capkpi.get_all(
 			"Event Update Log",
 			filters={
 				"ref_doctype": update_log.ref_doctype,
@@ -195,10 +195,10 @@ def has_consumer_access(consumer, update_log):
 		if not len(last_update_log):
 			return False
 
-		last_update_log = frappe.get_doc("Event Update Log", last_update_log[0].name)
+		last_update_log = capkpi.get_doc("Event Update Log", last_update_log[0].name)
 		return len([x for x in last_update_log.consumers if x.consumer == consumer.name])
 
-	doc = frappe.get_doc(update_log.ref_doctype, update_log.docname)
+	doc = capkpi.get_doc(update_log.ref_doctype, update_log.docname)
 	try:
 		for dt_entry in consumer.consumer_doctypes:
 			if dt_entry.ref_doctype != update_log.ref_doctype:
@@ -211,9 +211,9 @@ def has_consumer_access(consumer, update_log):
 			if condition.startswith("cmd:"):
 				cmd = condition.split("cmd:")[1].strip()
 				args = {"consumer": consumer, "doc": doc, "update_log": update_log}
-				return frappe.call(cmd, **args)
+				return capkpi.call(cmd, **args)
 			else:
-				return frappe.safe_eval(condition, frappe._dict(doc=doc))
+				return capkpi.safe_eval(condition, capkpi._dict(doc=doc))
 	except Exception as e:
-		frappe.log_error(title="has_consumer_access error", message=e)
+		capkpi.log_error(title="has_consumer_access error", message=e)
 	return False

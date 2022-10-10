@@ -2,12 +2,12 @@ from __future__ import unicode_literals
 
 import re
 
-import frappe
-from frappe import _
-from frappe.utils import cint, cstr, flt
+import capkpi
+from capkpi import _
+from capkpi.utils import cint, cstr, flt
 
 
-class InvalidColumnName(frappe.ValidationError):
+class InvalidColumnName(capkpi.ValidationError):
 	pass
 
 
@@ -15,7 +15,7 @@ class DBTable:
 	def __init__(self, doctype, meta=None):
 		self.doctype = doctype
 		self.table_name = "tab{}".format(doctype)
-		self.meta = meta or frappe.get_meta(doctype, False)
+		self.meta = meta or capkpi.get_meta(doctype, False)
 		self.columns = {}
 		self.current_columns = {}
 
@@ -39,14 +39,14 @@ class DBTable:
 		if self.is_new():
 			self.create()
 		else:
-			frappe.cache().hdel("table_columns", self.table_name)
+			capkpi.cache().hdel("table_columns", self.table_name)
 			self.alter()
 
 	def create(self):
 		pass
 
 	def get_column_definitions(self):
-		column_list = [] + frappe.db.DEFAULT_COLUMNS
+		column_list = [] + capkpi.db.DEFAULT_COLUMNS
 		ret = []
 		for k in list(self.columns):
 			if k not in column_list:
@@ -62,8 +62,8 @@ class DBTable:
 			if (
 				col.set_index
 				and not col.unique
-				and col.fieldtype in frappe.db.type_map
-				and frappe.db.type_map.get(col.fieldtype)[0] not in ("text", "longtext")
+				and col.fieldtype in capkpi.db.type_map
+				and capkpi.db.type_map.get(col.fieldtype)[0] not in ("text", "longtext")
 			):
 				ret.append("index `" + key + "`(`" + key + "`)")
 		return ret
@@ -76,7 +76,7 @@ class DBTable:
 
 		# optional fields like _comments
 		if not self.meta.get("istable"):
-			for fieldname in frappe.db.OPTIONAL_COLUMNS:
+			for fieldname in capkpi.db.OPTIONAL_COLUMNS:
 				fields.append({"fieldname": fieldname, "fieldtype": "Text"})
 
 			# add _seen column if track_seen
@@ -104,22 +104,22 @@ class DBTable:
 		self.setup_table_columns()
 
 		columns = [
-			frappe._dict({"fieldname": f, "fieldtype": "Data"}) for f in frappe.db.STANDARD_VARCHAR_COLUMNS
+			capkpi._dict({"fieldname": f, "fieldtype": "Data"}) for f in capkpi.db.STANDARD_VARCHAR_COLUMNS
 		]
 		columns += self.columns.values()
 
 		for col in columns:
 			if len(col.fieldname) >= 64:
-				frappe.throw(
-					_("Fieldname is limited to 64 characters ({0})").format(frappe.bold(col.fieldname))
+				capkpi.throw(
+					_("Fieldname is limited to 64 characters ({0})").format(capkpi.bold(col.fieldname))
 				)
 
-			if "varchar" in frappe.db.type_map.get(col.fieldtype, ()):
+			if "varchar" in capkpi.db.type_map.get(col.fieldtype, ()):
 
 				# validate length range
-				new_length = cint(col.length) or cint(frappe.db.VARCHAR_LEN)
+				new_length = cint(col.length) or cint(capkpi.db.VARCHAR_LEN)
 				if not (1 <= new_length <= 1000):
-					frappe.throw(_("Length of {0} should be between 1 and 1000").format(col.fieldname))
+					capkpi.throw(_("Length of {0} should be between 1 and 1000").format(col.fieldname))
 
 				current_col = self.current_columns.get(col.fieldname, {})
 				if not current_col:
@@ -133,14 +133,14 @@ class DBTable:
 				if cint(current_length) != cint(new_length):
 					try:
 						# check for truncation
-						max_length = frappe.db.sql(
+						max_length = capkpi.db.sql(
 							"""SELECT MAX(CHAR_LENGTH(`{fieldname}`)) FROM `tab{doctype}`""".format(
 								fieldname=col.fieldname, doctype=self.doctype
 							)
 						)
 
-					except frappe.db.InternalError as e:
-						if frappe.db.is_missing_column(e):
+					except capkpi.db.InternalError as e:
+						if capkpi.db.is_missing_column(e):
 							# Unknown column 'column_name' in 'field list'
 							continue
 						raise
@@ -151,14 +151,14 @@ class DBTable:
 						info_message = _(
 							"Reverting length to {0} for '{1}' in '{2}'. Setting the length as {3} will cause truncation of data."
 						).format(current_length, col.fieldname, self.doctype, new_length)
-						frappe.msgprint(info_message)
+						capkpi.msgprint(info_message)
 
 	def is_new(self):
-		return self.table_name not in frappe.db.get_tables()
+		return self.table_name not in capkpi.db.get_tables()
 
 	def setup_table_columns(self):
 		# TODO: figure out a way to get key data
-		for c in frappe.db.get_table_columns_description(self.table_name):
+		for c in capkpi.db.get_table_columns_description(self.table_name):
 			self.current_columns[c.name.lower()] = c
 
 	def alter(self):
@@ -195,11 +195,11 @@ class DbColumn:
 
 		elif (
 			self.default
-			and (self.default not in frappe.db.DEFAULT_SHORTCUTS)
+			and (self.default not in capkpi.db.DEFAULT_SHORTCUTS)
 			and not cstr(self.default).startswith(":")
 			and column_def not in ("text", "longtext")
 		):
-			column_def += " default {}".format(frappe.db.escape(self.default))
+			column_def += " default {}".format(capkpi.db.escape(self.default))
 
 		if self.unique and (column_def not in ("text", "longtext")):
 			column_def += " unique"
@@ -238,7 +238,7 @@ class DbColumn:
 		# default
 		if (
 			self.default_changed(current_def)
-			and (self.default not in frappe.db.DEFAULT_SHORTCUTS)
+			and (self.default not in capkpi.db.DEFAULT_SHORTCUTS)
 			and not cstr(self.default).startswith(":")
 			and not (column_type in ["text", "longtext"])
 		):
@@ -302,26 +302,26 @@ def validate_column_name(n):
 	special_characters = re.findall(r"[\W]", n, re.UNICODE)
 	if special_characters:
 		special_characters = ", ".join('"{0}"'.format(c) for c in special_characters)
-		frappe.throw(
+		capkpi.throw(
 			_("Fieldname {0} cannot have special characters like {1}").format(
-				frappe.bold(cstr(n)), special_characters
+				capkpi.bold(cstr(n)), special_characters
 			),
-			frappe.db.InvalidColumnName,
+			capkpi.db.InvalidColumnName,
 		)
 	return n
 
 
 def validate_column_length(fieldname):
-	if len(fieldname) > frappe.db.MAX_COLUMN_LENGTH:
-		frappe.throw(_("Fieldname is limited to 64 characters ({0})").format(fieldname))
+	if len(fieldname) > capkpi.db.MAX_COLUMN_LENGTH:
+		capkpi.throw(_("Fieldname is limited to 64 characters ({0})").format(fieldname))
 
 
 def get_definition(fieldtype, precision=None, length=None):
-	d = frappe.db.type_map.get(fieldtype)
+	d = capkpi.db.type_map.get(fieldtype)
 
 	# convert int to long int if the length of the int is greater than 11
 	if fieldtype == "Int" and length and length > 11:
-		d = frappe.db.type_map.get("Long Int")
+		d = capkpi.db.type_map.get("Long Int")
 
 	if not d:
 		return
@@ -345,12 +345,12 @@ def get_definition(fieldtype, precision=None, length=None):
 
 
 def add_column(doctype, column_name, fieldtype, precision=None):
-	if column_name in frappe.db.get_table_columns(doctype):
+	if column_name in capkpi.db.get_table_columns(doctype):
 		# already exists
 		return
 
-	frappe.db.commit()
-	frappe.db.sql(
+	capkpi.db.commit()
+	capkpi.db.sql(
 		"alter table `tab%s` add column %s %s"
 		% (doctype, column_name, get_definition(fieldtype, precision))
 	)

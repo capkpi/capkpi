@@ -9,19 +9,19 @@ import os
 from six import string_types
 from werkzeug.useragents import UserAgent
 
-import frappe
-from frappe.geo.country_info import get_country_info
-from frappe.translate import get_dict, send_translations, set_default_language
-from frappe.utils import cint, strip
-from frappe.utils.password import update_password
+import capkpi
+from capkpi.geo.country_info import get_country_info
+from capkpi.translate import get_dict, send_translations, set_default_language
+from capkpi.utils import cint, strip
+from capkpi.utils.password import update_password
 
 from . import install_fixtures
 
 
 def get_setup_stages(args):
 
-	# App setup stage functions should not include frappe.db.commit
-	# That is done by frappe after successful completion of all stages
+	# App setup stage functions should not include capkpi.db.commit
+	# That is done by capkpi after successful completion of all stages
 	stages = [
 		{
 			"status": "Updating global settings",
@@ -48,13 +48,13 @@ def get_setup_stages(args):
 	return stages
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def setup_complete(args):
 	"""Calls hooks for `setup_wizard_complete`, sets home page as `desktop`
 	and clears cache. If wizard breaks, calls `setup_wizard_exception` hook"""
 
 	# Setup complete: do not throw an exception, let the user continue to desk
-	if cint(frappe.db.get_single_value("System Settings", "setup_complete")):
+	if cint(capkpi.db.get_single_value("System Settings", "setup_complete")):
 		return {"status": "ok"}
 
 	args = parse_args(args)
@@ -62,13 +62,13 @@ def setup_complete(args):
 	stages = get_setup_stages(args)
 
 	try:
-		frappe.flags.in_setup_wizard = True
+		capkpi.flags.in_setup_wizard = True
 		current_task = None
 		for idx, stage in enumerate(stages):
-			frappe.publish_realtime(
+			capkpi.publish_realtime(
 				"setup_task",
 				{"progress": [idx, len(stages)], "stage_status": stage.get("status")},
-				user=frappe.session.user,
+				user=capkpi.session.user,
 			)
 
 			for task in stage.get("tasks"):
@@ -81,14 +81,14 @@ def setup_complete(args):
 		run_setup_success(args)
 		return {"status": "ok"}
 	finally:
-		frappe.flags.in_setup_wizard = False
+		capkpi.flags.in_setup_wizard = False
 
 
 def update_global_settings(args):
 	if args.language and args.language != "English":
 		set_default_language(get_language_code(args.lang))
-		frappe.db.commit()
-	frappe.clear_cache()
+		capkpi.db.commit()
+	capkpi.clear_cache()
 
 	update_system_settings(args)
 	update_user_name(args)
@@ -96,32 +96,32 @@ def update_global_settings(args):
 
 def run_post_setup_complete(args):
 	disable_future_access()
-	frappe.db.commit()
-	frappe.clear_cache()
+	capkpi.db.commit()
+	capkpi.clear_cache()
 
 
 def run_setup_success(args):
-	for hook in frappe.get_hooks("setup_wizard_success"):
-		frappe.get_attr(hook)(args)
+	for hook in capkpi.get_hooks("setup_wizard_success"):
+		capkpi.get_attr(hook)(args)
 	install_fixtures.install()
 
 
 def get_stages_hooks(args):
 	stages = []
-	for method in frappe.get_hooks("setup_wizard_stages"):
-		stages += frappe.get_attr(method)(args)
+	for method in capkpi.get_hooks("setup_wizard_stages"):
+		stages += capkpi.get_attr(method)(args)
 	return stages
 
 
 def get_setup_complete_hooks(args):
 	stages = []
-	for method in frappe.get_hooks("setup_wizard_complete"):
+	for method in capkpi.get_hooks("setup_wizard_complete"):
 		stages.append(
 			{
 				"status": "Executing method",
 				"fail_msg": "Failed to execute method",
 				"tasks": [
-					{"fn": frappe.get_attr(method), "args": args, "fail_msg": "Failed to execute method"}
+					{"fn": capkpi.get_attr(method), "args": args, "fail_msg": "Failed to execute method"}
 				],
 			}
 		)
@@ -129,12 +129,12 @@ def get_setup_complete_hooks(args):
 
 
 def handle_setup_exception(args):
-	frappe.db.rollback()
+	capkpi.db.rollback()
 	if args:
-		traceback = frappe.get_traceback()
+		traceback = capkpi.get_traceback()
 		print(traceback)
-		for hook in frappe.get_hooks("setup_wizard_exception"):
-			frappe.get_attr(hook)(traceback, args)
+		for hook in capkpi.get_hooks("setup_wizard_exception"):
+			capkpi.get_attr(hook)(traceback, args)
 
 
 def update_system_settings(args):
@@ -147,17 +147,17 @@ def update_system_settings(args):
 	elif number_format == "#,###":
 		number_format = "#,###.##"
 
-	system_settings = frappe.get_doc("System Settings", "System Settings")
+	system_settings = capkpi.get_doc("System Settings", "System Settings")
 	system_settings.update(
 		{
 			"country": args.get("country"),
 			"language": get_language_code(args.get("language")) or "en",
 			"time_zone": args.get("timezone"),
 			"float_precision": 3,
-			"date_format": frappe.db.get_value("Country", args.get("country"), "date_format"),
-			"time_format": frappe.db.get_value("Country", args.get("country"), "time_format"),
+			"date_format": capkpi.db.get_value("Country", args.get("country"), "date_format"),
+			"time_format": capkpi.db.get_value("Country", args.get("country"), "time_format"),
 			"number_format": number_format,
-			"enable_scheduler": 1 if not frappe.flags.in_test else 0,
+			"enable_scheduler": 1 if not capkpi.flags.in_test else 0,
 			"backup_limit": 3,  # Default for downloadable backups
 		}
 	)
@@ -170,14 +170,14 @@ def update_user_name(args):
 		first_name, last_name = first_name.split(" ", 1)
 
 	if args.get("email"):
-		if frappe.db.exists("User", args.get("email")):
+		if capkpi.db.exists("User", args.get("email")):
 			# running again
 			return
 
 		args["name"] = args.get("email")
 
-		_mute_emails, frappe.flags.mute_emails = frappe.flags.mute_emails, True
-		doc = frappe.get_doc(
+		_mute_emails, capkpi.flags.mute_emails = capkpi.flags.mute_emails, True
+		doc = capkpi.get_doc(
 			{
 				"doctype": "User",
 				"email": args.get("email"),
@@ -187,13 +187,13 @@ def update_user_name(args):
 		)
 		doc.flags.no_welcome_mail = True
 		doc.insert()
-		frappe.flags.mute_emails = _mute_emails
+		capkpi.flags.mute_emails = _mute_emails
 		update_password(args.get("email"), args.get("password"))
 
 	elif first_name:
-		args.update({"name": frappe.session.user, "first_name": first_name, "last_name": last_name})
+		args.update({"name": capkpi.session.user, "first_name": first_name, "last_name": last_name})
 
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""update `tabUser` SET first_name=%(first_name)s,
 			last_name=%(last_name)s WHERE name=%(name)s""",
 			args,
@@ -203,7 +203,7 @@ def update_user_name(args):
 		attach_user = args.get("attach_user").split(",")
 		if len(attach_user) == 3:
 			filename, filetype, content = attach_user
-			_file = frappe.get_doc(
+			_file = capkpi.get_doc(
 				{
 					"doctype": "File",
 					"file_name": filename,
@@ -215,7 +215,7 @@ def update_user_name(args):
 			)
 			_file.save()
 			fileurl = _file.file_url
-			frappe.db.set_value("User", args.get("name"), "user_image", fileurl)
+			capkpi.db.set_value("User", args.get("name"), "user_image", fileurl)
 
 	if args.get("name"):
 		add_all_roles_to(args.get("name"))
@@ -223,11 +223,11 @@ def update_user_name(args):
 
 def parse_args(args):
 	if not args:
-		args = frappe.local.form_dict
+		args = capkpi.local.form_dict
 	if isinstance(args, string_types):
 		args = json.loads(args)
 
-	args = frappe._dict(args)
+	args = capkpi._dict(args)
 
 	# strip the whitespace
 	for key, value in args.items():
@@ -238,8 +238,8 @@ def parse_args(args):
 
 
 def add_all_roles_to(name):
-	user = frappe.get_doc("User", name)
-	for role in frappe.db.sql("""select name from tabRole"""):
+	user = capkpi.get_doc("User", name)
+	for role in capkpi.db.sql("""select name from tabRole"""):
 		if role[0] not in [
 			"Administrator",
 			"Guest",
@@ -255,16 +255,16 @@ def add_all_roles_to(name):
 
 
 def disable_future_access():
-	frappe.db.set_default("desktop:home_page", "workspace")
-	frappe.db.set_value("System Settings", "System Settings", "setup_complete", 1)
-	frappe.db.set_value("System Settings", "System Settings", "is_first_startup", 1)
+	capkpi.db.set_default("desktop:home_page", "workspace")
+	capkpi.db.set_value("System Settings", "System Settings", "setup_complete", 1)
+	capkpi.db.set_value("System Settings", "System Settings", "is_first_startup", 1)
 
 	# Enable onboarding after install
-	frappe.db.set_value("System Settings", "System Settings", "enable_onboarding", 1)
+	capkpi.db.set_value("System Settings", "System Settings", "enable_onboarding", 1)
 
-	if not frappe.flags.in_test:
+	if not capkpi.flags.in_test:
 		# remove all roles and add 'Administrator' to prevent future access
-		page = frappe.get_doc("Page", "setup-wizard")
+		page = capkpi.get_doc("Page", "setup-wizard")
 		page.roles = []
 		page.append("roles", {"role": "Administrator"})
 		page.flags.do_not_update_json = True
@@ -272,59 +272,59 @@ def disable_future_access():
 		page.save()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def load_messages(language):
 	"""Load translation messages for given language from all `setup_wizard_requires`
 	javascript files"""
-	frappe.clear_cache()
+	capkpi.clear_cache()
 	set_default_language(get_language_code(language))
-	frappe.db.commit()
+	capkpi.db.commit()
 	m = get_dict("page", "setup-wizard")
 
-	for path in frappe.get_hooks("setup_wizard_requires"):
+	for path in capkpi.get_hooks("setup_wizard_requires"):
 		# common folder `assets` served from `sites/`
-		js_file_path = os.path.abspath(frappe.get_site_path("..", *path.strip("/").split("/")))
+		js_file_path = os.path.abspath(capkpi.get_site_path("..", *path.strip("/").split("/")))
 		m.update(get_dict("jsfile", js_file_path))
 
 	m.update(get_dict("boot"))
 	send_translations(m)
-	return frappe.local.lang
+	return capkpi.local.lang
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def load_languages():
-	language_codes = frappe.db.sql(
+	language_codes = capkpi.db.sql(
 		"select language_code, language_name from tabLanguage order by name", as_dict=True
 	)
 	codes_to_names = {}
 	for d in language_codes:
 		codes_to_names[d.language_code] = d.language_name
 	return {
-		"default_language": frappe.db.get_value("Language", frappe.local.lang, "language_name")
-		or frappe.local.lang,
-		"languages": sorted(frappe.db.sql_list("select language_name from tabLanguage order by name")),
+		"default_language": capkpi.db.get_value("Language", capkpi.local.lang, "language_name")
+		or capkpi.local.lang,
+		"languages": sorted(capkpi.db.sql_list("select language_name from tabLanguage order by name")),
 		"codes_to_names": codes_to_names,
 	}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def load_country():
-	from frappe.sessions import get_geo_ip_country
+	from capkpi.sessions import get_geo_ip_country
 
-	return get_geo_ip_country(frappe.local.request_ip) if frappe.local.request_ip else None
+	return get_geo_ip_country(capkpi.local.request_ip) if capkpi.local.request_ip else None
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def load_user_details():
 	return {
-		"full_name": frappe.cache().hget("full_name", "signup"),
-		"email": frappe.cache().hget("email", "signup"),
+		"full_name": capkpi.cache().hget("full_name", "signup"),
+		"email": capkpi.cache().hget("email", "signup"),
 	}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def reset_is_first_startup():
-	frappe.db.set_value("System Settings", "System Settings", "is_first_startup", 0)
+	capkpi.db.set_value("System Settings", "System Settings", "is_first_startup", 0)
 
 
 def prettify_args(args):
@@ -342,16 +342,16 @@ def prettify_args(args):
 
 
 def email_setup_wizard_exception(traceback, args):
-	if not frappe.local.conf.setup_wizard_exception_email:
+	if not capkpi.local.conf.setup_wizard_exception_email:
 		return
 
 	pretty_args = prettify_args(args)
 
-	if frappe.local.request:
-		user_agent = UserAgent(frappe.local.request.headers.get("User-Agent", ""))
+	if capkpi.local.request:
+		user_agent = UserAgent(capkpi.local.request.headers.get("User-Agent", ""))
 
 	else:
-		user_agent = frappe._dict()
+		user_agent = capkpi._dict()
 
 	message = """
 
@@ -379,19 +379,19 @@ def email_setup_wizard_exception(traceback, args):
 - **User:** {user}
 - **Browser:** {user_agent.platform} {user_agent.browser} version: {user_agent.version} language: {user_agent.language}
 - **Browser Languages**: `{accept_languages}`""".format(
-		site=frappe.local.site,
+		site=capkpi.local.site,
 		traceback=traceback,
 		args="\n".join(pretty_args),
-		user=frappe.session.user,
+		user=capkpi.session.user,
 		user_agent=user_agent,
-		headers=frappe.local.request.headers,
-		accept_languages=", ".join(frappe.local.request.accept_languages.values()),
+		headers=capkpi.local.request.headers,
+		accept_languages=", ".join(capkpi.local.request.accept_languages.values()),
 	)
 
-	frappe.sendmail(
-		recipients=frappe.local.conf.setup_wizard_exception_email,
-		sender=frappe.session.user,
-		subject="Setup failed: {}".format(frappe.local.site),
+	capkpi.sendmail(
+		recipients=capkpi.local.conf.setup_wizard_exception_email,
+		sender=capkpi.session.user,
+		subject="Setup failed: {}".format(capkpi.local.site),
 		message=message,
 		delayed=False,
 	)
@@ -404,18 +404,18 @@ def log_setup_wizard_exception(traceback, args):
 
 
 def get_language_code(lang):
-	return frappe.db.get_value("Language", {"language_name": lang})
+	return capkpi.db.get_value("Language", {"language_name": lang})
 
 
 def enable_twofactor_all_roles():
-	all_role = frappe.get_doc("Role", {"role_name": "All"})
+	all_role = capkpi.get_doc("Role", {"role_name": "All"})
 	all_role.two_factor_auth = True
 	all_role.save(ignore_permissions=True)
 
 
 def make_records(records, debug=False):
-	from frappe import _dict
-	from frappe.modules import scrub
+	from capkpi import _dict
+	from capkpi.modules import scrub
 
 	if debug:
 		print("make_records: in DEBUG mode")
@@ -429,7 +429,7 @@ def make_records(records, debug=False):
 		if condition and not condition():
 			continue
 
-		doc = frappe.new_doc(doctype)
+		doc = capkpi.new_doc(doctype)
 		doc.update(record)
 
 		# ignore mandatory for root
@@ -440,13 +440,13 @@ def make_records(records, debug=False):
 		try:
 			doc.insert(ignore_permissions=True)
 
-		except frappe.DuplicateEntryError as e:
+		except capkpi.DuplicateEntryError as e:
 			# print("Failed to insert duplicate {0} {1}".format(doctype, doc.name))
 
 			# pass DuplicateEntryError and continue
 			if e.args and e.args[0] == doc.doctype and e.args[1] == doc.name:
 				# make sure DuplicateEntryError is for the exact same doc and not a related doc
-				frappe.clear_messages()
+				capkpi.clear_messages()
 			else:
 				raise
 
@@ -464,4 +464,4 @@ def make_records(records, debug=False):
 
 def show_document_insert_error():
 	print("Document Insert Error")
-	print(frappe.get_traceback())
+	print(capkpi.get_traceback())

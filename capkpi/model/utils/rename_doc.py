@@ -1,7 +1,7 @@
 from itertools import product
 
-import frappe
-from frappe.model.rename_doc import get_link_fields
+import capkpi
+from capkpi.model.rename_doc import get_link_fields
 
 
 def update_linked_doctypes(doctype, docname, linked_to, value, ignore_doctypes=None):
@@ -13,7 +13,7 @@ def update_linked_doctypes(doctype, docname, linked_to, value, ignore_doctypes=N
 	linked_doctype_info_list = get_fetch_fields(doctype, linked_to, ignore_doctypes)
 
 	for d in linked_doctype_info_list:
-		frappe.db.set_value(
+		capkpi.db.set_value(
 			d.doctype,
 			{
 				d.master_fieldname: docname,
@@ -44,7 +44,7 @@ def get_fetch_fields(doctype, linked_to, ignore_doctypes=None):
 	product_list = product(master_list, linked_to_list)
 
 	for d in product_list:
-		linked_doctype_info = frappe._dict()
+		linked_doctype_info = capkpi._dict()
 		if (
 			d[0]["parent"] == d[1]["parent"]
 			and (not ignore_doctypes or d[0]["parent"] not in ignore_doctypes)

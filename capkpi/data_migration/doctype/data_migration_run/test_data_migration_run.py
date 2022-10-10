@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
+import capkpi
 
 
 class TestDataMigrationRun(unittest.TestCase):
@@ -13,19 +13,19 @@ class TestDataMigrationRun(unittest.TestCase):
 		create_plan()
 
 		description = "data migration todo"
-		new_todo = frappe.get_doc({"doctype": "ToDo", "description": description}).insert()
+		new_todo = capkpi.get_doc({"doctype": "ToDo", "description": description}).insert()
 
 		event_subject = "data migration event"
-		frappe.get_doc(
+		capkpi.get_doc(
 			dict(
 				doctype="Event",
 				subject=event_subject,
 				repeat_on="Monthly",
-				starts_on=frappe.utils.now_datetime(),
+				starts_on=capkpi.utils.now_datetime(),
 			)
 		).insert()
 
-		run = frappe.get_doc(
+		run = capkpi.get_doc(
 			{
 				"doctype": "Data Migration Run",
 				"data_migration_plan": "ToDo Sync",
@@ -39,27 +39,27 @@ class TestDataMigrationRun(unittest.TestCase):
 		self.assertEqual(run.db_get("push_insert"), 1)
 		self.assertEqual(run.db_get("pull_insert"), 1)
 
-		todo = frappe.get_doc("ToDo", new_todo.name)
+		todo = capkpi.get_doc("ToDo", new_todo.name)
 		self.assertTrue(todo.todo_sync_id)
 
 		# Pushed Event
-		event = frappe.get_doc("Event", todo.todo_sync_id)
+		event = capkpi.get_doc("Event", todo.todo_sync_id)
 		self.assertEqual(event.subject, description)
 
 		# Pulled ToDo
-		created_todo = frappe.get_doc("ToDo", {"description": event_subject})
+		created_todo = capkpi.get_doc("ToDo", {"description": event_subject})
 		self.assertEqual(created_todo.description, event_subject)
 
-		todo_list = frappe.get_list(
+		todo_list = capkpi.get_list(
 			"ToDo", filters={"description": "data migration todo"}, fields=["name"]
 		)
 		todo_name = todo_list[0].name
 
-		todo = frappe.get_doc("ToDo", todo_name)
+		todo = capkpi.get_doc("ToDo", todo_name)
 		todo.description = "data migration todo updated"
 		todo.save()
 
-		run = frappe.get_doc(
+		run = capkpi.get_doc(
 			{
 				"doctype": "Data Migration Run",
 				"data_migration_plan": "ToDo Sync",
@@ -75,7 +75,7 @@ class TestDataMigrationRun(unittest.TestCase):
 
 
 def create_plan():
-	frappe.get_doc(
+	capkpi.get_doc(
 		{
 			"doctype": "Data Migration Mapping",
 			"mapping_name": "Todo to Event",
@@ -87,14 +87,14 @@ def create_plan():
 				{"remote_fieldname": "subject", "local_fieldname": "description"},
 				{
 					"remote_fieldname": "starts_on",
-					"local_fieldname": "eval:frappe.utils.get_datetime_str(frappe.utils.get_datetime())",
+					"local_fieldname": "eval:capkpi.utils.get_datetime_str(capkpi.utils.get_datetime())",
 				},
 			],
 			"condition": '{"description": "data migration todo" }',
 		}
 	).insert(ignore_if_duplicate=True)
 
-	frappe.get_doc(
+	capkpi.get_doc(
 		{
 			"doctype": "Data Migration Mapping",
 			"mapping_name": "Event to ToDo",
@@ -108,7 +108,7 @@ def create_plan():
 		}
 	).insert(ignore_if_duplicate=True)
 
-	frappe.get_doc(
+	capkpi.get_doc(
 		{
 			"doctype": "Data Migration Plan",
 			"plan_name": "ToDo Sync",
@@ -117,14 +117,14 @@ def create_plan():
 		}
 	).insert(ignore_if_duplicate=True)
 
-	frappe.get_doc(
+	capkpi.get_doc(
 		{
 			"doctype": "Data Migration Connector",
 			"connector_name": "Local Connector",
 			"connector_type": "CapKPI",
 			# connect to same host.
-			"hostname": frappe.conf.host_name or frappe.utils.get_site_url(frappe.local.site),
+			"hostname": capkpi.conf.host_name or capkpi.utils.get_site_url(capkpi.local.site),
 			"username": "Administrator",
-			"password": frappe.conf.get("admin_password") or "admin",
+			"password": capkpi.conf.get("admin_password") or "admin",
 		}
 	).insert(ignore_if_duplicate=True)

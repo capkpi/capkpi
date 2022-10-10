@@ -1,8 +1,8 @@
-import frappe
-from frappe.desk.utils import slug
+import capkpi
+from capkpi.desk.utils import slug
 
 
 def execute():
-	for doctype in frappe.get_all("DocType", ["name", "route"], dict(istable=0)):
+	for doctype in capkpi.get_all("DocType", ["name", "route"], dict(istable=0)):
 		if not doctype.route:
-			frappe.db.set_value("DocType", doctype.name, "route", slug(doctype.name), update_modified=False)
+			capkpi.db.set_value("DocType", doctype.name, "route", slug(doctype.name), update_modified=False)

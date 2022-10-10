@@ -8,17 +8,17 @@ import shutil
 
 from six import integer_types, string_types
 
-import frappe
-import frappe.defaults
-import frappe.model.meta
-from frappe import _, get_module_path
-from frappe.desk.doctype.tag.tag import delete_tags_for_document
-from frappe.exceptions import FileNotFoundError
-from frappe.model.dynamic_links import get_dynamic_link_map
-from frappe.model.naming import revert_series_if_last
-from frappe.utils.file_manager import remove_all
-from frappe.utils.global_search import delete_for_document
-from frappe.utils.password import delete_all_passwords_for
+import capkpi
+import capkpi.defaults
+import capkpi.model.meta
+from capkpi import _, get_module_path
+from capkpi.desk.doctype.tag.tag import delete_tags_for_document
+from capkpi.exceptions import FileNotFoundError
+from capkpi.model.dynamic_links import get_dynamic_link_map
+from capkpi.model.naming import revert_series_if_last
+from capkpi.utils.file_manager import remove_all
+from capkpi.utils.global_search import delete_for_document
+from capkpi.utils.password import delete_all_passwords_for
 
 doctypes_to_skip = (
 	"Communication",
@@ -58,8 +58,8 @@ def delete_doc(
 
 	# get from form
 	if not doctype:
-		doctype = frappe.form_dict.get("dt")
-		name = frappe.form_dict.get("dn")
+		doctype = capkpi.form_dict.get("dt")
+		name = capkpi.form_dict.get("dn")
 
 	names = name
 	if isinstance(name, string_types) or isinstance(name, integer_types):
@@ -68,9 +68,9 @@ def delete_doc(
 	for name in names or []:
 
 		# already deleted..?
-		if not frappe.db.exists(doctype, name):
+		if not capkpi.db.exists(doctype, name):
 			if not ignore_missing:
-				raise frappe.DoesNotExistError
+				raise capkpi.DoesNotExistError
 			else:
 				return False
 
@@ -82,32 +82,32 @@ def delete_doc(
 			if for_reload:
 
 				try:
-					doc = frappe.get_doc(doctype, name)
-				except frappe.DoesNotExistError:
+					doc = capkpi.get_doc(doctype, name)
+				except capkpi.DoesNotExistError:
 					pass
 				else:
 					doc.run_method("before_reload")
 
 			else:
-				doc = frappe.get_doc(doctype, name)
+				doc = capkpi.get_doc(doctype, name)
 
 				update_flags(doc, flags, ignore_permissions)
 				check_permission_and_not_submitted(doc)
 
-				frappe.db.sql("delete from `tabCustom Field` where dt = %s", name)
-				frappe.db.sql("delete from `tabClient Script` where dt = %s", name)
-				frappe.db.sql("delete from `tabProperty Setter` where doc_type = %s", name)
-				frappe.db.sql("delete from `tabReport` where ref_doctype=%s", name)
-				frappe.db.sql("delete from `tabCustom DocPerm` where parent=%s", name)
-				frappe.db.sql("delete from `__global_search` where doctype=%s", name)
+				capkpi.db.sql("delete from `tabCustom Field` where dt = %s", name)
+				capkpi.db.sql("delete from `tabClient Script` where dt = %s", name)
+				capkpi.db.sql("delete from `tabProperty Setter` where doc_type = %s", name)
+				capkpi.db.sql("delete from `tabReport` where ref_doctype=%s", name)
+				capkpi.db.sql("delete from `tabCustom DocPerm` where parent=%s", name)
+				capkpi.db.sql("delete from `__global_search` where doctype=%s", name)
 
 			delete_from_table(doctype, name, ignore_doctypes, None)
 
 			if (
-				frappe.conf.developer_mode
+				capkpi.conf.developer_mode
 				and not doc.custom
 				and not (
-					for_reload or frappe.flags.in_migrate or frappe.flags.in_install or frappe.flags.in_uninstall
+					for_reload or capkpi.flags.in_migrate or capkpi.flags.in_install or capkpi.flags.in_uninstall
 				)
 			):
 				try:
@@ -117,7 +117,7 @@ def delete_doc(
 					pass
 
 		else:
-			doc = frappe.get_doc(doctype, name)
+			doc = capkpi.get_doc(doctype, name)
 
 			if not for_reload:
 				update_flags(doc, flags, ignore_permissions)
@@ -143,11 +143,11 @@ def delete_doc(
 			if not for_reload:
 				# Enqueued at the end, because it gets committed
 				# All the linked docs should be checked beforehand
-				frappe.enqueue(
-					"frappe.model.delete_doc.delete_dynamic_links",
+				capkpi.enqueue(
+					"capkpi.model.delete_doc.delete_dynamic_links",
 					doctype=doc.doctype,
 					name=doc.name,
-					now=frappe.flags.in_test,
+					now=capkpi.flags.in_test,
 				)
 
 		# delete global search entry
@@ -162,7 +162,7 @@ def delete_doc(
 			add_to_deleted_document(doc)
 
 		if doc and not for_reload:
-			if not frappe.flags.in_patch:
+			if not capkpi.flags.in_patch:
 				try:
 					doc.notify_update()
 					insert_feed(doc)
@@ -170,19 +170,19 @@ def delete_doc(
 					pass
 
 			# delete user_permissions
-			frappe.defaults.clear_default(parenttype="User Permission", key=doctype, value=name)
+			capkpi.defaults.clear_default(parenttype="User Permission", key=doctype, value=name)
 
 
 def add_to_deleted_document(doc):
 	"""Add this document to Deleted Document table. Called after delete"""
-	if doc.doctype != "Deleted Document" and frappe.flags.in_install != "frappe":
-		frappe.get_doc(
+	if doc.doctype != "Deleted Document" and capkpi.flags.in_install != "capkpi":
+		capkpi.get_doc(
 			dict(
 				doctype="Deleted Document",
 				deleted_doctype=doc.doctype,
 				deleted_name=doc.name,
 				data=doc.as_json(),
-				owner=frappe.session.user,
+				owner=capkpi.session.user,
 			)
 		).db_insert()
 
@@ -198,9 +198,9 @@ def update_naming_series(doc):
 
 def delete_from_table(doctype, name, ignore_doctypes, doc):
 	if doctype != "DocType" and doctype == name:
-		frappe.db.sql("delete from `tabSingles` where `doctype`=%s", name)
+		capkpi.db.sql("delete from `tabSingles` where `doctype`=%s", name)
 	else:
-		frappe.db.sql("delete from `tab{0}` where `name`=%s".format(doctype), name)
+		capkpi.db.sql("delete from `tab{0}` where `name`=%s".format(doctype), name)
 
 	# get child tables
 	if doc:
@@ -214,22 +214,22 @@ def delete_from_table(doctype, name, ignore_doctypes, doc):
 
 			return [
 				r[0]
-				for r in frappe.get_all(
+				for r in capkpi.get_all(
 					field_doctype,
 					fields="options",
-					filters={"fieldtype": ["in", frappe.model.table_fields], "parent": doctype},
+					filters={"fieldtype": ["in", capkpi.model.table_fields], "parent": doctype},
 					as_list=1,
 				)
 			]
 
 		tables = get_table_fields("DocField")
-		if not frappe.flags.in_install == "frappe":
+		if not capkpi.flags.in_install == "capkpi":
 			tables += get_table_fields("Custom Field")
 
 	# delete from child tables
 	for t in list(set(tables)):
 		if t not in ignore_doctypes:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"delete from `tab%s` where parenttype=%s and parent = %s" % (t, "%s", "%s"), (doctype, name)
 			)
 
@@ -248,17 +248,17 @@ def check_permission_and_not_submitted(doc):
 	# permission
 	if (
 		not doc.flags.ignore_permissions
-		and frappe.session.user != "Administrator"
+		and capkpi.session.user != "Administrator"
 		and (not doc.has_permission("delete") or (doc.doctype == "DocType" and not doc.custom))
 	):
-		frappe.msgprint(
+		capkpi.msgprint(
 			_("User not allowed to delete {0}: {1}").format(doc.doctype, doc.name),
-			raise_exception=frappe.PermissionError,
+			raise_exception=capkpi.PermissionError,
 		)
 
 	# check if submitted
 	if doc.docstatus == 1:
-		frappe.msgprint(
+		capkpi.msgprint(
 			_("{0} {1}: Submitted Record cannot be deleted. You must {2} Cancel {3} it first.").format(
 				_(doc.doctype),
 				doc.name,
@@ -273,14 +273,14 @@ def check_if_doc_is_linked(doc, method="Delete"):
 	"""
 	Raises excption if the given doc(dt, dn) is linked in another record.
 	"""
-	from frappe.model.rename_doc import get_link_fields
+	from capkpi.model.rename_doc import get_link_fields
 
 	link_fields = get_link_fields(doc.doctype)
 	link_fields = [[lf["parent"], lf["fieldname"], lf["issingle"]] for lf in link_fields]
 
 	for link_dt, link_field, issingle in link_fields:
 		if not issingle:
-			for item in frappe.db.get_values(
+			for item in capkpi.db.get_values(
 				link_dt, {link_field: doc.name}, ["name", "parent", "parenttype", "docstatus"], as_dict=True
 			):
 				linked_doctype = item.parenttype if item.parent else link_dt
@@ -308,12 +308,12 @@ def check_if_doc_is_linked(doc, method="Delete"):
 					raise_link_exists_exception(doc, linked_doctype, reference_docname)
 
 		else:
-			if frappe.db.get_value(link_dt, None, link_field) == doc.name:
+			if capkpi.db.get_value(link_dt, None, link_field) == doc.name:
 				raise_link_exists_exception(doc, link_dt, link_dt)
 
 
 def check_if_doc_is_dynamically_linked(doc, method="Delete"):
-	"""Raise `frappe.LinkExistsError` if the document is dynamically linked"""
+	"""Raise `capkpi.LinkExistsError` if the document is dynamically linked"""
 	for df in get_dynamic_link_map().get(doc.doctype, []):
 
 		ignore_linked_doctypes = doc.get("ignore_linked_doctypes") or []
@@ -322,10 +322,10 @@ def check_if_doc_is_dynamically_linked(doc, method="Delete"):
 			# don't check for communication and todo!
 			continue
 
-		meta = frappe.get_meta(df.parent)
+		meta = capkpi.get_meta(df.parent)
 		if meta.issingle:
 			# dynamic link in single doc
-			refdoc = frappe.db.get_singles_dict(df.parent)
+			refdoc = capkpi.db.get_singles_dict(df.parent)
 			if (
 				refdoc.get(df.options) == doc.doctype
 				and refdoc.get(df.fieldname) == doc.name
@@ -341,7 +341,7 @@ def check_if_doc_is_dynamically_linked(doc, method="Delete"):
 		else:
 			# dynamic link in table
 			df["table"] = ", `parent`, `parenttype`, `idx`" if meta.istable else ""
-			for refdoc in frappe.db.sql(
+			for refdoc in capkpi.db.sql(
 				"""select `name`, `docstatus` {table} from `tab{parent}` where
 				{options}=%s and {fieldname}=%s""".format(
 					**df
@@ -374,11 +374,11 @@ def raise_link_exists_exception(doc, reference_doctype, reference_docname, row="
 	if reference_doctype == reference_docname:
 		reference_doctype = ""
 
-	frappe.throw(
+	capkpi.throw(
 		_("Cannot delete or cancel because {0} {1} is linked with {2} {3} {4}").format(
 			doc.doctype, doc_link, reference_doctype, reference_link, row
 		),
-		frappe.LinkExistsError,
+		capkpi.LinkExistsError,
 	)
 
 
@@ -407,7 +407,7 @@ def delete_references(
 	reference_doctype_field="reference_doctype",
 	reference_name_field="reference_name",
 ):
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""delete from `tab{0}`
 		where {1}=%s and {2}=%s""".format(
 			doctype, reference_doctype_field, reference_name_field
@@ -423,7 +423,7 @@ def clear_references(
 	reference_doctype_field="reference_doctype",
 	reference_name_field="reference_name",
 ):
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""update
 			`tab{0}`
 		set
@@ -437,7 +437,7 @@ def clear_references(
 
 
 def clear_timeline_references(link_doctype, link_name):
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""DELETE FROM `tabCommunication Link`
 		WHERE `tabCommunication Link`.link_doctype=%s AND `tabCommunication Link`.link_name=%s""",
 		(link_doctype, link_name),
@@ -446,16 +446,16 @@ def clear_timeline_references(link_doctype, link_name):
 
 def insert_feed(doc):
 	if (
-		frappe.flags.in_install
-		or frappe.flags.in_uninstall
-		or frappe.flags.in_import
+		capkpi.flags.in_install
+		or capkpi.flags.in_uninstall
+		or capkpi.flags.in_import
 		or getattr(doc, "no_feed_on_delete", False)
 	):
 		return
 
-	from frappe.utils import get_fullname
+	from capkpi.utils import get_fullname
 
-	frappe.get_doc(
+	capkpi.get_doc(
 		{
 			"doctype": "Comment",
 			"comment_type": "Deleted",
@@ -471,6 +471,6 @@ def delete_controllers(doctype, module):
 	Delete controller code in the doctype folder
 	"""
 	module_path = get_module_path(module)
-	dir_path = os.path.join(module_path, "doctype", frappe.scrub(doctype))
+	dir_path = os.path.join(module_path, "doctype", capkpi.scrub(doctype))
 
 	shutil.rmtree(dir_path)

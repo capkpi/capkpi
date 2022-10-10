@@ -1,7 +1,7 @@
-import frappe
+import capkpi
 
 
 def execute():
 
-	frappe.db.sql("UPDATE `tabTag Link` SET parenttype=document_type")
-	frappe.db.sql("UPDATE `tabTag Link` SET parent=document_name")
+	capkpi.db.sql("UPDATE `tabTag Link` SET parenttype=document_type")
+	capkpi.db.sql("UPDATE `tabTag Link` SET parent=document_name")

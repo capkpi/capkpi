@@ -1,10 +1,10 @@
-import frappe
+import capkpi
 
 
 def execute():
-	for web_form_name in frappe.db.get_all("Web Form", pluck="name"):
-		web_form = frappe.get_doc("Web Form", web_form_name)
-		doctype_layout = frappe.get_doc(
+	for web_form_name in capkpi.db.get_all("Web Form", pluck="name"):
+		web_form = capkpi.get_doc("Web Form", web_form_name)
+		doctype_layout = capkpi.get_doc(
 			dict(
 				doctype="DocType Layout",
 				document_type=web_form.doc_type,

@@ -7,20 +7,20 @@ import json
 
 from six import string_types
 
-import frappe
-from frappe.desk.doctype.notification_settings.notification_settings import (
+import capkpi
+from capkpi.desk.doctype.notification_settings.notification_settings import (
 	get_subscribed_documents,
 )
 
 
-@frappe.whitelist()
-@frappe.read_only()
+@capkpi.whitelist()
+@capkpi.read_only()
 def get_notifications():
 	out = {
 		"open_count_doctype": {},
 		"targets": {},
 	}
-	if frappe.flags.in_install or not frappe.db.get_single_value("System Settings", "setup_complete"):
+	if capkpi.flags.in_install or not capkpi.db.get_single_value("System Settings", "setup_complete"):
 		return out
 
 	config = get_notification_config()
@@ -29,13 +29,13 @@ def get_notifications():
 		return out
 
 	groups = list(config.get("for_doctype")) + list(config.get("for_module"))
-	cache = frappe.cache()
+	cache = capkpi.cache()
 
 	notification_count = {}
 	notification_percent = {}
 
 	for name in groups:
-		count = cache.hget("notification_count:" + name, frappe.session.user)
+		count = cache.hget("notification_count:" + name, capkpi.session.user)
 		if count is not None:
 			notification_count[name] = count
 
@@ -47,7 +47,7 @@ def get_notifications():
 
 def get_notifications_for_doctypes(config, notification_count):
 	"""Notifications for DocTypes"""
-	can_read = frappe.get_user().get_can_read()
+	can_read = capkpi.get_user().get_can_read()
 	open_count_doctype = {}
 
 	for d in config.for_doctype:
@@ -59,16 +59,16 @@ def get_notifications_for_doctypes(config, notification_count):
 			else:
 				try:
 					if isinstance(condition, dict):
-						result = frappe.get_list(
+						result = capkpi.get_list(
 							d, fields=["count(*) as count"], filters=condition, ignore_ifnull=True
 						)[0].count
 					else:
-						result = frappe.get_attr(condition)()
+						result = capkpi.get_attr(condition)()
 
-				except frappe.PermissionError:
-					frappe.clear_messages()
+				except capkpi.PermissionError:
+					capkpi.clear_messages()
 					pass
-					# frappe.msgprint("Permission Error in notifications for {0}".format(d))
+					# capkpi.msgprint("Permission Error in notifications for {0}".format(d))
 
 				except Exception as e:
 					# OperationalError: (1412, 'Table definition has changed, please retry transaction')
@@ -78,14 +78,14 @@ def get_notifications_for_doctypes(config, notification_count):
 
 				else:
 					open_count_doctype[d] = result
-					frappe.cache().hset("notification_count:" + d, frappe.session.user, result)
+					capkpi.cache().hset("notification_count:" + d, capkpi.session.user, result)
 
 	return open_count_doctype
 
 
 def get_notifications_for_targets(config, notification_percent):
 	"""Notifications for doc targets"""
-	can_read = frappe.get_user().get_can_read()
+	can_read = capkpi.get_user().get_can_read()
 	doc_target_percents = {}
 
 	# doc_target_percents = {
@@ -107,7 +107,7 @@ def get_notifications_for_targets(config, notification_percent):
 				value_field = d["value_field"]
 				try:
 					if isinstance(condition, dict):
-						doc_list = frappe.get_list(
+						doc_list = capkpi.get_list(
 							doctype,
 							fields=["name", target_field, value_field],
 							filters=condition,
@@ -115,8 +115,8 @@ def get_notifications_for_targets(config, notification_percent):
 							ignore_ifnull=True,
 						)
 
-				except frappe.PermissionError:
-					frappe.clear_messages()
+				except capkpi.PermissionError:
+					capkpi.clear_messages()
 					pass
 				except Exception as e:
 					if e.args[0] not in (1412, 1684):
@@ -132,9 +132,9 @@ def get_notifications_for_targets(config, notification_percent):
 
 
 def clear_notifications(user=None):
-	if frappe.flags.in_install:
+	if capkpi.flags.in_install:
 		return
-	cache = frappe.cache()
+	cache = capkpi.cache()
 	config = get_notification_config()
 
 	if not config:
@@ -150,16 +150,16 @@ def clear_notifications(user=None):
 		else:
 			cache.delete_key("notification_count:" + name)
 
-	frappe.publish_realtime("clear_notifications")
+	capkpi.publish_realtime("clear_notifications")
 
 
 def clear_notification_config(user):
-	frappe.cache().hdel("notification_config", user)
+	capkpi.cache().hdel("notification_config", user)
 
 
 def delete_notification_count_for(doctype):
-	frappe.cache().delete_key("notification_count:" + doctype)
-	frappe.publish_realtime("clear_notifications")
+	capkpi.cache().delete_key("notification_count:" + doctype)
+	capkpi.publish_realtime("clear_notifications")
 
 
 def clear_doctype_notifications(doc, method=None, *args, **kwargs):
@@ -176,14 +176,14 @@ def clear_doctype_notifications(doc, method=None, *args, **kwargs):
 		return
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_notification_info():
 	config = get_notification_config()
 	out = get_notifications()
-	can_read = frappe.get_user().get_can_read()
+	can_read = capkpi.get_user().get_can_read()
 	conditions = {}
 	module_doctypes = {}
-	doctype_info = dict(frappe.db.sql("""select name, module from tabDocType"""))
+	doctype_info = dict(capkpi.db.sql("""select name, module from tabDocType"""))
 
 	for d in list(set(can_read + list(config.for_doctype))):
 		if d in config.for_doctype:
@@ -203,21 +203,21 @@ def get_notification_info():
 
 
 def get_notification_config():
-	user = frappe.session.user or "Guest"
+	user = capkpi.session.user or "Guest"
 
 	def _get():
 		subscribed_documents = get_subscribed_documents()
-		config = frappe._dict()
-		hooks = frappe.get_hooks()
+		config = capkpi._dict()
+		hooks = capkpi.get_hooks()
 		if hooks:
 			for notification_config in hooks.notification_config:
-				nc = frappe.get_attr(notification_config)()
+				nc = capkpi.get_attr(notification_config)()
 				for key in ("for_doctype", "for_module", "for_other", "targets"):
 					config.setdefault(key, {})
 					if key == "for_doctype":
 						if len(subscribed_documents) > 0:
 							key_config = nc.get(key, {})
-							subscribed_docs_config = frappe._dict()
+							subscribed_docs_config = capkpi._dict()
 							for document in subscribed_documents:
 								if key_config.get(document):
 									subscribed_docs_config[document] = key_config.get(document)
@@ -228,7 +228,7 @@ def get_notification_config():
 						config[key].update(nc.get(key, {}))
 		return config
 
-	return frappe.cache().hget("notification_config", user, _get)
+	return capkpi.cache().hget("notification_config", user, _get)
 
 
 def get_filters_for(doctype):
@@ -240,8 +240,8 @@ def get_filters_for(doctype):
 	return filters
 
 
-@frappe.whitelist()
-@frappe.read_only()
+@capkpi.whitelist()
+@capkpi.read_only()
 def get_open_count(doctype, name, items=None):
 	"""Get open count for given transactions and filters
 
@@ -250,10 +250,10 @@ def get_open_count(doctype, name, items=None):
 	:param transactions: List of transactions (json/dict)
 	:param filters: optional filters (json/list)"""
 
-	if frappe.flags.in_migrate or frappe.flags.in_install:
+	if capkpi.flags.in_migrate or capkpi.flags.in_install:
 		return {"count": []}
 
-	doc = frappe.get_doc(doctype, name)
+	doc = capkpi.get_doc(doctype, name)
 	doc.check_permission()
 	meta = doc.meta
 	links = meta.get_dashboard_data()
@@ -280,12 +280,12 @@ def get_open_count(doctype, name, items=None):
 			# we only need open documents related to the current document
 			filters[fieldname] = name
 			total = len(
-				frappe.get_all(d, fields="name", filters=filters, limit=100, distinct=True, ignore_ifnull=True)
+				capkpi.get_all(d, fields="name", filters=filters, limit=100, distinct=True, ignore_ifnull=True)
 			)
 			data["open_count"] = total
 
 		total = len(
-			frappe.get_all(
+			capkpi.get_all(
 				d, fields="name", filters={fieldname: name}, limit=100, distinct=True, ignore_ifnull=True
 			)
 		)
@@ -297,7 +297,7 @@ def get_open_count(doctype, name, items=None):
 	}
 
 	if not meta.custom:
-		module = frappe.get_meta_module(doctype)
+		module = capkpi.get_meta_module(doctype)
 		if hasattr(module, "get_timeline_data"):
 			out["timeline_data"] = module.get_timeline_data(doctype, name)
 

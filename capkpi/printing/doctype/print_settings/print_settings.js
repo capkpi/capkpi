@@ -1,9 +1,9 @@
 // Copyright (c) 2018, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Print Settings', {
+capkpi.ui.form.on('Print Settings', {
 	print_style: function(frm) {
-		frappe.db.get_value('Print Style', frm.doc.print_style, 'preview').then((r) => {
+		capkpi.db.get_value('Print Style', frm.doc.print_style, 'preview').then((r) => {
 			if(r.message.preview) {
 				frm.get_field("print_style_preview").$wrapper.html(
 					`<img src="${r.message.preview}" class="img-responsive">`);

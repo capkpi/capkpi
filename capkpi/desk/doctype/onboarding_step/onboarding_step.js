@@ -1,9 +1,9 @@
 // Copyright (c) 2020, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Onboarding Step", {
+capkpi.ui.form.on("Onboarding Step", {
 	refresh: function(frm) {
-		frappe.boot.developer_mode &&
+		capkpi.boot.developer_mode &&
 			frm.set_intro(
 				__(
 					"To export this step as JSON, link it in a Onboarding document and save the document."
@@ -14,7 +14,7 @@ frappe.ui.form.on("Onboarding Step", {
 			setup_fields(frm);
 		}
 
-		if (!frappe.boot.developer_mode) {
+		if (!capkpi.boot.developer_mode) {
 			frm.trigger("disable_form");
 		}
 	},
@@ -29,7 +29,7 @@ frappe.ui.form.on("Onboarding Step", {
 		if (frm.doc.action == "Show Form Tour") {
 			frm.fields_dict.reference_document.set_description(`You need to add the steps in the contoller JS file. For example: <code>note.js</code>
 <pre class="small text-muted"><code>
-frappe.tour['Note'] = [
+capkpi.tour['Note'] = [
 	{
 		fieldname: "title",
 		title: "Title of the Note",
@@ -56,8 +56,8 @@ frappe.tour['Note'] = [
 
 function setup_fields(frm) {
 	if (frm.doc.reference_document && frm.doc.action == "Update Settings") {
-		frappe.model.with_doctype(frm.doc.reference_document, () => {
-			let fields = frappe
+		capkpi.model.with_doctype(frm.doc.reference_document, () => {
+			let fields = capkpi
 				.get_meta(frm.doc.reference_document)
 				.fields.filter((df) => {
 					return ["Data", "Check", "Int", "Link", "Select"].includes(

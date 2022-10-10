@@ -5,22 +5,22 @@ from __future__ import unicode_literals
 
 from itertools import groupby
 
-import frappe
-import frappe.utils
-from frappe import _
-from frappe.model import log_types
-from frappe.utils import get_url_to_form
+import capkpi
+import capkpi.utils
+from capkpi import _
+from capkpi.model import log_types
+from capkpi.utils import get_url_to_form
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def update_follow(doctype, doc_name, following):
 	if following:
-		return follow_document(doctype, doc_name, frappe.session.user)
+		return follow_document(doctype, doc_name, capkpi.session.user)
 	else:
-		return unfollow_document(doctype, doc_name, frappe.session.user)
+		return unfollow_document(doctype, doc_name, capkpi.session.user)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def follow_document(doctype, doc_name, user):
 	"""
 	param:
@@ -47,29 +47,29 @@ def follow_document(doctype, doc_name, user):
 	):
 		return
 
-	if (not frappe.get_meta(doctype).track_changes) or user == "Administrator":
+	if (not capkpi.get_meta(doctype).track_changes) or user == "Administrator":
 		return
 
-	if not frappe.db.get_value("User", user, "document_follow_notify", ignore=True, cache=True):
+	if not capkpi.db.get_value("User", user, "document_follow_notify", ignore=True, cache=True):
 		return
 
 	if not is_document_followed(doctype, doc_name, user):
-		doc = frappe.new_doc("Document Follow")
+		doc = capkpi.new_doc("Document Follow")
 		doc.update({"ref_doctype": doctype, "ref_docname": doc_name, "user": user})
 		doc.save()
 		return doc
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def unfollow_document(doctype, doc_name, user):
-	doc = frappe.get_all(
+	doc = capkpi.get_all(
 		"Document Follow",
 		filters={"ref_doctype": doctype, "ref_docname": doc_name, "user": user},
 		fields=["name"],
 		limit=1,
 	)
 	if doc:
-		frappe.delete_doc("Document Follow", doc[0].name)
+		capkpi.delete_doc("Document Follow", doc[0].name)
 		return 1
 	return 0
 
@@ -83,7 +83,7 @@ def get_message(doc_name, doctype, frequency, user):
 
 def send_email_alert(receiver, docinfo, timeline):
 	if receiver:
-		frappe.sendmail(
+		capkpi.sendmail(
 			subject=_("Document Follow Notification"),
 			recipients=[receiver],
 			template="document_follow",
@@ -106,7 +106,7 @@ def send_document_follow_mails(frequency):
 	call method to send mail
 	"""
 
-	users = frappe.get_list("Document Follow", fields=["*"])
+	users = capkpi.get_list("Document Follow", fields=["*"])
 
 	sorted_users = sorted(users, key=lambda k: k["user"])
 
@@ -115,7 +115,7 @@ def send_document_follow_mails(frequency):
 		grouped_by_user[k] = list(v)
 
 	for user in grouped_by_user:
-		user_frequency = frappe.db.get_value("User", user, "document_follow_frequency")
+		user_frequency = capkpi.db.get_value("User", user, "document_follow_frequency")
 		message = []
 		valid_document_follows = []
 		if user_frequency == frequency:
@@ -131,13 +131,13 @@ def send_document_follow_mails(frequency):
 						}
 					)
 
-			if message and frappe.db.get_value("User", user, "document_follow_notify", ignore=True):
+			if message and capkpi.db.get_value("User", user, "document_follow_notify", ignore=True):
 				send_email_alert(user, valid_document_follows, message)
 
 
 def get_version(doctype, doc_name, frequency, user):
 	timeline = []
-	version = frappe.get_all(
+	version = capkpi.get_all(
 		"Version",
 		filters=[
 			["ref_doctype", "=", doctype],
@@ -148,8 +148,8 @@ def get_version(doctype, doc_name, frequency, user):
 	)
 	if version:
 		for v in version:
-			change = frappe.parse_json(v.data)
-			time = frappe.utils.format_datetime(v.modified, "hh:mm a")
+			change = capkpi.parse_json(v.data)
+			time = capkpi.utils.format_datetime(v.modified, "hh:mm a")
 			timeline_items = []
 			if change.changed:
 				timeline_items = get_field_changed(change.changed, time, doctype, doc_name, v)
@@ -167,7 +167,7 @@ def get_comments(doctype, doc_name, frequency, user):
 	from html2text import html2text
 
 	timeline = []
-	comments = frappe.get_all(
+	comments = capkpi.get_all(
 		"Comment",
 		filters=[
 			["reference_doctype", "=", doctype],
@@ -184,7 +184,7 @@ def get_comments(doctype, doc_name, frequency, user):
 		else:
 			by = ""
 
-		time = frappe.utils.format_datetime(comment.modified, "hh:mm a")
+		time = capkpi.utils.format_datetime(comment.modified, "hh:mm a")
 		timeline.append(
 			{
 				"time": comment.modified,
@@ -198,14 +198,14 @@ def get_comments(doctype, doc_name, frequency, user):
 
 
 def is_document_followed(doctype, doc_name, user):
-	return frappe.db.exists(
+	return capkpi.db.exists(
 		"Document Follow", {"ref_doctype": doctype, "ref_docname": doc_name, "user": user}
 	)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_follow_users(doctype, doc_name):
-	return frappe.get_all(
+	return capkpi.get_all(
 		"Document Follow", filters={"ref_doctype": doctype, "ref_docname": doc_name}, fields=["user"]
 	)
 
@@ -299,20 +299,20 @@ def _get_filters(frequency, user):
 
 	if frequency == "Weekly":
 		filters += [
-			["modified", ">", frappe.utils.add_days(frappe.utils.nowdate(), -7)],
-			["modified", "<", frappe.utils.nowdate()],
+			["modified", ">", capkpi.utils.add_days(capkpi.utils.nowdate(), -7)],
+			["modified", "<", capkpi.utils.nowdate()],
 		]
 
 	elif frequency == "Daily":
 		filters += [
-			["modified", ">", frappe.utils.add_days(frappe.utils.nowdate(), -1)],
-			["modified", "<", frappe.utils.nowdate()],
+			["modified", ">", capkpi.utils.add_days(capkpi.utils.nowdate(), -1)],
+			["modified", "<", capkpi.utils.nowdate()],
 		]
 
 	elif frequency == "Hourly":
 		filters += [
-			["modified", ">", frappe.utils.add_to_date(frappe.utils.now_datetime(), hours=-1)],
-			["modified", "<", frappe.utils.now_datetime()],
+			["modified", ">", capkpi.utils.add_to_date(capkpi.utils.now_datetime(), hours=-1)],
+			["modified", "<", capkpi.utils.now_datetime()],
 		]
 
 	return filters

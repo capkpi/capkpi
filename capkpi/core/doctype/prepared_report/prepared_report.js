@@ -1,7 +1,7 @@
 // Copyright (c) 2018, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Prepared Report', {
+capkpi.ui.form.on('Prepared Report', {
 	onload: function(frm) {
 		var wrapper = $(frm.fields_dict["filter_values"].wrapper).empty();
 
@@ -19,7 +19,7 @@ frappe.ui.form.on('Prepared Report', {
 
 		Object.keys(filters).forEach(key => {
 			const filter_row = $(`<tr>
-				<td>${frappe.model.unscrub(key)}</td>
+				<td>${capkpi.model.unscrub(key)}</td>
 				<td>${filters[key]}</td>
 			</tr>`);
 			filter_table.find('tbody').append(filter_row);
@@ -32,10 +32,10 @@ frappe.ui.form.on('Prepared Report', {
 		frm.disable_save();
 		if (frm.doc.status == 'Completed') {
 			frm.page.set_primary_action(__("Show Report"), () => {
-				frappe.set_route(
+				capkpi.set_route(
 					"query-report",
 					frm.doc.report_name,
-					frappe.utils.make_query_string({
+					capkpi.utils.make_query_string({
 						prepared_report_name: frm.doc.name
 					})
 				);

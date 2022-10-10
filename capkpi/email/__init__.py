@@ -3,15 +3,15 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.desk.reportview import build_match_conditions
+import capkpi
+from capkpi.desk.reportview import build_match_conditions
 
 
 def sendmail_to_system_managers(subject, content):
-	frappe.sendmail(recipients=get_system_managers(), subject=subject, content=content)
+	capkpi.sendmail(recipients=get_system_managers(), subject=subject, content=content)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_contact_list(txt, page_length=20):
 	"""Returns contacts (from autosuggest)"""
 
@@ -22,7 +22,7 @@ def get_contact_list(txt, page_length=20):
 	match_conditions = build_match_conditions("Contact")
 	match_conditions = "and {0}".format(match_conditions) if match_conditions else ""
 
-	out = frappe.db.sql(
+	out = capkpi.db.sql(
 		"""select email_id as value,
 		concat(first_name, ifnull(concat(' ',last_name), '' )) as description
 		from tabContact
@@ -40,7 +40,7 @@ def get_contact_list(txt, page_length=20):
 
 
 def get_system_managers():
-	return frappe.db.sql_list(
+	return capkpi.db.sql_list(
 		"""select parent FROM `tabHas Role`
 		WHERE role='System Manager'
 		AND parent!='Administrator'
@@ -48,9 +48,9 @@ def get_system_managers():
 	)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def relink(name, reference_doctype=None, reference_name=None):
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""update
 			`tabCommunication`
 		set
@@ -64,18 +64,18 @@ def relink(name, reference_doctype=None, reference_name=None):
 	)
 
 
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
+@capkpi.whitelist()
+@capkpi.validate_and_sanitize_search_inputs
 def get_communication_doctype(doctype, txt, searchfield, start, page_len, filters):
-	user_perms = frappe.utils.user.UserPermissions(frappe.session.user)
+	user_perms = capkpi.utils.user.UserPermissions(capkpi.session.user)
 	user_perms.build_permissions()
 	can_read = user_perms.can_read
-	from frappe.modules import load_doctype_module
+	from capkpi.modules import load_doctype_module
 
 	com_doctypes = []
 	if len(txt) < 2:
 
-		for name in frappe.get_hooks("communication_doctypes"):
+		for name in capkpi.get_hooks("communication_doctypes"):
 			try:
 				module = load_doctype_module(name, suffix="_dashboard")
 				if hasattr(module, "get_data"):
@@ -85,7 +85,7 @@ def get_communication_doctype(doctype, txt, searchfield, start, page_len, filter
 				pass
 	else:
 		com_doctypes = [
-			d[0] for d in frappe.db.get_values("DocType", {"issingle": 0, "istable": 0, "hide_toolbar": 0})
+			d[0] for d in capkpi.db.get_values("DocType", {"issingle": 0, "istable": 0, "hide_toolbar": 0})
 		]
 
 	out = []
@@ -96,7 +96,7 @@ def get_communication_doctype(doctype, txt, searchfield, start, page_len, filter
 
 
 def get_cached_contacts(txt):
-	contacts = frappe.cache().hget("contacts", frappe.session.user) or []
+	contacts = capkpi.cache().hget("contacts", capkpi.session.user) or []
 
 	if not contacts:
 		return
@@ -113,9 +113,9 @@ def get_cached_contacts(txt):
 
 
 def update_contact_cache(contacts):
-	cached_contacts = frappe.cache().hget("contacts", frappe.session.user) or []
+	cached_contacts = capkpi.cache().hget("contacts", capkpi.session.user) or []
 
 	uncached_contacts = [d for d in contacts if d not in cached_contacts]
 	cached_contacts.extend(uncached_contacts)
 
-	frappe.cache().hset("contacts", frappe.session.user, cached_contacts)
+	capkpi.cache().hset("contacts", capkpi.session.user, cached_contacts)

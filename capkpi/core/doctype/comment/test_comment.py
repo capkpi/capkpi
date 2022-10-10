@@ -6,12 +6,12 @@ from __future__ import unicode_literals
 import json
 import unittest
 
-import frappe
+import capkpi
 
 
 class TestComment(unittest.TestCase):
 	def test_comment_creation(self):
-		test_doc = frappe.get_doc(dict(doctype="ToDo", description="test"))
+		test_doc = capkpi.get_doc(dict(doctype="ToDo", description="test"))
 		test_doc.insert()
 		comment = test_doc.add_comment("Comment", "test comment")
 
@@ -23,7 +23,7 @@ class TestComment(unittest.TestCase):
 		self.assertEqual(comments[0].get("comment"), comment.content)
 
 		# check document creation
-		comment_1 = frappe.get_all(
+		comment_1 = capkpi.get_all(
 			"Comment",
 			fields=["*"],
 			filters=dict(reference_doctype=test_doc.doctype, reference_name=test_doc.name),
@@ -33,13 +33,13 @@ class TestComment(unittest.TestCase):
 
 	# test via blog
 	def test_public_comment(self):
-		from frappe.website.doctype.blog_post.test_blog_post import make_test_blog
+		from capkpi.website.doctype.blog_post.test_blog_post import make_test_blog
 
 		test_blog = make_test_blog()
 
-		frappe.db.sql("delete from `tabComment` where reference_doctype = 'Blog Post'")
+		capkpi.db.sql("delete from `tabComment` where reference_doctype = 'Blog Post'")
 
-		from frappe.templates.includes.comments.comments import add_comment
+		from capkpi.templates.includes.comments.comments import add_comment
 
 		add_comment(
 			"Good comment with 10 chars",
@@ -51,7 +51,7 @@ class TestComment(unittest.TestCase):
 		)
 
 		self.assertEqual(
-			frappe.get_all(
+			capkpi.get_all(
 				"Comment",
 				fields=["*"],
 				filters=dict(reference_doctype=test_blog.doctype, reference_name=test_blog.name),
@@ -59,7 +59,7 @@ class TestComment(unittest.TestCase):
 			1,
 		)
 
-		frappe.db.sql("delete from `tabComment` where reference_doctype = 'Blog Post'")
+		capkpi.db.sql("delete from `tabComment` where reference_doctype = 'Blog Post'")
 
 		add_comment(
 			"pleez vizits my site http://mysite.com",
@@ -72,7 +72,7 @@ class TestComment(unittest.TestCase):
 
 		self.assertEqual(
 			len(
-				frappe.get_all(
+				capkpi.get_all(
 					"Comment",
 					fields=["*"],
 					filters=dict(reference_doctype=test_blog.doctype, reference_name=test_blog.name),

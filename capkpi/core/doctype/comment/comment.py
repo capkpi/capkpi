@@ -6,19 +6,19 @@ from __future__ import absolute_import, unicode_literals
 
 import json
 
-import frappe
-from frappe import _
-from frappe.core.doctype.user.user import extract_mentions
-from frappe.database.schema import add_column
-from frappe.desk.doctype.notification_log.notification_log import (
+import capkpi
+from capkpi import _
+from capkpi.core.doctype.user.user import extract_mentions
+from capkpi.database.schema import add_column
+from capkpi.desk.doctype.notification_log.notification_log import (
 	enqueue_create_notification,
 	get_title,
 	get_title_html,
 )
-from frappe.exceptions import ImplicitCommitError
-from frappe.model.document import Document
-from frappe.utils import get_fullname
-from frappe.website.render import clear_cache
+from capkpi.exceptions import ImplicitCommitError
+from capkpi.model.document import Document
+from capkpi.utils import get_fullname
+from capkpi.website.render import clear_cache
 
 
 class Comment(Document):
@@ -28,8 +28,8 @@ class Comment(Document):
 
 	def validate(self):
 		if not self.comment_email:
-			self.comment_email = frappe.session.user
-		self.content = frappe.utils.sanitize_html(self.content)
+			self.comment_email = capkpi.session.user
+		self.content = capkpi.utils.sanitize_html(self.content)
 
 	def on_update(self):
 		update_comment_in_doc(self)
@@ -53,7 +53,7 @@ class Comment(Document):
 		if not key:
 			return
 
-		frappe.publish_realtime(
+		capkpi.publish_realtime(
 			"update_docinfo_for_{}_{}".format(self.reference_doctype, self.reference_name),
 			{"doc": self.as_dict(), "key": key, "action": action},
 			after_commit=True,
@@ -74,11 +74,11 @@ class Comment(Document):
 			if not mentions:
 				return
 
-			sender_fullname = get_fullname(frappe.session.user)
+			sender_fullname = get_fullname(capkpi.session.user)
 			title = get_title(self.reference_doctype, self.reference_name)
 
 			recipients = [
-				frappe.db.get_value(
+				capkpi.db.get_value(
 					"User",
 					{"enabled": 1, "name": name, "user_type": "System User", "allowed_in_mentions": 1},
 					"email",
@@ -87,7 +87,7 @@ class Comment(Document):
 			]
 
 			notification_message = _("""{0} mentioned you in a comment in {1} {2}""").format(
-				frappe.bold(sender_fullname), frappe.bold(self.reference_doctype), get_title_html(title)
+				capkpi.bold(sender_fullname), capkpi.bold(self.reference_doctype), get_title_html(title)
 			)
 
 			notification_doc = {
@@ -95,7 +95,7 @@ class Comment(Document):
 				"document_type": self.reference_doctype,
 				"document_name": self.reference_name,
 				"subject": notification_message,
-				"from_user": frappe.session.user,
+				"from_user": capkpi.session.user,
 				"email_content": self.content,
 			}
 
@@ -103,8 +103,8 @@ class Comment(Document):
 
 
 def on_doctype_update():
-	frappe.db.add_index("Comment", ["reference_doctype", "reference_name"])
-	frappe.db.add_index("Comment", ["link_doctype", "link_name"])
+	capkpi.db.add_index("Comment", ["reference_doctype", "reference_name"])
+	capkpi.db.add_index("Comment", ["link_doctype", "link_name"])
 
 
 def update_comment_in_doc(doc):
@@ -156,10 +156,10 @@ def get_comments_from_parent(doc):
 	`_comments`
 	"""
 	try:
-		_comments = frappe.db.get_value(doc.reference_doctype, doc.reference_name, "_comments") or "[]"
+		_comments = capkpi.db.get_value(doc.reference_doctype, doc.reference_name, "_comments") or "[]"
 
 	except Exception as e:
-		if frappe.db.is_missing_table_or_column(e):
+		if capkpi.db.is_missing_table_or_column(e):
 			_comments = "[]"
 
 		else:
@@ -178,43 +178,43 @@ def update_comments_in_parent(reference_doctype, reference_name, _comments):
 	if (
 		not reference_doctype
 		or not reference_name
-		or frappe.db.get_value("DocType", reference_doctype, "issingle")
-		or frappe.db.get_value("DocType", reference_doctype, "is_virtual")
+		or capkpi.db.get_value("DocType", reference_doctype, "issingle")
+		or capkpi.db.get_value("DocType", reference_doctype, "is_virtual")
 	):
 		return
 
 	try:
 		# use sql, so that we do not mess with the timestamp
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""update `tab{0}` set `_comments`=%s where name=%s""".format(reference_doctype),  # nosec
 			(json.dumps(_comments[-100:]), reference_name),
 		)
 
 	except Exception as e:
-		if frappe.db.is_column_missing(e) and getattr(frappe.local, "request", None):
+		if capkpi.db.is_column_missing(e) and getattr(capkpi.local, "request", None):
 			# missing column and in request, add column and update after commit
-			frappe.local._comments = getattr(frappe.local, "_comments", []) + [
+			capkpi.local._comments = getattr(capkpi.local, "_comments", []) + [
 				(reference_doctype, reference_name, _comments)
 			]
 
-		elif frappe.db.is_data_too_long(e):
-			raise frappe.DataTooLongException
+		elif capkpi.db.is_data_too_long(e):
+			raise capkpi.DataTooLongException
 
 		else:
 			raise ImplicitCommitError
 
 	else:
-		if not frappe.flags.in_patch:
-			reference_doc = frappe.get_doc(reference_doctype, reference_name)
+		if not capkpi.flags.in_patch:
+			reference_doc = capkpi.get_doc(reference_doctype, reference_name)
 			if getattr(reference_doc, "route", None):
 				clear_cache(reference_doc.route)
 
 
 def update_comments_in_parent_after_request():
 	"""update _comments in parent if _comments column is missing"""
-	if hasattr(frappe.local, "_comments"):
-		for (reference_doctype, reference_name, _comments) in frappe.local._comments:
+	if hasattr(capkpi.local, "_comments"):
+		for (reference_doctype, reference_name, _comments) in capkpi.local._comments:
 			add_column(reference_doctype, "_comments", "Text")
 			update_comments_in_parent(reference_doctype, reference_name, _comments)
 
-		frappe.db.commit()
+		capkpi.db.commit()

@@ -5,14 +5,14 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe.desk.form.load import run_onload
+import capkpi
+from capkpi.desk.form.load import run_onload
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def savedocs(doc, action):
 	"""save / submit / update doclist"""
-	doc = frappe.get_doc(json.loads(doc))
+	doc = capkpi.get_doc(json.loads(doc))
 	set_local_name(doc)
 
 	# action
@@ -27,18 +27,18 @@ def savedocs(doc, action):
 	run_onload(doc)
 	send_updated_docs(doc)
 
-	frappe.msgprint(frappe._("Saved"), indicator="green", alert=True)
+	capkpi.msgprint(capkpi._("Saved"), indicator="green", alert=True)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def cancel(doctype=None, name=None, workflow_state_fieldname=None, workflow_state=None):
 	"""cancel a doclist"""
-	doc = frappe.get_doc(doctype, name)
+	doc = capkpi.get_doc(doctype, name)
 	if workflow_state_fieldname and workflow_state:
 		doc.set(workflow_state_fieldname, workflow_state)
 	doc.cancel()
 	send_updated_docs(doc)
-	frappe.msgprint(frappe._("Cancelled"), indicator="red", alert=True)
+	capkpi.msgprint(capkpi._("Cancelled"), indicator="red", alert=True)
 
 
 def send_updated_docs(doc):
@@ -50,7 +50,7 @@ def send_updated_docs(doc):
 	if hasattr(doc, "localname"):
 		d["localname"] = doc.localname
 
-	frappe.response.docs.append(d)
+	capkpi.response.docs.append(d)
 
 
 def set_local_name(doc):

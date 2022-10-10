@@ -5,14 +5,14 @@ from __future__ import print_function, unicode_literals
 import re
 import unittest
 
-import frappe
+import capkpi
 
-test_records = frappe.get_test_records("Print Format")
+test_records = capkpi.get_test_records("Print Format")
 
 
 class TestPrintFormat(unittest.TestCase):
 	def test_print_user(self, style=None):
-		print_html = frappe.get_print("User", "Administrator", style=style)
+		print_html = capkpi.get_print("User", "Administrator", style=style)
 		self.assertTrue("<label>First Name: </label>" in print_html)
 		self.assertTrue(
 			re.findall(r'<div class="col-xs-[^"]*">[\s]*administrator[\s]*</div>', print_html)

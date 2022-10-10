@@ -3,8 +3,8 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.model.document import Document
+import capkpi
+from capkpi.model.document import Document
 
 
 class DocField(Document):
@@ -19,7 +19,7 @@ class DocField(Document):
 		if self.fieldtype == "Table MultiSelect":
 			table_doctype = self.options
 
-			link_doctype = frappe.db.get_value(
+			link_doctype = capkpi.db.get_value(
 				"DocField",
 				{"fieldtype": "Link", "parenttype": "DocType", "parent": table_doctype, "in_list_view": 1},
 				"options",

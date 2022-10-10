@@ -1,10 +1,10 @@
 // Copyright (c) 2021, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('User Type', {
+capkpi.ui.form.on('User Type', {
 	refresh: function(frm) {
-		frm.toggle_display('is_standard', frappe.boot.developer_mode);
-		frm.set_df_property('is_standard', 'read_only', !frappe.boot.developer_mode);
+		frm.toggle_display('is_standard', capkpi.boot.developer_mode);
+		frm.set_df_property('is_standard', 'read_only', !capkpi.boot.developer_mode);
 
 		const fields = ['role', 'apply_user_permission_on', 'user_id_field',
 			'user_doctypes', 'user_type_modules'];
@@ -47,7 +47,7 @@ frappe.ui.form.on('User Type', {
 
 		frm.set_query('apply_user_permission_on', function() {
 			return {
-				query: "frappe.core.doctype.user_type.user_type.get_user_linked_doctypes"
+				query: "capkpi.core.doctype.user_type.user_type.get_user_linked_doctypes"
 			};
 		});
 	},
@@ -63,8 +63,8 @@ frappe.ui.form.on('User Type', {
 
 	get_user_id_fields: function(frm) {
 		if (frm.doc.apply_user_permission_on) {
-			frappe.call({
-				method: 'frappe.core.doctype.user_type.user_type.get_user_id',
+			capkpi.call({
+				method: 'capkpi.core.doctype.user_type.user_type.get_user_id',
 				args: {
 					parent: frm.doc.apply_user_permission_on
 				},

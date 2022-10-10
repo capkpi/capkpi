@@ -9,18 +9,18 @@ import re
 
 from six import string_types
 
-import frappe
-import frappe.permissions
-from frappe import _
-from frappe.core.doctype.access_log.access_log import make_access_log
-from frappe.core.doctype.data_import_legacy.importer import get_data_keys
-from frappe.utils import cint, cstr, format_datetime, format_duration, formatdate, parse_json
-from frappe.utils.csvutils import UnicodeWriter
+import capkpi
+import capkpi.permissions
+from capkpi import _
+from capkpi.core.doctype.access_log.access_log import make_access_log
+from capkpi.core.doctype.data_import_legacy.importer import get_data_keys
+from capkpi.utils import cint, cstr, format_datetime, format_duration, formatdate, parse_json
+from capkpi.utils.csvutils import UnicodeWriter
 
 reflags = {"I": re.I, "L": re.L, "M": re.M, "U": re.U, "S": re.S, "X": re.X, "D": re.DEBUG}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def export_data(
 	doctype=None,
 	parent_doctype=None,
@@ -100,7 +100,7 @@ class DataExporter:
 
 		if self.all_doctypes:
 			self.child_doctypes = []
-			for df in frappe.get_meta(self.doctype).get_table_fields():
+			for df in capkpi.get_meta(self.doctype).get_table_fields():
 				self.child_doctypes.append(dict(doctype=df.options, parentfield=df.fieldname))
 
 	def build_response(self):
@@ -133,7 +133,7 @@ class DataExporter:
 		self.add_field_headings()
 		self.add_data()
 		if self.with_data and not self.data:
-			frappe.respond_as_web_page(
+			capkpi.respond_as_web_page(
 				_("No Data"), _("There is no data to be exported"), indicator_color="orange"
 			)
 
@@ -141,9 +141,9 @@ class DataExporter:
 			self.build_response_as_excel()
 		else:
 			# write out response as a type csv
-			frappe.response["result"] = cstr(self.writer.getvalue())
-			frappe.response["type"] = "csv"
-			frappe.response["doctype"] = self.doctype
+			capkpi.response["result"] = cstr(self.writer.getvalue())
+			capkpi.response["type"] = "csv"
+			capkpi.response["doctype"] = self.doctype
 
 	def add_main_header(self):
 		self.writer.writerow([_("Data Import Template")])
@@ -182,12 +182,12 @@ class DataExporter:
 			)
 
 	def build_field_columns(self, dt, parentfield=None):
-		meta = frappe.get_meta(dt)
+		meta = capkpi.get_meta(dt)
 
 		# build list of valid docfields
 		tablecolumns = []
 		table_name = "tab" + dt
-		for f in frappe.db.get_table_columns_description(table_name):
+		for f in capkpi.db.get_table_columns_description(table_name):
 			field = meta.get_field(f.name)
 			if field and (
 				(self.select_columns and f.name in self.select_columns[dt]) or not self.select_columns
@@ -196,7 +196,7 @@ class DataExporter:
 
 		tablecolumns.sort(key=lambda a: int(a.idx))
 
-		_column_start_end = frappe._dict(start=0)
+		_column_start_end = capkpi._dict(start=0)
 
 		if dt == self.doctype:
 			if (meta.get("autoname") and meta.get("autoname").lower() == "prompt") or (self.with_data):
@@ -205,7 +205,7 @@ class DataExporter:
 			# if importing only child table for new record, add parent field
 			if meta.get("istable") and not self.with_data:
 				self.append_field_column(
-					frappe._dict(
+					capkpi._dict(
 						{
 							"fieldname": "parent",
 							"parent": "",
@@ -218,9 +218,9 @@ class DataExporter:
 					True,
 				)
 
-			_column_start_end = frappe._dict(start=0)
+			_column_start_end = capkpi._dict(start=0)
 		else:
-			_column_start_end = frappe._dict(start=len(self.columns))
+			_column_start_end = capkpi._dict(start=len(self.columns))
 
 			if self.with_data:
 				self._append_name_column(dt)
@@ -296,7 +296,7 @@ class DataExporter:
 		elif docfield.fieldtype == "Check":
 			return "0 or 1"
 		elif docfield.fieldtype in ["Date", "Datetime"]:
-			return cstr(frappe.defaults.get_defaults().date_format)
+			return cstr(capkpi.defaults.get_defaults().date_format)
 		elif hasattr(docfield, "info"):
 			return docfield.info
 		else:
@@ -313,20 +313,20 @@ class DataExporter:
 			self.writer.writerow([self.data_keys.data_separator])
 
 	def add_data(self):
-		from frappe.query_builder import DocType
+		from capkpi.query_builder import DocType
 
 		if self.template and not self.with_data:
 			return
 
-		frappe.permissions.can_export(self.parent_doctype, raise_exception=True)
+		capkpi.permissions.can_export(self.parent_doctype, raise_exception=True)
 
 		# sort nested set doctypes by `lft asc`
 		order_by = None
-		table_columns = frappe.db.get_table_columns(self.parent_doctype)
+		table_columns = capkpi.db.get_table_columns(self.parent_doctype)
 		if "lft" in table_columns and "rgt" in table_columns:
 			order_by = "`tab{doctype}`.`lft` asc".format(doctype=self.parent_doctype)
 		# get permitted data only
-		self.data = frappe.get_list(
+		self.data = capkpi.get_list(
 			self.doctype, fields=["*"], filters=self.filters, limit_page_length=None, order_by=order_by
 		)
 
@@ -363,7 +363,7 @@ class DataExporter:
 				for c in self.child_doctypes:
 					child_doctype_table = DocType(c["doctype"])
 					data_row = (
-						frappe.qb.from_(child_doctype_table)
+						capkpi.qb.from_(child_doctype_table)
 						.select("*")
 						.where(child_doctype_table.parent == doc.name)
 						.where(child_doctype_table.parentfield == c["parentfield"])
@@ -377,7 +377,7 @@ class DataExporter:
 
 	def add_data_row(self, rows, dt, parentfield, doc, rowidx):
 		d = doc.copy()
-		meta = frappe.get_meta(dt)
+		meta = capkpi.get_meta(dt)
 		if self.all_doctypes:
 			d.name = '"' + d.name + '"'
 
@@ -403,13 +403,13 @@ class DataExporter:
 				row[_column_start_end.start + i + 1] = value
 
 	def build_response_as_excel(self):
-		filename = frappe.generate_hash("", 10)
+		filename = capkpi.generate_hash("", 10)
 		with open(filename, "wb") as f:
 			f.write(cstr(self.writer.getvalue()).encode("utf-8"))
 		f = open(filename)
 		reader = csv.reader(f)
 
-		from frappe.utils.xlsxutils import make_xlsx
+		from capkpi.utils.xlsxutils import make_xlsx
 
 		xlsx_file = make_xlsx(reader, "Data Import Template" if self.template else "Data Export")
 
@@ -417,13 +417,13 @@ class DataExporter:
 		os.remove(filename)
 
 		# write out response as a xlsx type
-		frappe.response["filename"] = self.doctype + ".xlsx"
-		frappe.response["filecontent"] = xlsx_file.getvalue()
-		frappe.response["type"] = "binary"
+		capkpi.response["filename"] = self.doctype + ".xlsx"
+		capkpi.response["filecontent"] = xlsx_file.getvalue()
+		capkpi.response["type"] = "binary"
 
 	def _append_name_column(self, dt=None):
 		self.append_field_column(
-			frappe._dict(
+			capkpi._dict(
 				{
 					"fieldname": "name" if dt else self.name_field,
 					"parent": dt or "",

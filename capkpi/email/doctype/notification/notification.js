@@ -11,14 +11,14 @@ this.frm.fields_dict.sender.get_query = function() {
 	};
 };
 
-frappe.notification = {
+capkpi.notification = {
 	setup_fieldname_select: function(frm) {
 		// get the doctype to update fields
 		if (!frm.doc.document_type) {
 			return;
 		}
 
-		frappe.model.with_doctype(frm.doc.document_type, function() {
+		capkpi.model.with_doctype(frm.doc.document_type, function() {
 			let get_select_options = function(df, parent_field) {
 				// Append parent_field name along with fieldname for child table fields
 				let select_value = parent_field ? df.fieldname + ',' + parent_field : df.fieldname;
@@ -42,9 +42,9 @@ frappe.notification = {
 				]);
 			};
 
-			let fields = frappe.get_doc('DocType', frm.doc.document_type).fields;
+			let fields = capkpi.get_doc('DocType', frm.doc.document_type).fields;
 			let options = $.map(fields, function(d) {
-				return in_list(frappe.model.no_value_type, d.fieldtype)
+				return in_list(capkpi.model.no_value_type, d.fieldtype)
 					? null : get_select_options(d);
 			});
 
@@ -65,7 +65,7 @@ frappe.notification = {
 
 					// Add User and Email fields from child into select dropdown
 					if (d.fieldtype == 'Table') {
-						let child_fields = frappe.get_doc('DocType', d.options).fields;
+						let child_fields = capkpi.get_doc('DocType', d.options).fields;
 						return $.map(child_fields, function(df) {
 							return df.options == 'Email' ||
 								(df.options == 'User' && df.fieldtype == 'Link')
@@ -139,7 +139,7 @@ Last comment: {{ comments[-1].comment }} by {{ comments[-1].by }}
 	}
 };
 
-frappe.ui.form.on('Notification', {
+capkpi.ui.form.on('Notification', {
 	onload: function(frm) {
 		frm.set_query('document_type', function() {
 			return {
@@ -157,32 +157,32 @@ frappe.ui.form.on('Notification', {
 		});
 	},
 	refresh: function(frm) {
-		frappe.notification.setup_fieldname_select(frm);
-		frappe.notification.setup_example_message(frm);
-		frm.get_field('is_standard').toggle(frappe.boot.developer_mode);
+		capkpi.notification.setup_fieldname_select(frm);
+		capkpi.notification.setup_example_message(frm);
+		frm.get_field('is_standard').toggle(capkpi.boot.developer_mode);
 		frm.trigger('event');
 	},
 	document_type: function(frm) {
-		frappe.notification.setup_fieldname_select(frm);
+		capkpi.notification.setup_fieldname_select(frm);
 	},
 	view_properties: function(frm) {
-		frappe.route_options = { doc_type: frm.doc.document_type };
-		frappe.set_route('Form', 'Customize Form');
+		capkpi.route_options = { doc_type: frm.doc.document_type };
+		capkpi.set_route('Form', 'Customize Form');
 	},
 	event: function(frm) {
 		if (in_list(['Days Before', 'Days After'], frm.doc.event)) {
 			frm.add_custom_button(__('Get Alerts for Today'), function() {
-				frappe.call({
+				capkpi.call({
 					method:
-						'frappe.email.doctype.notification.notification.get_documents_for_today',
+						'capkpi.email.doctype.notification.notification.get_documents_for_today',
 					args: {
 						notification: frm.doc.name
 					},
 					callback: function(r) {
 						if (r.message) {
-							frappe.msgprint(r.message);
+							capkpi.msgprint(r.message);
 						} else {
-							frappe.msgprint(__('No alerts for today'));
+							capkpi.msgprint(__('No alerts for today'));
 						}
 					}
 				});
@@ -191,8 +191,8 @@ frappe.ui.form.on('Notification', {
 	},
 	channel: function(frm) {
 		frm.toggle_reqd('recipients', frm.doc.channel == 'Email');
-		frappe.notification.setup_fieldname_select(frm);
-		frappe.notification.setup_example_message(frm);
+		capkpi.notification.setup_fieldname_select(frm);
+		capkpi.notification.setup_example_message(frm);
 		if (frm.doc.channel === 'SMS' && frm.doc.__islocal) {
 			frm.set_df_property('channel',
 				'description', `To use SMS Channel, initialize <a href="/app/sms-settings">SMS Settings</a>.`);

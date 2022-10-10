@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 
 from six import with_metaclass
 
-from frappe.utils.password import get_decrypted_password
+from capkpi.utils.password import get_decrypted_password
 
 
 class BaseConnection(with_metaclass(ABCMeta)):

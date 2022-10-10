@@ -1,11 +1,11 @@
 from __future__ import unicode_literals
 
-import frappe
-from frappe.utils.password import get_decrypted_password
+import capkpi
+from capkpi.utils.password import get_decrypted_password
 
 
 def execute():
-	publishable_key = frappe.db.sql(
+	publishable_key = capkpi.db.sql(
 		"select value from tabSingles where doctype='Stripe Settings' and field='publishable_key'"
 	)
 	if publishable_key:
@@ -13,15 +13,15 @@ def execute():
 			"Stripe Settings", "Stripe Settings", fieldname="secret_key", raise_exception=False
 		)
 		if secret_key:
-			frappe.reload_doc("integrations", "doctype", "stripe_settings")
-			frappe.db.commit()
+			capkpi.reload_doc("integrations", "doctype", "stripe_settings")
+			capkpi.db.commit()
 
-			settings = frappe.new_doc("Stripe Settings")
+			settings = capkpi.new_doc("Stripe Settings")
 			settings.gateway_name = (
-				frappe.db.get_value("Global Defaults", None, "default_company") or "Stripe Settings"
+				capkpi.db.get_value("Global Defaults", None, "default_company") or "Stripe Settings"
 			)
 			settings.publishable_key = publishable_key
 			settings.secret_key = secret_key
 			settings.save(ignore_permissions=True)
 
-	frappe.db.sql("""DELETE FROM tabSingles WHERE doctype='Stripe Settings'""")
+	capkpi.db.sql("""DELETE FROM tabSingles WHERE doctype='Stripe Settings'""")

@@ -14,11 +14,11 @@ from rq.timeouts import JobTimeoutException
 from six import PY3, string_types, text_type
 from six.moves import html_parser as HTMLParser
 
-import frappe
-from frappe import _, enqueue, msgprint, safe_decode, safe_encode
-from frappe.email.email_body import add_attachment, get_email, get_formatted_html
-from frappe.email.smtp import SMTPServer, get_outgoing_email_account
-from frappe.utils import (
+import capkpi
+from capkpi import _, enqueue, msgprint, safe_decode, safe_encode
+from capkpi.email.email_body import add_attachment, get_email, get_formatted_html
+from capkpi.email.smtp import SMTPServer, get_outgoing_email_account
+from capkpi.utils import (
 	add_days,
 	cint,
 	cstr,
@@ -29,10 +29,10 @@ from frappe.utils import (
 	nowdate,
 	split_emails,
 )
-from frappe.utils.verified_command import get_signed_params, verify_request
+from capkpi.utils.verified_command import get_signed_params, verify_request
 
 
-class EmailLimitCrossedError(frappe.ValidationError):
+class EmailLimitCrossedError(capkpi.ValidationError):
 	pass
 
 
@@ -77,7 +77,7 @@ def send(
 	:param reference_doctype: Reference DocType of caller document.
 	:param reference_name: Reference name of caller document.
 	:param send_priority: Priority for Email Queue, default 1.
-	:param unsubscribe_method: URL method for unsubscribe. Default is `/api/method/frappe.email.queue.unsubscribe`.
+	:param unsubscribe_method: URL method for unsubscribe. Default is `/api/method/capkpi.email.queue.unsubscribe`.
 	:param unsubscribe_params: additional params for unsubscribed links. default are name, doctype, email
 	:param attachments: Attachments to be sent.
 	:param reply_to: Reply to be captured here (default inbox)
@@ -93,7 +93,7 @@ def send(
 	:param with_container: Wraps email inside styled container
 	"""
 	if not unsubscribe_method:
-		unsubscribe_method = "/api/method/frappe.email.queue.unsubscribe"
+		unsubscribe_method = "/api/method/capkpi.email.queue.unsubscribe"
 
 	if not recipients and not cc:
 		return
@@ -130,7 +130,7 @@ def send(
 
 	all_ids = tuple(recipients + cc)
 
-	unsubscribed = frappe.db.sql_list(
+	unsubscribed = capkpi.db.sql_list(
 		"""
 		SELECT
 			distinct email
@@ -234,7 +234,7 @@ def add(recipients, sender, subject, **kwargs):
 				if kwargs.get("now"):
 					send_one(duplicate.name, now=True)
 
-			frappe.db.commit()
+			capkpi.db.commit()
 	else:
 		email_queue = get_email_queue(recipients, sender, subject, **kwargs)
 		if kwargs.get("now"):
@@ -243,7 +243,7 @@ def add(recipients, sender, subject, **kwargs):
 
 def get_email_queue(recipients, sender, subject, **kwargs):
 	"""Make Email Queue object"""
-	e = frappe.new_doc("Email Queue")
+	e = capkpi.new_doc("Email Queue")
 	e.priority = kwargs.get("send_priority")
 	attachments = kwargs.get("attachments")
 	if attachments:
@@ -254,7 +254,7 @@ def get_email_queue(recipients, sender, subject, **kwargs):
 				_attachments.append(att)
 			elif att.get("print_format_attachment") == 1:
 				if not att.get("lang", None):
-					att["lang"] = frappe.local.lang
+					att["lang"] = capkpi.local.lang
 				att["print_letterhead"] = kwargs.get("print_letterhead")
 				_attachments.append(att)
 		e.attachments = json.dumps(_attachments)
@@ -286,11 +286,11 @@ def get_email_queue(recipients, sender, subject, **kwargs):
 		e.message = cstr(mail.as_string())
 		e.sender = mail.sender
 
-	except frappe.InvalidEmailAddressError:
+	except capkpi.InvalidEmailAddressError:
 		# bad Email Address - don't add to queue
 		import traceback
 
-		frappe.log_error(
+		capkpi.log_error(
 			"Invalid Email ID Sender: {0}, Recipients: {1}, \nTraceback: {2} ".format(
 				mail.sender, ", ".join(mail.recipients), traceback.format_exc()
 			),
@@ -315,7 +315,7 @@ def get_email_queue(recipients, sender, subject, **kwargs):
 
 
 def get_emails_sent_this_month():
-	return frappe.db.sql(
+	return capkpi.db.sql(
 		"""
 		SELECT COUNT(*) FROM `tabEmail Queue`
 		WHERE `status`='Sent' AND EXTRACT(YEAR_MONTH FROM `creation`) = EXTRACT(YEAR_MONTH FROM NOW())
@@ -324,7 +324,7 @@ def get_emails_sent_this_month():
 
 
 def get_emails_sent_today():
-	return frappe.db.sql(
+	return capkpi.db.sql(
 		"""SELECT COUNT(`name`) FROM `tabEmail Queue` WHERE
 		`status` in ('Sent', 'Not Sent', 'Sending') AND `creation` > (NOW() - INTERVAL '24' HOUR)"""
 	)[0][0]
@@ -345,7 +345,7 @@ def get_unsubscribe_message(unsubscribe_message: str, expose_recipients: str):
 	if expose_recipients == "footer":
 		text = f"\n<!--cc_message-->{text}"
 
-	return frappe._dict(html=html, text=text)
+	return capkpi._dict(html=html, text=text)
 
 
 def get_unsubcribed_url(
@@ -362,19 +362,19 @@ def get_unsubcribed_url(
 	query_string = get_signed_params(params)
 
 	# for test
-	frappe.local.flags.signed_query_string = query_string
+	capkpi.local.flags.signed_query_string = query_string
 
 	return get_url(unsubscribe_method + "?" + get_signed_params(params))
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def unsubscribe(doctype, name, email):
 	# unsubsribe from comments and communications
 	if not verify_request():
 		return
 
 	try:
-		frappe.get_doc(
+		capkpi.get_doc(
 			{
 				"doctype": "Email Unsubscribe",
 				"email": email,
@@ -383,17 +383,17 @@ def unsubscribe(doctype, name, email):
 			}
 		).insert(ignore_permissions=True)
 
-	except frappe.DuplicateEntryError:
-		frappe.db.rollback()
+	except capkpi.DuplicateEntryError:
+		capkpi.db.rollback()
 
 	else:
-		frappe.db.commit()
+		capkpi.db.commit()
 
 	return_unsubscribed_page(email, doctype, name)
 
 
 def return_unsubscribed_page(email, doctype, name):
-	frappe.respond_as_web_page(
+	capkpi.respond_as_web_page(
 		_("Unsubscribed"),
 		_("{0} has left the conversation in {1} {2}").format(email, _(doctype), name),
 		indicator_color="green",
@@ -405,15 +405,15 @@ def flush(from_test=False):
 	# additional check
 
 	auto_commit = not from_test
-	if frappe.are_emails_muted():
+	if capkpi.are_emails_muted():
 		msgprint(_("Emails are muted"))
 		from_test = True
 
-	smtpserver_dict = frappe._dict()
+	smtpserver_dict = capkpi._dict()
 
 	for email in get_queue():
 
-		if cint(frappe.db.get_default("suspend_email_queue")) == 1:
+		if cint(capkpi.db.get_default("suspend_email_queue")) == 1:
 			break
 
 		if email.name:
@@ -430,15 +430,15 @@ def flush(from_test=False):
 					"smtpserver": smtpserver,
 					"auto_commit": auto_commit,
 				}
-				enqueue(method="frappe.email.queue.send_one", queue="short", **send_one_args)
+				enqueue(method="capkpi.email.queue.send_one", queue="short", **send_one_args)
 
 		# NOTE: removing commit here because we pass auto_commit
 		# finally:
-		# 	frappe.db.commit()
+		# 	capkpi.db.commit()
 
 
 def get_queue():
-	return frappe.db.sql(
+	return capkpi.db.sql(
 		"""select
 			name, sender
 		from
@@ -457,7 +457,7 @@ def get_queue():
 def send_one(email, smtpserver=None, auto_commit=True, now=False):
 	"""Send Email Queue with given smtpserver"""
 
-	email = frappe.db.sql(
+	email = capkpi.db.sql(
 		"""select
 			name, status, communication, message, sender, reference_doctype,
 			reference_name, unsubscribe_param, unsubscribe_method, expose_recipients,
@@ -476,46 +476,46 @@ def send_one(email, smtpserver=None, auto_commit=True, now=False):
 	else:
 		return
 
-	recipients_list = frappe.db.sql(
+	recipients_list = capkpi.db.sql(
 		"""select name, recipient, status from
 		`tabEmail Queue Recipient` where parent=%s""",
 		email.name,
 		as_dict=1,
 	)
 
-	if frappe.are_emails_muted():
-		frappe.msgprint(_("Emails are muted"))
+	if capkpi.are_emails_muted():
+		capkpi.msgprint(_("Emails are muted"))
 		return
 
-	if cint(frappe.db.get_default("suspend_email_queue")) == 1:
+	if cint(capkpi.db.get_default("suspend_email_queue")) == 1:
 		return
 
 	if email.status not in ("Not Sent", "Partially Sent"):
 		# rollback to release lock and return
-		frappe.db.rollback()
+		capkpi.db.rollback()
 		return
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""update `tabEmail Queue` set status='Sending', modified=%s where name=%s""",
 		(now_datetime(), email.name),
 		auto_commit=auto_commit,
 	)
 
 	if email.communication:
-		frappe.get_doc("Communication", email.communication).set_delivery_status(commit=auto_commit)
+		capkpi.get_doc("Communication", email.communication).set_delivery_status(commit=auto_commit)
 
 	email_sent_to_any_recipient = None
 
 	try:
 		message = None
 
-		if not frappe.flags.in_test:
+		if not capkpi.flags.in_test:
 			if not smtpserver:
 				smtpserver = SMTPServer()
 
 			# to avoid always using default email account for outgoing
-			if getattr(frappe.local, "outgoing_email_account", None):
-				frappe.local.outgoing_email_account = {}
+			if getattr(capkpi.local, "outgoing_email_account", None):
+				capkpi.local.outgoing_email_account = {}
 
 			smtpserver.setup_email_account(email.reference_doctype, sender=email.sender)
 
@@ -524,17 +524,17 @@ def send_one(email, smtpserver=None, auto_commit=True, now=False):
 				continue
 
 			message = prepare_message(email, recipient.recipient, recipients_list)
-			if not frappe.flags.in_test:
+			if not capkpi.flags.in_test:
 				method = get_hook_method("override_email_send")
 				if method:
-					queue = frappe.get_doc("Email Queue", email.name)
+					queue = capkpi.get_doc("Email Queue", email.name)
 					method(queue, email.sender, recipient.recipient, message)
 					return
 				else:
 					smtpserver.sess.sendmail(email.sender, recipient.recipient, message)
 
 			recipient.status = "Sent"
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabEmail Queue Recipient` set status='Sent', modified=%s where name=%s""",
 				(now_datetime(), recipient.name),
 				auto_commit=auto_commit,
@@ -544,23 +544,23 @@ def send_one(email, smtpserver=None, auto_commit=True, now=False):
 
 		# if all are sent set status
 		if email_sent_to_any_recipient:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabEmail Queue` set status='Sent', modified=%s where name=%s""",
 				(now_datetime(), email.name),
 				auto_commit=auto_commit,
 			)
 		else:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabEmail Queue` set status='Error', error=%s
 				where name=%s""",
 				("No recipients to send to", email.name),
 				auto_commit=auto_commit,
 			)
-		if frappe.flags.in_test:
-			frappe.flags.sent_mail = message
+		if capkpi.flags.in_test:
+			capkpi.flags.sent_mail = message
 			return
 		if email.communication:
-			frappe.get_doc("Communication", email.communication).set_delivery_status(commit=auto_commit)
+			capkpi.get_doc("Communication", email.communication).set_delivery_status(commit=auto_commit)
 
 		if smtpserver.append_emails_to_sent_folder and email_sent_to_any_recipient:
 			smtpserver.email_account.append_email_to_sent_folder(message)
@@ -577,42 +577,42 @@ def send_one(email, smtpserver=None, auto_commit=True, now=False):
 		# bad connection/timeout, retry later
 
 		if email_sent_to_any_recipient:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabEmail Queue` set status='Partially Sent', modified=%s where name=%s""",
 				(now_datetime(), email.name),
 				auto_commit=auto_commit,
 			)
 		else:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabEmail Queue` set status='Not Sent', modified=%s where name=%s""",
 				(now_datetime(), email.name),
 				auto_commit=auto_commit,
 			)
 
 		if email.communication:
-			frappe.get_doc("Communication", email.communication).set_delivery_status(commit=auto_commit)
+			capkpi.get_doc("Communication", email.communication).set_delivery_status(commit=auto_commit)
 
 		# no need to attempt further
 		return
 
 	except Exception as e:
-		frappe.db.rollback()
+		capkpi.db.rollback()
 
 		if email.retry < get_email_retry_limit():
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabEmail Queue` set status='Not Sent', modified=%s, retry=retry+1 where name=%s""",
 				(now_datetime(), email.name),
 				auto_commit=auto_commit,
 			)
 		else:
 			if email_sent_to_any_recipient:
-				frappe.db.sql(
+				capkpi.db.sql(
 					"""update `tabEmail Queue` set status='Partially Errored', error=%s where name=%s""",
 					(text_type(e), email.name),
 					auto_commit=auto_commit,
 				)
 			else:
-				frappe.db.sql(
+				capkpi.db.sql(
 					"""update `tabEmail Queue` set status='Error', error=%s
 					where name=%s""",
 					(text_type(e), email.name),
@@ -620,15 +620,15 @@ def send_one(email, smtpserver=None, auto_commit=True, now=False):
 				)
 
 		if email.communication:
-			frappe.get_doc("Communication", email.communication).set_delivery_status(commit=auto_commit)
+			capkpi.get_doc("Communication", email.communication).set_delivery_status(commit=auto_commit)
 
 		if now:
-			print(frappe.get_traceback())
+			print(capkpi.get_traceback())
 			raise e
 
 		else:
 			# log to Error Log
-			frappe.log_error("frappe.email.queue.flush")
+			capkpi.log_error("capkpi.email.queue.flush")
 
 
 def prepare_message(email, recipient, recipients_list):
@@ -638,13 +638,13 @@ def prepare_message(email, recipient, recipients_list):
 
 	# Parse "Email Account" from "Email Sender"
 	email_account = get_outgoing_email_account(raise_exception_not_set=False, sender=email.sender)
-	if frappe.conf.use_ssl and email_account.track_email_status:
+	if capkpi.conf.use_ssl and email_account.track_email_status:
 		# Using SSL => Publically available domain => Email Read Reciept Possible
 		message = message.replace(
 			"<!--email_open_check-->",
 			quopri.encodestring(
-				'<img src="https://{}/api/method/frappe.core.doctype.communication.email.mark_email_as_seen?name={}"/>'.format(
-					frappe.local.site, email.communication
+				'<img src="https://{}/api/method/capkpi.core.doctype.communication.email.mark_email_as_seen?name={}"/>'.format(
+					capkpi.local.site, email.communication
 				).encode()
 			).decode(),
 		)
@@ -709,7 +709,7 @@ def prepare_message(email, recipient, recipients_list):
 
 			fid = attachment.get("fid")
 			if fid:
-				_file = frappe.get_doc("File", fid)
+				_file = capkpi.get_doc("File", fid)
 				fcontent = _file.get_content()
 				attachment.update({"fname": _file.file_name, "fcontent": fcontent, "parent": message})
 				attachment.pop("fid", None)
@@ -717,7 +717,7 @@ def prepare_message(email, recipient, recipients_list):
 
 			elif attachment.get("print_format_attachment") == 1:
 				attachment.pop("print_format_attachment", None)
-				print_format_file = frappe.attach_print(**attachment)
+				print_format_file = capkpi.attach_print(**attachment)
 				print_format_file.update({"parent": message})
 				add_attachment(**print_format_file)
 
@@ -731,7 +731,7 @@ def clear_outbox(days=None):
 	if not days:
 		days = 31
 
-	email_queues = frappe.db.sql_list(
+	email_queues = capkpi.db.sql_list(
 		"""SELECT `name` FROM `tabEmail Queue`
 		WHERE `priority`=0 AND `modified` < (NOW() - INTERVAL '{0}' DAY)""".format(
 			days
@@ -739,14 +739,14 @@ def clear_outbox(days=None):
 	)
 
 	if email_queues:
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""DELETE FROM `tabEmail Queue` WHERE `name` IN ({0})""".format(
 				",".join(["%s"] * len(email_queues))
 			),
 			tuple(email_queues),
 		)
 
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""DELETE FROM `tabEmail Queue Recipient` WHERE `parent` IN ({0})""".format(
 				",".join(["%s"] * len(email_queues))
 			),
@@ -759,7 +759,7 @@ def set_expiry_for_email_queue():
 	Called daily via scheduler.
 	"""
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""
 		UPDATE `tabEmail Queue`
 		SET `status`='Expired'
@@ -771,4 +771,4 @@ def set_expiry_for_email_queue():
 
 
 def get_email_retry_limit():
-	return cint(frappe.db.get_system_setting("email_retry_limit")) or 3
+	return cint(capkpi.db.get_system_setting("email_retry_limit")) or 3

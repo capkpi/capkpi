@@ -4,7 +4,7 @@
 # model __init__.py
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 data_fieldtypes = (
 	"Currency",
@@ -130,14 +130,14 @@ def delete_fields(args_dict, delete=0):
 	* If single, deletes record from `tabSingles`
 	args_dict = { dt: [field names] }
 	"""
-	import frappe.utils
+	import capkpi.utils
 
 	for dt in args_dict:
 		fields = args_dict[dt]
 		if not fields:
 			continue
 
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""
 			DELETE FROM `tabDocField`
 			WHERE parent='%s' AND fieldname IN (%s)
@@ -149,8 +149,8 @@ def delete_fields(args_dict, delete=0):
 		if not delete:
 			continue
 
-		if frappe.db.get_value("DocType", dt, "issingle"):
-			frappe.db.sql(
+		if capkpi.db.get_value("DocType", dt, "issingle"):
+			capkpi.db.sql(
 				"""
 				DELETE FROM `tabSingles`
 				WHERE doctype='%s' AND field IN (%s)
@@ -158,21 +158,21 @@ def delete_fields(args_dict, delete=0):
 				% (dt, ", ".join(["'{}'".format(f) for f in fields]))
 			)
 		else:
-			existing_fields = frappe.db.describe(dt)
+			existing_fields = capkpi.db.describe(dt)
 			existing_fields = existing_fields and [e[0] for e in existing_fields] or []
 			fields_need_to_delete = set(fields) & set(existing_fields)
 			if not fields_need_to_delete:
 				continue
 
-			if frappe.db.db_type == "mariadb":
+			if capkpi.db.db_type == "mariadb":
 				# mariadb implicitly commits before DDL, make it explicit
-				frappe.db.commit()
+				capkpi.db.commit()
 
 			query = "ALTER TABLE `tab%s` " % dt + ", ".join(
 				["DROP COLUMN `%s`" % f for f in fields_need_to_delete]
 			)
-			frappe.db.sql(query)
+			capkpi.db.sql(query)
 
-		if frappe.db.db_type == "postgres":
+		if capkpi.db.db_type == "postgres":
 			# commit the results to db
-			frappe.db.commit()
+			capkpi.db.commit()

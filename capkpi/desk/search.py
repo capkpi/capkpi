@@ -10,18 +10,18 @@ import re
 import wrapt
 from six import string_types
 
-import frappe
-from frappe import _, is_whitelisted
-from frappe.permissions import has_permission
-from frappe.translate import get_translated_doctypes
-from frappe.utils import cint, cstr, unique
+import capkpi
+from capkpi import _, is_whitelisted
+from capkpi.permissions import has_permission
+from capkpi.translate import get_translated_doctypes
+from capkpi.utils import cint, cstr, unique
 
 
 def sanitize_searchfield(searchfield):
 	blacklisted_keywords = ["select", "delete", "drop", "update", "case", "and", "or", "like"]
 
 	def _raise_exception(searchfield):
-		frappe.throw(_("Invalid Search Field {0}").format(searchfield), frappe.DataError)
+		capkpi.throw(_("Invalid Search Field {0}").format(searchfield), capkpi.DataError)
 
 	if len(searchfield) == 1:
 		# do not allow special characters to pass as searchfields
@@ -54,7 +54,7 @@ def sanitize_searchfield(searchfield):
 
 
 # this is called by the Link Field
-@frappe.whitelist()
+@capkpi.whitelist()
 def search_link(
 	doctype,
 	txt,
@@ -75,12 +75,12 @@ def search_link(
 		reference_doctype=reference_doctype,
 		ignore_user_permissions=ignore_user_permissions,
 	)
-	frappe.response["results"] = build_for_autosuggest(frappe.response["values"])
-	del frappe.response["values"]
+	capkpi.response["results"] = build_for_autosuggest(capkpi.response["values"])
+	del capkpi.response["values"]
 
 
 # this is called by the search box
-@frappe.whitelist()
+@capkpi.whitelist()
 def search_widget(
 	doctype,
 	txt,
@@ -106,20 +106,20 @@ def search_widget(
 	if not searchfield:
 		searchfield = "name"
 
-	standard_queries = frappe.get_hooks().standard_queries or {}
+	standard_queries = capkpi.get_hooks().standard_queries or {}
 
 	if query and query.split()[0].lower() != "select":
 		# by method
 		try:
-			is_whitelisted(frappe.get_attr(query))
-			frappe.response["values"] = frappe.call(
+			is_whitelisted(capkpi.get_attr(query))
+			capkpi.response["values"] = capkpi.call(
 				query, doctype, txt, searchfield, start, page_length, filters, as_dict=as_dict
 			)
-		except frappe.exceptions.PermissionError as e:
-			if frappe.local.conf.developer_mode:
+		except capkpi.exceptions.PermissionError as e:
+			if capkpi.local.conf.developer_mode:
 				raise e
 			else:
-				frappe.respond_as_web_page(
+				capkpi.respond_as_web_page(
 					title="Invalid Method", html="Method not found", indicator_color="red", http_status_code=404
 				)
 			return
@@ -131,12 +131,12 @@ def search_widget(
 			doctype, txt, standard_queries[doctype][0], searchfield, start, page_length, filters
 		)
 	else:
-		meta = frappe.get_meta(doctype)
+		meta = capkpi.get_meta(doctype)
 
 		if query:
-			frappe.throw(_("This query style is discontinued"))
+			capkpi.throw(_("This query style is discontinued"))
 			# custom query
-			# frappe.response["values"] = frappe.db.sql(scrub_custom_query(query, searchfield, txt))
+			# capkpi.response["values"] = capkpi.db.sql(scrub_custom_query(query, searchfield, txt))
 		else:
 			if isinstance(filters, dict):
 				filters_items = filters.items()
@@ -151,7 +151,7 @@ def search_widget(
 				filters = []
 			or_filters = []
 
-			translated_doctypes = frappe.cache().hget(
+			translated_doctypes = capkpi.cache().hget(
 				"translated_doctypes", "doctypes", get_translated_doctypes
 			)
 			# build from doctype
@@ -194,18 +194,18 @@ def search_widget(
 			# find relevance as location of search term from the beginning of string `name`. used for sorting results.
 			formatted_fields.append(
 				"""locate({_txt}, `tab{doctype}`.`name`) as `_relevance`""".format(
-					_txt=frappe.db.escape((txt or "").replace("%", "").replace("@", "")), doctype=doctype
+					_txt=capkpi.db.escape((txt or "").replace("%", "").replace("@", "")), doctype=doctype
 				)
 			)
 
 			# In order_by, `idx` gets second priority, because it stores link count
-			from frappe.model.db_query import get_order_by
+			from capkpi.model.db_query import get_order_by
 
 			order_by_based_on_meta = get_order_by(doctype, meta)
 			# 2 is the index of _relevance column
 			order_by = "_relevance, {0}, `tab{1}`.idx desc".format(order_by_based_on_meta, doctype)
 
-			ptype = "select" if frappe.only_has_select_perm(doctype) else "read"
+			ptype = "select" if capkpi.only_has_select_perm(doctype) else "read"
 			ignore_permissions = (
 				True
 				if doctype == "DocType"
@@ -215,7 +215,7 @@ def search_widget(
 			if doctype in translated_doctypes:
 				page_length = None
 
-			values = frappe.get_list(
+			values = capkpi.get_list(
 				doctype,
 				filters=filters,
 				fields=formatted_fields,
@@ -246,9 +246,9 @@ def search_widget(
 			if as_dict:
 				for r in values:
 					r.pop("_relevance")
-				frappe.response["values"] = values
+				capkpi.response["values"] = values
 			else:
-				frappe.response["values"] = [r[:-1] for r in values]
+				capkpi.response["values"] = [r[:-1] for r in values]
 
 
 def get_std_fields_list(meta, key):
@@ -296,23 +296,23 @@ def validate_and_sanitize_search_inputs(fn, instance, args, kwargs):
 	kwargs["start"] = cint(kwargs["start"])
 	kwargs["page_len"] = cint(kwargs["page_len"])
 
-	if kwargs["doctype"] and not frappe.db.exists("DocType", kwargs["doctype"]):
+	if kwargs["doctype"] and not capkpi.db.exists("DocType", kwargs["doctype"]):
 		return []
 
 	return fn(**kwargs)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_names_for_mentions(search_term):
-	users_for_mentions = frappe.cache().get_value("users_for_mentions", get_users_for_mentions)
-	user_groups = frappe.cache().get_value("user_groups", get_user_groups)
+	users_for_mentions = capkpi.cache().get_value("users_for_mentions", get_users_for_mentions)
+	user_groups = capkpi.cache().get_value("user_groups", get_user_groups)
 
 	filtered_mentions = []
 	for mention_data in users_for_mentions + user_groups:
 		if search_term.lower() not in mention_data.value.lower():
 			continue
 
-		mention_data["link"] = frappe.utils.get_url_to_form(
+		mention_data["link"] = capkpi.utils.get_url_to_form(
 			"User Group" if mention_data.get("is_group") else "User Profile", mention_data["id"]
 		)
 
@@ -322,7 +322,7 @@ def get_names_for_mentions(search_term):
 
 
 def get_users_for_mentions():
-	return frappe.get_all(
+	return capkpi.get_all(
 		"User",
 		fields=["name as id", "full_name as value"],
 		filters={
@@ -335,6 +335,6 @@ def get_users_for_mentions():
 
 
 def get_user_groups():
-	return frappe.get_all(
+	return capkpi.get_all(
 		"User Group", fields=["name as id", "name as value"], update={"is_group": True}
 	)

@@ -3,7 +3,7 @@
 
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 
 def get_notification_config():
@@ -11,8 +11,8 @@ def get_notification_config():
 		"for_doctype": {
 			"Error Log": {"seen": 0},
 			"Communication": {"status": "Open", "communication_type": "Communication"},
-			"ToDo": "frappe.core.notifications.get_things_todo",
-			"Event": "frappe.core.notifications.get_todays_events",
+			"ToDo": "capkpi.core.notifications.get_things_todo",
+			"Event": "capkpi.core.notifications.get_todays_events",
 			"Error Snapshot": {"seen": 0, "parent_error_snapshot": None},
 			"Workflow Action": {"status": "Open"},
 		},
@@ -21,13 +21,13 @@ def get_notification_config():
 
 def get_things_todo(as_list=False):
 	"""Returns a count of incomplete todos"""
-	data = frappe.get_list(
+	data = capkpi.get_list(
 		"ToDo",
 		fields=["name", "description"] if as_list else "count(*)",
 		filters=[["ToDo", "status", "=", "Open"]],
 		or_filters=[
-			["ToDo", "owner", "=", frappe.session.user],
-			["ToDo", "assigned_by", "=", frappe.session.user],
+			["ToDo", "owner", "=", capkpi.session.user],
+			["ToDo", "assigned_by", "=", capkpi.session.user],
 		],
 		as_list=True,
 	)
@@ -40,8 +40,8 @@ def get_things_todo(as_list=False):
 
 def get_todays_events(as_list=False):
 	"""Returns a count of todays events in calendar"""
-	from frappe.desk.doctype.event.event import get_events
-	from frappe.utils import nowdate
+	from capkpi.desk.doctype.event.event import get_events
+	from capkpi.utils import nowdate
 
 	today = nowdate()
 	events = get_events(today, today)
@@ -50,7 +50,7 @@ def get_todays_events(as_list=False):
 
 def get_unseen_likes():
 	"""Returns count of unseen likes"""
-	return frappe.db.sql(
+	return capkpi.db.sql(
 		"""select count(*) from `tabComment`
 		where
 			comment_type='Like'
@@ -59,14 +59,14 @@ def get_unseen_likes():
 			and reference_owner=%(user)s
 			and seen=0
 			""",
-		{"user": frappe.session.user},
+		{"user": capkpi.session.user},
 	)[0][0]
 
 
 def get_unread_emails():
 	"returns unread emails for a user"
 
-	return frappe.db.sql(
+	return capkpi.db.sql(
 		"""\
 		SELECT count(*)
 		FROM `tabCommunication`
@@ -80,5 +80,5 @@ def get_unread_emails():
 		AND modified >= (NOW() - INTERVAL '1' YEAR)
 		AND seen=0
 		""",
-		{"user": frappe.session.user},
+		{"user": capkpi.session.user},
 	)[0][0]

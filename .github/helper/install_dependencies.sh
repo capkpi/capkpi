@@ -10,7 +10,7 @@ if grep -lr --exclude-dir=node_modules "^<<<<<<< " "${GITHUB_WORKSPACE}"
 fi
 
  # install wkhtmltopdf
-wget -O /tmp/wkhtmltox.tar.xz https://github.com/frappe/wkhtmltopdf/raw/master/wkhtmltox-0.12.3_linux-generic-amd64.tar.xz
+wget -O /tmp/wkhtmltox.tar.xz https://github.com/capkpi/wkhtmltopdf/raw/master/wkhtmltox-0.12.3_linux-generic-amd64.tar.xz
 tar -xf /tmp/wkhtmltox.tar.xz -C /tmp
 sudo mv /tmp/wkhtmltox/bin/wkhtmltopdf /usr/local/bin/wkhtmltopdf
 sudo chmod o+x /usr/local/bin/wkhtmltopdf

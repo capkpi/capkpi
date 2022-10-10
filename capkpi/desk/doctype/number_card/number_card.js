@@ -1,9 +1,9 @@
 // Copyright (c) 2020, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Number Card', {
+capkpi.ui.form.on('Number Card', {
 	refresh: function(frm) {
-		if (!frappe.boot.developer_mode && frm.doc.is_standard) {
+		if (!capkpi.boot.developer_mode && frm.doc.is_standard) {
 			frm.disable_form();
 		}
 		frm.set_df_property("filters_section", "hidden", 1);
@@ -19,7 +19,7 @@ frappe.ui.form.on('Number Card', {
 		}
 
 		if (frm.doc.type == 'Custom') {
-			if (!frappe.boot.developer_mode) {
+			if (!capkpi.boot.developer_mode) {
 				frm.disable_form();
 			}
 			frm.filters = eval(frm.doc.filters_config);
@@ -36,14 +36,14 @@ frappe.ui.form.on('Number Card', {
 
 	create_add_to_dashboard_button: function(frm) {
 		frm.add_custom_button('Add Card to Dashboard', () => {
-			const dialog = frappe.dashboard_utils.get_add_to_dashboard_dialog(
+			const dialog = capkpi.dashboard_utils.get_add_to_dashboard_dialog(
 				frm.doc.name,
 				'Number Card',
-				'frappe.desk.doctype.number_card.number_card.add_card_to_dashboard'
+				'capkpi.desk.doctype.number_card.number_card.add_card_to_dashboard'
 			);
 
 			if (!frm.doc.name) {
-				frappe.msgprint(__('Please create Card first'));
+				capkpi.msgprint(__('Please create Card first'));
 			} else {
 				dialog.show();
 			}
@@ -54,7 +54,7 @@ frappe.ui.form.on('Number Card', {
 		let dynamic_filters = JSON.parse(frm.doc.dynamic_filters_json || 'null');
 		let static_filters = JSON.parse(frm.doc.filters_json || 'null');
 		static_filters =
-			frappe.dashboard_utils.remove_common_static_filter_values(static_filters, dynamic_filters);
+			capkpi.dashboard_utils.remove_common_static_filter_values(static_filters, dynamic_filters);
 
 		frm.set_value('filters_json', JSON.stringify(static_filters));
 		frm.trigger('render_filters_table');
@@ -77,7 +77,7 @@ frappe.ui.form.on('Number Card', {
 	label: __("Company"),
 	fieldtype: "Link",
 	options: "Company",
-	default: frappe.defaults.get_user_default("Company"),
+	default: capkpi.defaults.get_user_default("Company"),
 	reqd: 1
 },
 {
@@ -129,7 +129,7 @@ frappe.ui.form.on('Number Card', {
 
 	filters_config: function(frm) {
 		frm.filters = eval(frm.doc.filters_config);
-		const filter_values = frappe.report_utils.get_filter_values(frm.filters);
+		const filter_values = capkpi.report_utils.get_filter_values(frm.filters);
 		frm.set_value('filters_json', JSON.stringify(filter_values));
 		frm.trigger('render_filters_table');
 	},
@@ -159,9 +159,9 @@ frappe.ui.form.on('Number Card', {
 		const doctype = frm.doc.document_type;
 
 		if (doctype) {
-			frappe.model.with_doctype(doctype, () => {
-				frappe.get_meta(doctype).fields.map(df => {
-					if (frappe.model.numeric_fieldtypes.includes(df.fieldtype)) {
+			capkpi.model.with_doctype(doctype, () => {
+				capkpi.get_meta(doctype).fields.map(df => {
+					if (capkpi.model.numeric_fieldtypes.includes(df.fieldtype)) {
 						if (df.fieldtype == 'Currency') {
 							if (!df.options || df.options !== 'Company:company:default_currency') {
 								return;
@@ -181,10 +181,10 @@ frappe.ui.form.on('Number Card', {
 	set_report_filters: function(frm) {
 		const report_name = frm.doc.report_name;
 		if (report_name) {
-			frappe.report_utils.get_report_filters(report_name).then(filters => {
+			capkpi.report_utils.get_report_filters(report_name).then(filters => {
 				if (filters) {
 					frm.filters = filters;
-					const filter_values = frappe.report_utils.get_filter_values(filters);
+					const filter_values = capkpi.report_utils.get_filter_values(filters);
 					if (frm.doc.filters_json.length <= 2) {
 						frm.set_value('filters_json', JSON.stringify(filter_values));
 					}
@@ -199,10 +199,10 @@ frappe.ui.form.on('Number Card', {
 	set_report_field_options: function(frm) {
 		let filters = frm.doc.filters_json.length > 2 ? JSON.parse(frm.doc.filters_json) : null;
 		if (frm.doc.dynamic_filters_json && frm.doc.dynamic_filters_json.length > 2) {
-			filters = frappe.dashboard_utils.get_all_filters(frm.doc);
+			filters = capkpi.dashboard_utils.get_all_filters(frm.doc);
 		}
-		frappe.xcall(
-			'frappe.desk.query_report.run',
+		capkpi.xcall(
+			'capkpi.desk.query_report.run',
 			{
 				report_name: frm.doc.report_name,
 				filters: filters,
@@ -210,13 +210,13 @@ frappe.ui.form.on('Number Card', {
 			}
 		).then(data => {
 			if (data.result.length) {
-				frm.field_options = frappe.report_utils.get_field_options_from_report(data.columns, data);
+				frm.field_options = capkpi.report_utils.get_field_options_from_report(data.columns, data);
 				frm.set_df_property('report_field', 'options', frm.field_options.numeric_fields);
 				if (!frm.field_options.numeric_fields.length) {
-					frappe.msgprint(__("Report has no numeric fields, please change the Report Name"));
+					capkpi.msgprint(__("Report has no numeric fields, please change the Report Name"));
 				}
 			} else {
-				frappe.msgprint(__('Report has no data, please modify the filters or change the Report Name'));
+				capkpi.msgprint(__('Report has no data, please modify the filters or change the Report Name'));
 			}
 		});
 	},
@@ -300,7 +300,7 @@ frappe.ui.form.on('Number Card', {
 		}
 
 		table.on('click', () => {
-			let dialog = new frappe.ui.Dialog({
+			let dialog = new capkpi.ui.Dialog({
 				title: __('Set Filters'),
 				fields: fields.filter(f => !is_dynamic_filter(f)),
 				primary_action: function() {
@@ -320,7 +320,7 @@ frappe.ui.form.on('Number Card', {
 			});
 
 			if (is_document_type) {
-				frm.filter_group = new frappe.ui.FilterGroup({
+				frm.filter_group = new capkpi.ui.FilterGroup({
 					parent: dialog.get_field('filter_area').$wrapper,
 					doctype: frm.doc.document_type,
 					parent_doctype: frm.doc.parent_document_type,
@@ -333,10 +333,10 @@ frappe.ui.form.on('Number Card', {
 
 			if (frm.doc.type == 'Report') {
 				//Set query report object so that it can be used while fetching filter values in the report
-				frappe.query_report = new frappe.views.QueryReport({'filters': dialog.fields_list});
-				frappe.query_reports[frm.doc.report_name]
-					&& frappe.query_reports[frm.doc.report_name].onload
-						&& frappe.query_reports[frm.doc.report_name].onload(frappe.query_report);
+				capkpi.query_report = new capkpi.views.QueryReport({'filters': dialog.fields_list});
+				capkpi.query_reports[frm.doc.report_name]
+					&& capkpi.query_reports[frm.doc.report_name].onload
+						&& capkpi.query_reports[frm.doc.report_name].onload(capkpi.query_report);
 			}
 
 			dialog.set_values(filters);
@@ -345,7 +345,7 @@ frappe.ui.form.on('Number Card', {
 	},
 
 	render_dynamic_filters_table(frm) {
-		if (!frappe.boot.developer_mode || !frm.doc.is_standard || frm.doc.type == 'Custom') {
+		if (!capkpi.boot.developer_mode || !frm.doc.is_standard || frm.doc.type == 'Custom') {
 			return;
 		}
 
@@ -374,12 +374,12 @@ frappe.ui.form.on('Number Card', {
 
 		let filters = JSON.parse(frm.doc.filters_json || '[]');
 
-		let fields = frappe.dashboard_utils.get_fields_for_dynamic_filter_dialog(
+		let fields = capkpi.dashboard_utils.get_fields_for_dynamic_filter_dialog(
 			is_document_type, filters, frm.dynamic_filters
 		);
 
 		frm.dynamic_filter_table.on('click', () => {
-			let dialog = new frappe.ui.Dialog({
+			let dialog = new capkpi.ui.Dialog({
 				title: __('Set Dynamic Filters'),
 				fields: fields,
 				primary_action: () => {
@@ -448,12 +448,12 @@ frappe.ui.form.on('Number Card', {
 	set_parent_document_type: async function(frm) {
 		let document_type = frm.doc.document_type;
 		let doc_is_table = document_type &&
-			(await frappe.db.get_value('DocType', document_type, 'istable')).message.istable;
+			(await capkpi.db.get_value('DocType', document_type, 'istable')).message.istable;
 
 		frm.set_df_property('parent_document_type', 'hidden', !doc_is_table);
 
 		if (document_type && doc_is_table) {
-			let parent = await frappe.db.get_list('DocField', {
+			let parent = await capkpi.db.get_list('DocField', {
 				filters: {
 					'fieldtype': 'Table',
 					'options': document_type

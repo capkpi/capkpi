@@ -1,7 +1,7 @@
 // Copyright (c) 2020, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('DocType Layout', {
+capkpi.ui.form.on('DocType Layout', {
 	refresh: function(frm) {
 		frm.trigger('document_type');
 		frm.events.set_button(frm);
@@ -12,7 +12,7 @@ frappe.ui.form.on('DocType Layout', {
 			// child table empty? then show all fields as default
 			if (frm.doc.document_type) {
 				if (!(frm.doc.fields || []).length) {
-					for (let f of frappe.get_doc('DocType', frm.doc.document_type).fields) {
+					for (let f of capkpi.get_doc('DocType', frm.doc.document_type).fields) {
 						frm.add_child('fields', { fieldname: f.fieldname, label: f.label });
 					}
 				}
@@ -23,7 +23,7 @@ frappe.ui.form.on('DocType Layout', {
 	set_button(frm) {
 		if (!frm.is_new()) {
 			frm.add_custom_button(__('Go to {0} List', [frm.doc.name]), () => {
-				window.open(`/app/${frappe.router.slug(frm.doc.name)}`);
+				window.open(`/app/${capkpi.router.slug(frm.doc.name)}`);
 			});
 		}
 	}

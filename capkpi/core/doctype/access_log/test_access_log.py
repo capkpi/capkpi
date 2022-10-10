@@ -12,22 +12,22 @@ import unittest
 import requests
 
 # imports - module imports
-import frappe
-from frappe.core.doctype.access_log.access_log import make_access_log
-from frappe.core.doctype.data_import.data_import import export_csv
-from frappe.core.doctype.user.user import generate_keys
-from frappe.utils import cstr, get_site_url
+import capkpi
+from capkpi.core.doctype.access_log.access_log import make_access_log
+from capkpi.core.doctype.data_import.data_import import export_csv
+from capkpi.core.doctype.user.user import generate_keys
+from capkpi.utils import cstr, get_site_url
 
 
 class TestAccessLog(unittest.TestCase):
 	def setUp(self):
 		# generate keys for current user to send requests for the following tests
-		generate_keys(frappe.session.user)
-		frappe.db.commit()
-		generated_secret = frappe.utils.password.get_decrypted_password(
-			"User", frappe.session.user, fieldname="api_secret"
+		generate_keys(capkpi.session.user)
+		capkpi.db.commit()
+		generated_secret = capkpi.utils.password.get_decrypted_password(
+			"User", capkpi.session.user, fieldname="api_secret"
 		)
-		api_key = frappe.db.get_value("User", "Administrator", "api_key")
+		api_key = capkpi.db.get_value("User", "Administrator", "api_key")
 		self.header = {"Authorization": "token {}:{}".format(api_key, generated_secret)}
 
 		self.test_html_template = """
@@ -111,8 +111,8 @@ class TestAccessLog(unittest.TestCase):
 		self.test_report_name = "General Ledger"
 		self.test_file_type = "CSV"
 		self.test_method = "Test Method"
-		self.file_name = frappe.utils.random_string(10) + ".txt"
-		self.test_content = frappe.utils.random_string(1024)
+		self.file_name = capkpi.utils.random_string(10) + ".txt"
+		self.test_content = capkpi.utils.random_string(1024)
 
 	def test_make_full_access_log(self):
 		self.maxDiff = None
@@ -128,7 +128,7 @@ class TestAccessLog(unittest.TestCase):
 			filters=self.test_filters,
 		)
 
-		last_doc = frappe.get_last_doc("Access Log")
+		last_doc = capkpi.get_last_doc("Access Log")
 		self.assertEqual(last_doc.filters, cstr(self.test_filters))
 		self.assertEqual(self.test_doctype, last_doc.export_from)
 		self.assertEqual(self.test_document, last_doc.reference_document)
@@ -139,12 +139,12 @@ class TestAccessLog(unittest.TestCase):
 		os.remove(self.file_name)
 
 		# test if the exported data is logged
-		last_doc = frappe.get_last_doc("Access Log")
+		last_doc = capkpi.get_last_doc("Access Log")
 		self.assertEqual(self.test_doctype, last_doc.export_from)
 
 	def test_private_file_download(self):
 		# create new private file
-		new_private_file = frappe.get_doc(
+		new_private_file = capkpi.get_doc(
 			{
 				"doctype": self.test_doctype,
 				"file_name": self.file_name,
@@ -155,11 +155,11 @@ class TestAccessLog(unittest.TestCase):
 		new_private_file.insert()
 
 		# access the created file
-		private_file_link = get_site_url(frappe.local.site) + new_private_file.file_url
+		private_file_link = get_site_url(capkpi.local.site) + new_private_file.file_url
 
 		try:
 			request = requests.post(private_file_link, headers=self.header)
-			last_doc = frappe.get_last_doc("Access Log")
+			last_doc = capkpi.get_last_doc("Access Log")
 
 			if request.ok:
 				# check for the access log of downloaded file

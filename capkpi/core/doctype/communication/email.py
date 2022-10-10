@@ -10,12 +10,12 @@ from email.utils import formataddr
 from six import string_types
 from six.moves import range
 
-import frappe
-import frappe.email.smtp
-from frappe import _
-from frappe.core.utils import get_parent_doc
-from frappe.email.email_body import get_message_id
-from frappe.utils import (
+import capkpi
+import capkpi.email.smtp
+from capkpi import _
+from capkpi.core.utils import get_parent_doc
+from capkpi.email.email_body import get_message_id
+from capkpi.utils import (
 	cint,
 	get_datetime,
 	get_formatted_email,
@@ -26,10 +26,10 @@ from frappe.utils import (
 	split_emails,
 	validate_email_address,
 )
-from frappe.utils.background_jobs import enqueue
+from capkpi.utils.background_jobs import enqueue
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def make(
 	doctype=None,
 	name=None,
@@ -71,16 +71,16 @@ def make(
 	:param email_template: Template which is used to compose mail .
 	"""
 	if kwargs:
-		from frappe.utils.commands import warn
+		from capkpi.utils.commands import warn
 
 		warn(
-			f"Options {kwargs} used in frappe.core.doctype.communication.email.make "
+			f"Options {kwargs} used in capkpi.core.doctype.communication.email.make "
 			"are deprecated or unsupported",
 			category=DeprecationWarning,
 		)
 
-	if doctype and name and not frappe.has_permission(doctype=doctype, ptype="email", doc=name):
-		raise frappe.PermissionError(f"You are not allowed to send emails related to: {doctype} {name}")
+	if doctype and name and not capkpi.has_permission(doctype=doctype, ptype="email", doc=name):
+		raise capkpi.PermissionError(f"You are not allowed to send emails related to: {doctype} {name}")
 
 	return _make(
 		doctype=doctype,
@@ -132,12 +132,12 @@ def _make(
 ):
 	"""Internal method to make a new communication that ignores Permission checks."""
 
-	sender = sender or get_formatted_email(frappe.session.user)
+	sender = sender or get_formatted_email(capkpi.session.user)
 	recipients = list_to_str(recipients) if isinstance(recipients, list) else recipients
 	cc = list_to_str(cc) if isinstance(cc, list) else cc
 	bcc = list_to_str(bcc) if isinstance(bcc, list) else bcc
 
-	comm = frappe.get_doc(
+	comm = capkpi.get_doc(
 		{
 			"doctype": "Communication",
 			"subject": subject,
@@ -170,8 +170,8 @@ def _make(
 
 	if cint(send_email):
 		# Raise error if outgoing email account is missing
-		_ = frappe.email.smtp.get_outgoing_email_account(append_to=comm.doctype, sender=comm.sender)
-		frappe.flags.print_letterhead = cint(print_letterhead)
+		_ = capkpi.email.smtp.get_outgoing_email_account(append_to=comm.doctype, sender=comm.sender)
+		capkpi.flags.print_letterhead = cint(print_letterhead)
 		comm.send(print_html, print_format, attachments, send_me_a_copy=send_me_a_copy)
 
 	return {
@@ -234,7 +234,7 @@ def notify(
 
 	doc.emails_not_sent_to = set(doc.all_email_addresses) - set(doc.sent_email_addresses)
 
-	if frappe.flags.in_test:
+	if capkpi.flags.in_test:
 		# for test cases, run synchronously
 		doc._notify(
 			print_html=print_html,
@@ -258,9 +258,9 @@ def notify(
 			recipients=recipients,
 			cc=cc,
 			bcc=bcc,
-			lang=frappe.local.lang,
-			session=frappe.local.session,
-			print_letterhead=frappe.flags.print_letterhead,
+			lang=capkpi.local.lang,
+			session=capkpi.local.session,
+			print_letterhead=capkpi.flags.print_letterhead,
 		)
 
 
@@ -275,7 +275,7 @@ def _notify(
 	else:
 		unsubscribe_message = ""
 
-	frappe.sendmail(
+	capkpi.sendmail(
 		recipients=(recipients or []),
 		cc=(cc or []),
 		bcc=(bcc or []),
@@ -293,7 +293,7 @@ def _notify(
 		communication=doc.name,
 		read_receipt=doc.read_receipt,
 		is_notification=True if doc.sent_or_received == "Received" else False,
-		print_letterhead=frappe.flags.print_letterhead,
+		print_letterhead=capkpi.flags.print_letterhead,
 	)
 
 
@@ -348,8 +348,8 @@ def prepare_to_notify(doc, print_html=None, print_format=None, attachments=None)
 	:param print_html: Send given value as HTML attachment.
 	:param print_format: Attach print format of parent document."""
 
-	view_link = frappe.utils.cint(
-		frappe.db.get_value("System Settings", "System Settings", "attach_view_link")
+	view_link = capkpi.utils.cint(
+		capkpi.db.get_value("System Settings", "System Settings", "attach_view_link")
 	)
 
 	if print_format and view_link:
@@ -389,17 +389,17 @@ def prepare_to_notify(doc, print_html=None, print_format=None, attachments=None)
 				# is it a filename?
 				try:
 					# check for both filename and file id
-					file_id = frappe.db.get_all("File", or_filters={"file_name": a, "name": a}, limit=1)
+					file_id = capkpi.db.get_all("File", or_filters={"file_name": a, "name": a}, limit=1)
 					if not file_id:
-						frappe.throw(_("Unable to find attachment {0}").format(a))
+						capkpi.throw(_("Unable to find attachment {0}").format(a))
 					file_id = file_id[0]["name"]
-					_file = frappe.get_doc("File", file_id)
+					_file = capkpi.get_doc("File", file_id)
 					_file.get_content()
 					# these attachments will be attached on-demand
 					# and won't be stored in the message
 					doc.attachments.append({"fid": file_id})
 				except IOError:
-					frappe.throw(_("Unable to find attachment {0}").format(a))
+					capkpi.throw(_("Unable to find attachment {0}").format(a))
 			else:
 				doc.attachments.append(a)
 
@@ -408,12 +408,12 @@ def set_incoming_outgoing_accounts(doc):
 	doc.incoming_email_account = doc.outgoing_email_account = None
 
 	if not doc.incoming_email_account and doc.sender:
-		doc.incoming_email_account = frappe.db.get_value(
+		doc.incoming_email_account = capkpi.db.get_value(
 			"Email Account", {"email_id": doc.sender, "enable_incoming": 1}, "email_id"
 		)
 
 	if not doc.incoming_email_account and doc.reference_doctype:
-		doc.incoming_email_account = frappe.db.get_value(
+		doc.incoming_email_account = capkpi.db.get_value(
 			"Email Account",
 			{
 				"append_to": doc.reference_doctype,
@@ -422,11 +422,11 @@ def set_incoming_outgoing_accounts(doc):
 		)
 
 	if not doc.incoming_email_account:
-		doc.incoming_email_account = frappe.db.get_value(
+		doc.incoming_email_account = capkpi.db.get_value(
 			"Email Account", {"default_incoming": 1, "enable_incoming": 1}, "email_id"
 		)
 
-	doc.outgoing_email_account = frappe.email.smtp.get_outgoing_email_account(
+	doc.outgoing_email_account = capkpi.email.smtp.get_outgoing_email_account(
 		raise_exception_not_set=False, append_to=doc.doctype, sender=doc.sender
 	)
 
@@ -441,7 +441,7 @@ def get_recipients(doc, fetched_from_email_account=False):
 
 	# if fetched_from_email_account and doc.in_reply_to:
 	# add sender of previous reply
-	# doc.previous_email_sender = frappe.db.get_value("Communication", doc.in_reply_to, "sender")
+	# doc.previous_email_sender = capkpi.db.get_value("Communication", doc.in_reply_to, "sender")
 	# recipients.append(doc.previous_email_sender)
 
 	if recipients:
@@ -468,7 +468,7 @@ def get_cc(doc, recipients=None, fetched_from_email_account=False):
 		# exclude unfollows, recipients and unsubscribes
 		exclude = []  # added to remove account check
 		exclude += [
-			d[0] for d in frappe.db.get_all("User", ["email"], {"thread_notify": 0}, as_list=True)
+			d[0] for d in capkpi.db.get_all("User", ["email"], {"thread_notify": 0}, as_list=True)
 		]
 		exclude += [(parse_addr(email)[1] or "").lower() for email in recipients]
 
@@ -479,7 +479,7 @@ def get_cc(doc, recipients=None, fetched_from_email_account=False):
 		if doc.reference_doctype and doc.reference_name:
 			exclude += [
 				d[0]
-				for d in frappe.db.get_all(
+				for d in capkpi.db.get_all(
 					"Email Unsubscribe",
 					["email"],
 					{"reference_doctype": doc.reference_doctype, "reference_name": doc.reference_name},
@@ -499,7 +499,7 @@ def get_bcc(doc, recipients=None, fetched_from_email_account=False):
 	if bcc:
 		exclude = []
 		exclude += [
-			d[0] for d in frappe.db.get_all("User", ["email"], {"thread_notify": 0}, as_list=True)
+			d[0] for d in capkpi.db.get_all("User", ["email"], {"thread_notify": 0}, as_list=True)
 		]
 		exclude += [(parse_addr(email)[1] or "").lower() for email in recipients]
 
@@ -510,7 +510,7 @@ def get_bcc(doc, recipients=None, fetched_from_email_account=False):
 		if doc.reference_doctype and doc.reference_name:
 			exclude += [
 				d[0]
-				for d in frappe.db.get_all(
+				for d in capkpi.db.get_all(
 					"Email Unsubscribe",
 					["email"],
 					{"reference_doctype": doc.reference_doctype, "reference_name": doc.reference_name},
@@ -528,12 +528,12 @@ def add_attachments(name, attachments):
 	# loop through attachments
 	for a in attachments:
 		if isinstance(a, string_types):
-			attach = frappe.db.get_value(
+			attach = capkpi.db.get_value(
 				"File", {"name": a}, ["file_name", "file_url", "is_private"], as_dict=1
 			)
 
 			# save attachments to new doc
-			_file = frappe.get_doc(
+			_file = capkpi.get_doc(
 				{
 					"doctype": "File",
 					"file_url": attach.file_url,
@@ -563,13 +563,13 @@ def filter_email_list(doc, email_list, exclude, is_cc=False, is_bcc=False):
 			continue
 
 		if is_cc:
-			is_user_enabled = frappe.db.get_value("User", email_address, "enabled")
+			is_user_enabled = capkpi.db.get_value("User", email_address, "enabled")
 			if is_user_enabled == 0:
 				# don't send to disabled users
 				continue
 
 		if is_bcc:
-			is_user_enabled = frappe.db.get_value("User", email_address, "enabled")
+			is_user_enabled = capkpi.db.get_value("User", email_address, "enabled")
 			if is_user_enabled == 0:
 				continue
 
@@ -592,7 +592,7 @@ def get_owner_email(doc):
 def get_assignees(doc):
 	return [
 		(get_formatted_email(d.owner) or d.owner)
-		for d in frappe.db.get_all(
+		for d in capkpi.db.get_all(
 			"ToDo",
 			filters={
 				"reference_type": doc.reference_doctype,
@@ -606,7 +606,7 @@ def get_assignees(doc):
 
 def get_attach_link(doc, print_format):
 	"""Returns public link for the attachment via `templates/emails/print_link.html`."""
-	return frappe.get_template("templates/emails/print_link.html").render(
+	return capkpi.get_template("templates/emails/print_link.html").render(
 		{
 			"url": get_url(),
 			"doctype": doc.reference_doctype,
@@ -632,20 +632,20 @@ def sendmail(
 	try:
 
 		if lang:
-			frappe.local.lang = lang
+			capkpi.local.lang = lang
 
 		if session:
 			# hack to enable access to private files in PDF
-			session["data"] = frappe._dict(session["data"])
-			frappe.local.session.update(session)
+			session["data"] = capkpi._dict(session["data"])
+			capkpi.local.session.update(session)
 
 		if print_letterhead:
-			frappe.flags.print_letterhead = print_letterhead
+			capkpi.flags.print_letterhead = print_letterhead
 
 		# upto 3 retries
 		for i in range(3):
 			try:
-				communication = frappe.get_doc("Communication", communication_name)
+				communication = capkpi.get_doc("Communication", communication_name)
 				communication._notify(
 					print_html=print_html,
 					print_format=print_format,
@@ -655,10 +655,10 @@ def sendmail(
 					bcc=bcc,
 				)
 
-			except frappe.db.InternalError as e:
+			except capkpi.db.InternalError as e:
 				# deadlock, try again
-				if frappe.db.is_deadlocked(e):
-					frappe.db.rollback()
+				if capkpi.db.is_deadlocked(e):
+					capkpi.db.rollback()
 					time.sleep(1)
 					continue
 				else:
@@ -667,21 +667,21 @@ def sendmail(
 				break
 
 	except Exception:
-		traceback = frappe.log_error("frappe.core.doctype.communication.email.sendmail")
+		traceback = capkpi.log_error("capkpi.core.doctype.communication.email.sendmail")
 		raise
 
 
-@frappe.whitelist(allow_guest=True, methods=("GET",))
+@capkpi.whitelist(allow_guest=True, methods=("GET",))
 def mark_email_as_seen(name: str = None):
 	try:
 		update_communication_as_read(name)
-		frappe.db.commit()  # nosemgrep: this will be called in a GET request
+		capkpi.db.commit()  # nosemgrep: this will be called in a GET request
 
 	except Exception:
-		frappe.log_error(frappe.get_traceback())
+		capkpi.log_error(capkpi.get_traceback())
 
 	finally:
-		frappe.response.update(
+		capkpi.response.update(
 			{
 				"type": "binary",
 				"filename": "imaginary_pixel.png",
@@ -699,12 +699,12 @@ def update_communication_as_read(name):
 	if not name or not isinstance(name, str):
 		return
 
-	communication = frappe.db.get_value("Communication", name, "read_by_recipient", as_dict=True)
+	communication = capkpi.db.get_value("Communication", name, "read_by_recipient", as_dict=True)
 
 	if not communication or communication.read_by_recipient:
 		return
 
-	frappe.db.set_value(
+	capkpi.db.set_value(
 		"Communication",
 		name,
 		{"read_by_recipient": 1, "delivery_status": "Read", "read_by_recipient_on": get_datetime()},

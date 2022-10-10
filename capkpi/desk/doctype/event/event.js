@@ -1,8 +1,8 @@
 // Copyright (c) 2015, CapKPI Technologies Pvt. Ltd. and Contributors
 // MIT License. See license.txt
-frappe.provide("frappe.desk");
+capkpi.provide("capkpi.desk");
 
-frappe.ui.form.on("Event", {
+capkpi.ui.form.on("Event", {
 	onload: function(frm) {
 		frm.set_query('reference_doctype', "event_participants", function() {
 			return {
@@ -14,7 +14,7 @@ frappe.ui.form.on("Event", {
 		frm.set_query('google_calendar', function() {
 			return {
 				filters: {
-					"owner": frappe.session.user
+					"owner": capkpi.session.user
 				}
 			};
 		});
@@ -23,7 +23,7 @@ frappe.ui.form.on("Event", {
 		if(frm.doc.event_participants) {
 			frm.doc.event_participants.forEach(value => {
 				frm.add_custom_button(__(value.reference_docname), function() {
-					frappe.set_route("Form", value.reference_doctype, value.reference_docname);
+					capkpi.set_route("Form", value.reference_doctype, value.reference_docname);
 				}, __("Participants"));
 			})
 		}
@@ -31,7 +31,7 @@ frappe.ui.form.on("Event", {
 		frm.page.set_inner_btn_group_as_primary(__("Add Participants"));
 
 		frm.add_custom_button(__('Add Contacts'), function() {
-			new frappe.desk.eventParticipants(frm, "Contact");
+			new capkpi.desk.eventParticipants(frm, "Contact");
 		}, __("Add Participants"));
 	},
 	repeat_on: function(frm) {
@@ -44,12 +44,12 @@ frappe.ui.form.on("Event", {
 	}
 });
 
-frappe.ui.form.on("Event Participants", {
+capkpi.ui.form.on("Event Participants", {
 	event_participants_remove: function(frm, cdt, cdn) {
 		if (cdt&&!cdn.includes("New Event Participants")){
-			frappe.call({
+			capkpi.call({
 				type: "POST",
-				method: "frappe.desk.doctype.event.event.delete_communication",
+				method: "capkpi.desk.doctype.event.event.delete_communication",
 				args: {
 					"event": frm.doc,
 					"reference_doctype": cdt,
@@ -58,7 +58,7 @@ frappe.ui.form.on("Event Participants", {
 				freeze: true,
 				callback: function(r) {
 					if(r.exc) {
-						frappe.show_alert({
+						capkpi.show_alert({
 							message: __("{0}", [r.exc]),
 							indicator: 'orange'
 						});
@@ -69,7 +69,7 @@ frappe.ui.form.on("Event Participants", {
 	}
 });
 
-frappe.desk.eventParticipants = class eventParticipants {
+capkpi.desk.eventParticipants = class eventParticipants {
 	constructor(frm, doctype) {
 		this.frm = frm;
 		this.doctype = doctype;
@@ -80,7 +80,7 @@ frappe.desk.eventParticipants = class eventParticipants {
 		let me = this;
 
 		let table = me.frm.get_field("event_participants").grid;
-		new frappe.ui.form.LinkSelector({
+		new capkpi.ui.form.LinkSelector({
 			doctype: me.doctype,
 			dynamic_link_field: "reference_doctype",
 			dynamic_link_reference: me.doctype,

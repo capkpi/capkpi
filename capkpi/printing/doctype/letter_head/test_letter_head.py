@@ -5,12 +5,12 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
+import capkpi
 
 
 class TestLetterHead(unittest.TestCase):
 	def test_auto_image(self):
-		letter_head = frappe.get_doc(
+		letter_head = capkpi.get_doc(
 			dict(doctype="Letter Head", letter_head_name="Test", source="Image", image="/public/test.png")
 		).insert()
 

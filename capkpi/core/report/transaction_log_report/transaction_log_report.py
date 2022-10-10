@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 
 import hashlib
 
-import frappe
-from frappe import _
-from frappe.utils import format_datetime
+import capkpi
+from capkpi import _
+from capkpi.utils import format_datetime
 
 
 def execute(filters=None):
@@ -18,12 +18,12 @@ def execute(filters=None):
 
 def get_data(filters=None):
 
-	logs = frappe.db.sql("SELECT * FROM `tabTransaction Log` order by creation desc ", as_dict=1)
+	logs = capkpi.db.sql("SELECT * FROM `tabTransaction Log` order by creation desc ", as_dict=1)
 	result = []
 	for l in logs:
 		row_index = int(l.row_index)
 		if row_index > 1:
-			previous_hash = frappe.db.sql(
+			previous_hash = capkpi.db.sql(
 				"SELECT chaining_hash FROM `tabTransaction Log` WHERE row_index = {0}".format(row_index - 1)
 			)
 			if not previous_hash:

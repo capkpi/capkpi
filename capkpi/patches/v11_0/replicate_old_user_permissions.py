@@ -2,14 +2,14 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe.permissions import get_valid_perms
-from frappe.utils import cint
+import capkpi
+from capkpi.permissions import get_valid_perms
+from capkpi.utils import cint
 
 
 def execute():
-	frappe.reload_doctype("User Permission")
-	user_permissions = frappe.get_all("User Permission", fields=["allow", "name", "user"])
+	capkpi.reload_doctype("User Permission")
+	user_permissions = capkpi.get_all("User Permission", fields=["allow", "name", "user"])
 
 	doctype_to_skip_map = {}
 
@@ -24,11 +24,11 @@ def execute():
 	for key, doctype_to_skip in doctype_to_skip_map.items():
 		if not doctype_to_skip:
 			continue
-		if not frappe.db.has_column("User Permission", "applicable_for") and frappe.db.has_column(
+		if not capkpi.db.has_column("User Permission", "applicable_for") and capkpi.db.has_column(
 			"User Permission", "skip_for_doctype"
 		):
 			doctype_to_skip = "\n".join(doctype_to_skip)
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""
 				update `tabUser Permission`
 				set skip_for_doctype = %s
@@ -48,7 +48,7 @@ def get_doctypes_to_skip(doctype, user):
 			linked_doctypes = get_linked_doctypes(parent_doctype)
 			if doctype not in linked_doctypes:
 				continue
-		except frappe.DoesNotExistError:
+		except capkpi.DoesNotExistError:
 			# if doctype not found (may be due to rename) it should not be considered for skip
 			continue
 
@@ -93,10 +93,10 @@ def get_user_permission_doctypes(perm):
 
 
 def get_linked_doctypes(doctype):
-	from frappe.permissions import get_linked_doctypes
+	from capkpi.permissions import get_linked_doctypes
 
 	linked_doctypes = get_linked_doctypes(doctype)
-	child_doctypes = [d.options for d in frappe.get_meta(doctype).get_table_fields()]
+	child_doctypes = [d.options for d in capkpi.get_meta(doctype).get_table_fields()]
 	for child_dt in child_doctypes:
 		linked_doctypes += get_linked_doctypes(child_dt)
 	return linked_doctypes

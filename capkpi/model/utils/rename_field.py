@@ -5,29 +5,29 @@ from __future__ import print_function, unicode_literals
 
 import json
 
-import frappe
-from frappe.model import no_value_fields, table_fields
-from frappe.model.utils.user_settings import sync_user_settings, update_user_settings_data
-from frappe.utils.password import rename_password_field
+import capkpi
+from capkpi.model import no_value_fields, table_fields
+from capkpi.model.utils.user_settings import sync_user_settings, update_user_settings_data
+from capkpi.utils.password import rename_password_field
 
 
 def rename_field(doctype, old_fieldname, new_fieldname):
 	"""This functions assumes that doctype is already synced"""
 
-	meta = frappe.get_meta(doctype, cached=False)
+	meta = capkpi.get_meta(doctype, cached=False)
 	new_field = meta.get_field(new_fieldname)
 	if not new_field:
 		print("rename_field: " + (new_fieldname) + " not found in " + doctype)
 		return
 
-	if not meta.issingle and not frappe.db.has_column(doctype, old_fieldname):
+	if not meta.issingle and not capkpi.db.has_column(doctype, old_fieldname):
 		print("rename_field: " + (old_fieldname) + " not found in table for: " + doctype)
 		# never had the field?
 		return
 
 	if new_field.fieldtype in table_fields:
 		# change parentfield of table mentioned in options
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""update `tab%s` set parentfield=%s
 			where parentfield=%s"""
 			% (new_field.options.split("\n")[0], "%s", "%s"),
@@ -36,14 +36,14 @@ def rename_field(doctype, old_fieldname, new_fieldname):
 
 	elif new_field.fieldtype not in no_value_fields:
 		if meta.issingle:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabSingles` set field=%s
 				where doctype=%s and field=%s""",
 				(new_fieldname, doctype, old_fieldname),
 			)
 		else:
 			# copy field value
-			frappe.db.sql("""update `tab%s` set `%s`=`%s`""" % (doctype, new_fieldname, old_fieldname))
+			capkpi.db.sql("""update `tab%s` set `%s`=`%s`""" % (doctype, new_fieldname, old_fieldname))
 
 		update_reports(doctype, old_fieldname, new_fieldname)
 		update_users_report_view_settings(doctype, old_fieldname, new_fieldname)
@@ -76,7 +76,7 @@ def update_reports(doctype, old_fieldname, new_fieldname):
 
 		return sort_by
 
-	reports = frappe.db.sql(
+	reports = capkpi.db.sql(
 		"""select name, ref_doctype, json from tabReport
 		where report_type = 'Report Builder' and ifnull(is_standard, 'No') = 'No'
 		and json like %s and json like %s""",
@@ -123,11 +123,11 @@ def update_reports(doctype, old_fieldname, new_fieldname):
 				}
 			)
 
-			frappe.db.sql("""update `tabReport` set `json`=%s where name=%s""", (new_val, r.name))
+			capkpi.db.sql("""update `tabReport` set `json`=%s where name=%s""", (new_val, r.name))
 
 
 def update_users_report_view_settings(doctype, ref_fieldname, new_fieldname):
-	user_report_cols = frappe.db.sql(
+	user_report_cols = capkpi.db.sql(
 		"""select defkey, defvalue from `tabDefaultValue` where
 		defkey like '_list_settings:%'"""
 	)
@@ -142,7 +142,7 @@ def update_users_report_view_settings(doctype, ref_fieldname, new_fieldname):
 				new_columns.append([field, field_doctype])
 
 		if columns_modified:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabDefaultValue` set defvalue=%s
 				where defkey=%s"""
 				% ("%s", "%s"),
@@ -151,13 +151,13 @@ def update_users_report_view_settings(doctype, ref_fieldname, new_fieldname):
 
 
 def update_property_setters(doctype, old_fieldname, new_fieldname):
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""update `tabProperty Setter` set field_name = %s
 		where doc_type=%s and field_name=%s""",
 		(new_fieldname, doctype, old_fieldname),
 	)
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""update `tabCustom Field` set insert_after=%s
 		where insert_after=%s and dt=%s""",
 		(new_fieldname, old_fieldname, doctype),
@@ -168,7 +168,7 @@ def update_user_settings(doctype, old_fieldname, new_fieldname):
 	# store the user settings data from the redis to db
 	sync_user_settings()
 
-	user_settings = frappe.db.sql(
+	user_settings = capkpi.db.sql(
 		''' select user, doctype, data from `__UserSettings`
 		where doctype=%s and data like "%%%s%%"''',
 		(doctype, old_fieldname),

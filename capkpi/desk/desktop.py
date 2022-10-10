@@ -9,10 +9,10 @@ from json import dumps, loads
 
 from six import string_types
 
-import frappe
-from frappe import DoesNotExistError, ValidationError, _, _dict
-from frappe.boot import get_allowed_pages, get_allowed_reports
-from frappe.cache_manager import (
+import capkpi
+from capkpi import DoesNotExistError, ValidationError, _, _dict
+from capkpi.boot import get_allowed_pages, get_allowed_reports
+from capkpi.cache_manager import (
 	build_domain_restriced_doctype_cache,
 	build_domain_restriced_page_cache,
 	build_table_count_cache,
@@ -25,8 +25,8 @@ def handle_not_exist(fn):
 		try:
 			return fn(*args, **kwargs)
 		except DoesNotExistError:
-			if frappe.message_log:
-				frappe.message_log.pop()
+			if capkpi.message_log:
+				capkpi.message_log.pop()
 			return []
 
 	return wrapper
@@ -39,13 +39,13 @@ class Workspace:
 		self.extended_charts = []
 		self.extended_shortcuts = []
 
-		self.user = frappe.get_user()
+		self.user = capkpi.get_user()
 		self.allowed_modules = self.get_cached("user_allowed_modules", self.get_allowed_modules)
 
 		self.doc = self.get_page_for_user()
 
 		if self.doc.module and self.doc.module not in self.allowed_modules:
-			raise frappe.PermissionError
+			raise capkpi.PermissionError
 
 		self.can_read = self.get_cached("user_perm_can_read", self.get_can_read_items)
 
@@ -58,10 +58,10 @@ class Workspace:
 
 			self.table_counts = get_table_with_counts()
 		self.restricted_doctypes = (
-			frappe.cache().get_value("domain_restricted_doctypes") or build_domain_restriced_doctype_cache()
+			capkpi.cache().get_value("domain_restricted_doctypes") or build_domain_restriced_doctype_cache()
 		)
 		self.restricted_pages = (
-			frappe.cache().get_value("domain_restricted_pages") or build_domain_restriced_page_cache()
+			capkpi.cache().get_value("domain_restricted_pages") or build_domain_restriced_page_cache()
 		)
 
 	def is_page_allowed(self):
@@ -86,7 +86,7 @@ class Workspace:
 			if not item.restrict_to_domain:
 				return True
 			else:
-				return item.restrict_to_domain in frappe.get_active_domains()
+				return item.restrict_to_domain in capkpi.get_active_domains()
 
 		for item in shortcuts:
 			if self.is_item_allowed(item.link_to, item.type) and _in_active_domains(item):
@@ -95,16 +95,16 @@ class Workspace:
 		return False
 
 	def get_cached(self, cache_key, fallback_fn):
-		_cache = frappe.cache()
+		_cache = capkpi.cache()
 
-		value = _cache.get_value(cache_key, user=frappe.session.user)
+		value = _cache.get_value(cache_key, user=capkpi.session.user)
 		if value:
 			return value
 
 		value = fallback_fn()
 
 		# Expire every six hour
-		_cache.set_value(cache_key, value, frappe.session.user, 21600)
+		_cache.set_value(cache_key, value, capkpi.session.user, 21600)
 		return value
 
 	def get_can_read_items(self):
@@ -120,35 +120,35 @@ class Workspace:
 		return self.user.allow_modules
 
 	def get_page_for_user(self):
-		filters = {"extends": self.page_name, "for_user": frappe.session.user}
-		user_pages = frappe.get_all("Workspace", filters=filters, limit=1)
+		filters = {"extends": self.page_name, "for_user": capkpi.session.user}
+		user_pages = capkpi.get_all("Workspace", filters=filters, limit=1)
 		if user_pages:
-			return frappe.get_cached_doc("Workspace", user_pages[0])
+			return capkpi.get_cached_doc("Workspace", user_pages[0])
 
 		filters = {"extends_another_page": 1, "extends": self.page_name, "is_default": 1}
-		default_page = frappe.get_all("Workspace", filters=filters, limit=1)
+		default_page = capkpi.get_all("Workspace", filters=filters, limit=1)
 		if default_page:
-			return frappe.get_cached_doc("Workspace", default_page[0])
+			return capkpi.get_cached_doc("Workspace", default_page[0])
 
 		self.get_pages_to_extend()
-		return frappe.get_cached_doc("Workspace", self.page_name)
+		return capkpi.get_cached_doc("Workspace", self.page_name)
 
 	def get_onboarding_doc(self):
 		# Check if onboarding is enabled
-		if not frappe.get_system_settings("enable_onboarding"):
+		if not capkpi.get_system_settings("enable_onboarding"):
 			return None
 
 		if not self.doc.onboarding:
 			return None
 
-		if frappe.db.get_value("Module Onboarding", self.doc.onboarding, "is_complete"):
+		if capkpi.db.get_value("Module Onboarding", self.doc.onboarding, "is_complete"):
 			return None
 
-		doc = frappe.get_doc("Module Onboarding", self.doc.onboarding)
+		doc = capkpi.get_doc("Module Onboarding", self.doc.onboarding)
 
 		# Check if user is allowed
 		allowed_roles = set(doc.get_allowed_roles())
-		user_roles = set(frappe.get_roles())
+		user_roles = set(capkpi.get_roles())
 		if not allowed_roles & user_roles:
 			return None
 
@@ -159,17 +159,17 @@ class Workspace:
 		return doc
 
 	def get_pages_to_extend(self):
-		pages = frappe.get_all(
+		pages = capkpi.get_all(
 			"Workspace",
 			filters={
 				"extends": self.page_name,
-				"restrict_to_domain": ["in", frappe.get_active_domains()],
+				"restrict_to_domain": ["in", capkpi.get_active_domains()],
 				"for_user": "",
 				"module": ["in", self.allowed_modules],
 			},
 		)
 
-		pages = [frappe.get_cached_doc("Workspace", page["name"]) for page in pages]
+		pages = [capkpi.get_cached_doc("Workspace", page["name"]) for page in pages]
 
 		for page in pages:
 			self.extended_links = self.extended_links + page.get_link_groups()
@@ -177,7 +177,7 @@ class Workspace:
 			self.extended_shortcuts = self.extended_shortcuts + page.shortcuts
 
 	def is_item_allowed(self, name, item_type):
-		if frappe.session.user == "Administrator":
+		if capkpi.session.user == "Administrator":
 			return True
 
 		item_type = item_type.lower()
@@ -214,9 +214,9 @@ class Workspace:
 	def _doctype_contains_a_record(self, name):
 		exists = self.table_counts.get(name, False)
 
-		if not exists and frappe.db.exists(name):
-			if not frappe.db.get_value("DocType", name, "issingle"):
-				exists = bool(frappe.db.get_all(name, limit=1))
+		if not exists and capkpi.db.exists(name):
+			if not capkpi.db.get_value("DocType", name, "issingle"):
+				exists = bool(capkpi.db.get_all(name, limit=1))
 			else:
 				exists = True
 			self.table_counts[name] = exists
@@ -258,7 +258,7 @@ class Workspace:
 		if len(self.extended_links):
 			cards = merge_cards_based_on_label(cards + self.extended_links)
 
-		default_country = frappe.db.get_default("country")
+		default_country = capkpi.db.get_default("country")
 
 		new_data = []
 		for card in cards:
@@ -293,13 +293,13 @@ class Workspace:
 	@handle_not_exist
 	def get_charts(self):
 		all_charts = []
-		if frappe.has_permission("Dashboard Chart", throw=False):
+		if capkpi.has_permission("Dashboard Chart", throw=False):
 			charts = self.doc.charts
 			if len(self.extended_charts):
 				charts = charts + self.extended_charts
 
 			for chart in charts:
-				if frappe.has_permission("Dashboard Chart", doc=chart.chart_name):
+				if capkpi.has_permission("Dashboard Chart", doc=chart.chart_name):
 					# Translate label
 					chart.label = _(chart.label) if chart.label else _(chart.chart_name)
 					all_charts.append(chart)
@@ -312,7 +312,7 @@ class Workspace:
 			if not item.restrict_to_domain:
 				return True
 			else:
-				return item.restrict_to_domain in frappe.get_active_domains()
+				return item.restrict_to_domain in capkpi.get_active_domains()
 
 		items = []
 		shortcuts = self.doc.shortcuts
@@ -343,7 +343,7 @@ class Workspace:
 			step = doc.as_dict().copy()
 			step.label = _(doc.title)
 			if step.action == "Create Entry":
-				step.is_submittable = frappe.db.get_value(
+				step.is_submittable = capkpi.db.get_value(
 					"DocType", step.reference_document, "is_submittable", cache=True
 				)
 			steps.append(step)
@@ -351,8 +351,8 @@ class Workspace:
 		return steps
 
 
-@frappe.whitelist()
-@frappe.read_only()
+@capkpi.whitelist()
+@capkpi.read_only()
 def get_desktop_page(page):
 	"""Applies permissions, customizations and returns the configruration for a page
 	on desk.
@@ -374,30 +374,30 @@ def get_desktop_page(page):
 			"allow_customization": not wspace.doc.disable_user_customization,
 		}
 	except DoesNotExistError:
-		frappe.log_error(frappe.get_traceback())
+		capkpi.log_error(capkpi.get_traceback())
 		return {}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_desk_sidebar_items():
 	"""Get list of sidebar items for desk"""
 
 	# don't get domain restricted pages
-	blocked_modules = frappe.get_doc("User", frappe.session.user).get_blocked_modules()
+	blocked_modules = capkpi.get_doc("User", capkpi.session.user).get_blocked_modules()
 
 	filters = {
-		"restrict_to_domain": ["in", frappe.get_active_domains()],
+		"restrict_to_domain": ["in", capkpi.get_active_domains()],
 		"extends_another_page": 0,
 		"for_user": "",
 		"module": ["not in", blocked_modules],
 	}
 
-	if not frappe.local.conf.developer_mode:
+	if not capkpi.local.conf.developer_mode:
 		filters["developer_mode_only"] = "0"
 
 	# pages sorted based on pinned to top and then by name
 	order_by = "pin_to_top desc, pin_to_bottom asc, name asc"
-	all_pages = frappe.get_all(
+	all_pages = capkpi.get_all(
 		"Workspace",
 		fields=["name", "category", "icon", "module"],
 		filters=filters,
@@ -413,14 +413,14 @@ def get_desk_sidebar_items():
 			if wspace.is_page_allowed():
 				pages.append(page)
 				page["label"] = _(page.get("name"))
-		except frappe.PermissionError:
+		except capkpi.PermissionError:
 			pass
 
 	return pages
 
 
 def get_table_with_counts():
-	counts = frappe.cache().get_value("information_schema:counts")
+	counts = capkpi.cache().get_value("information_schema:counts")
 	if not counts:
 		counts = build_table_count_cache()
 
@@ -435,7 +435,7 @@ def get_custom_reports_and_doctypes(module):
 
 
 def get_custom_doctype_list(module):
-	doctypes = frappe.get_all(
+	doctypes = capkpi.get_all(
 		"DocType",
 		fields=["name"],
 		filters={"custom": 1, "istable": 0, "module": module},
@@ -451,7 +451,7 @@ def get_custom_doctype_list(module):
 
 def get_custom_report_list(module):
 	"""Returns list on new style reports for modules."""
-	reports = frappe.get_all(
+	reports = capkpi.get_all(
 		"Report",
 		fields=["name", "ref_doctype", "report_type"],
 		filters={"is_standard": "No", "disabled": 0, "module": module},
@@ -486,17 +486,17 @@ def get_custom_workspace_for_user(page):
 	Returns:
 	        Object: Document object
 	"""
-	filters = {"extends": page, "for_user": frappe.session.user}
-	pages = frappe.get_list("Workspace", filters=filters)
+	filters = {"extends": page, "for_user": capkpi.session.user}
+	pages = capkpi.get_list("Workspace", filters=filters)
 	if pages:
-		return frappe.get_doc("Workspace", pages[0])
-	doc = frappe.new_doc("Workspace")
+		return capkpi.get_doc("Workspace", pages[0])
+	doc = capkpi.new_doc("Workspace")
 	doc.extends = page
-	doc.for_user = frappe.session.user
+	doc.for_user = capkpi.session.user
 	return doc
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def save_customization(page, config):
 	"""Save customizations as a separate doctype in Workspace per user
 
@@ -507,7 +507,7 @@ def save_customization(page, config):
 	Returns:
 	        Boolean: Customization saving status
 	"""
-	original_page = frappe.get_doc("Workspace", page)
+	original_page = capkpi.get_doc("Workspace", page)
 	page_doc = get_custom_workspace_for_user(page)
 
 	# Update field values
@@ -533,7 +533,7 @@ def save_customization(page, config):
 		page_doc.build_links_table_from_cards(config.cards)
 
 	# Set label
-	page_doc.label = page + "-" + frappe.session.user
+	page_doc.label = page + "-" + capkpi.session.user
 
 	try:
 		if page_doc.is_new():
@@ -552,7 +552,7 @@ def save_customization(page, config):
 		""".format(
 			page, json_config, e
 		)
-		frappe.log_error(log, _("Could not save customization"))
+		capkpi.log_error(log, _("Could not save customization"))
 		return False
 
 	return True
@@ -580,7 +580,7 @@ def prepare_widget(config, doctype, parentfield):
 		wid_config.pop("name", None)
 
 		# New Doc
-		doc = frappe.new_doc(doctype)
+		doc = capkpi.new_doc(doctype)
 		doc.update(wid_config)
 
 		# Manually Set IDX
@@ -593,7 +593,7 @@ def prepare_widget(config, doctype, parentfield):
 	return prepare_widget_list
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def update_onboarding_step(name, field, value):
 	"""Update status of onboaridng step
 
@@ -603,10 +603,10 @@ def update_onboarding_step(name, field, value):
 	    value: Value to be updated
 
 	"""
-	frappe.db.set_value("Onboarding Step", name, field, value)
+	capkpi.db.set_value("Onboarding Step", name, field, value)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def reset_customization(page):
 	"""Reset workspace customizations for a user
 

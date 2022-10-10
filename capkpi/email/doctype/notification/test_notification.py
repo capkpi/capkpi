@@ -6,10 +6,10 @@ from __future__ import unicode_literals
 import unittest
 from contextlib import contextmanager
 
-import frappe
-import frappe.utils
-import frappe.utils.scheduler
-from frappe.desk.form import assign_to
+import capkpi
+import capkpi.utils
+import capkpi.utils.scheduler
+from capkpi.desk.form import assign_to
 
 test_dependencies = ["User", "Notification"]
 
@@ -17,7 +17,7 @@ test_dependencies = ["User", "Notification"]
 @contextmanager
 def get_test_notification(config):
 	try:
-		notification = frappe.get_doc(doctype="Notification", **config).insert()
+		notification = capkpi.get_doc(doctype="Notification", **config).insert()
 		yield notification
 	finally:
 		notification.delete()
@@ -25,11 +25,11 @@ def get_test_notification(config):
 
 class TestNotification(unittest.TestCase):
 	def setUp(self):
-		frappe.db.sql("""delete from `tabEmail Queue`""")
-		frappe.set_user("test@example.com")
+		capkpi.db.sql("""delete from `tabEmail Queue`""")
+		capkpi.set_user("test@example.com")
 
-		if not frappe.db.exists("Notification", {"name": "ToDo Status Update"}, "name"):
-			notification = frappe.new_doc("Notification")
+		if not capkpi.db.exists("Notification", {"name": "ToDo Status Update"}, "name"):
+			notification = capkpi.new_doc("Notification")
 			notification.name = "ToDo Status Update"
 			notification.subject = "ToDo Status Update"
 			notification.document_type = "ToDo"
@@ -40,8 +40,8 @@ class TestNotification(unittest.TestCase):
 			notification.property_value = "Changed by Notification"
 			notification.save()
 
-		if not frappe.db.exists("Notification", {"name": "Contact Status Update"}, "name"):
-			notification = frappe.new_doc("Notification")
+		if not capkpi.db.exists("Notification", {"name": "Contact Status Update"}, "name"):
+			notification = capkpi.new_doc("Notification")
 			notification.name = "Contact Status Update"
 			notification.subject = "Contact Status Update"
 			notification.document_type = "Contact"
@@ -52,18 +52,18 @@ class TestNotification(unittest.TestCase):
 			notification.save()
 
 	def tearDown(self):
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 
 	def test_new_and_save(self):
 		"""Check creating a new communication triggers a notification."""
-		communication = frappe.new_doc("Communication")
+		communication = capkpi.new_doc("Communication")
 		communication.communication_type = "Comment"
 		communication.subject = "test"
 		communication.content = "test"
 		communication.insert(ignore_permissions=True)
 
 		self.assertTrue(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{
 					"reference_doctype": "Communication",
@@ -72,14 +72,14 @@ class TestNotification(unittest.TestCase):
 				},
 			)
 		)
-		frappe.db.sql("""delete from `tabEmail Queue`""")
+		capkpi.db.sql("""delete from `tabEmail Queue`""")
 
 		communication.reload()
 		communication.content = "test 2"
 		communication.save()
 
 		self.assertTrue(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{
 					"reference_doctype": "Communication",
@@ -90,19 +90,19 @@ class TestNotification(unittest.TestCase):
 		)
 
 		self.assertEqual(
-			frappe.db.get_value("Communication", communication.name, "subject"), "__testing__"
+			capkpi.db.get_value("Communication", communication.name, "subject"), "__testing__"
 		)
 
 	def test_condition(self):
 		"""Check notification is triggered based on a condition."""
-		event = frappe.new_doc("Event")
+		event = capkpi.new_doc("Event")
 		event.subject = ("test",)
 		event.event_type = "Private"
 		event.starts_on = "2014-06-06 12:00:00"
 		event.insert()
 
 		self.assertFalse(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{"reference_doctype": "Event", "reference_name": event.name, "status": "Not Sent"},
 			)
@@ -112,7 +112,7 @@ class TestNotification(unittest.TestCase):
 		event.save()
 
 		self.assertTrue(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{"reference_doctype": "Event", "reference_name": event.name, "status": "Not Sent"},
 			)
@@ -120,7 +120,7 @@ class TestNotification(unittest.TestCase):
 
 		# Make sure that we track the triggered notifications in communication doctype.
 		self.assertTrue(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Communication",
 				{
 					"reference_doctype": "Event",
@@ -131,31 +131,31 @@ class TestNotification(unittest.TestCase):
 		)
 
 	def test_invalid_condition(self):
-		frappe.set_user("Administrator")
-		notification = frappe.new_doc("Notification")
+		capkpi.set_user("Administrator")
+		notification = capkpi.new_doc("Notification")
 		notification.subject = "test"
 		notification.document_type = "ToDo"
 		notification.send_alert_on = "New"
 		notification.message = "test"
 
-		recipent = frappe.new_doc("Notification Recipient")
+		recipent = capkpi.new_doc("Notification Recipient")
 		recipent.receiver_by_document_field = "owner"
 
 		notification.recipents = recipent
 		notification.condition = "test"
 
-		self.assertRaises(frappe.ValidationError, notification.save)
+		self.assertRaises(capkpi.ValidationError, notification.save)
 		notification.delete()
 
 	def test_value_changed(self):
-		event = frappe.new_doc("Event")
+		event = capkpi.new_doc("Event")
 		event.subject = ("test",)
 		event.event_type = "Private"
 		event.starts_on = "2014-06-06 12:00:00"
 		event.insert()
 
 		self.assertFalse(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{"reference_doctype": "Event", "reference_name": event.name, "status": "Not Sent"},
 			)
@@ -165,7 +165,7 @@ class TestNotification(unittest.TestCase):
 		event.save()
 
 		self.assertFalse(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{"reference_doctype": "Event", "reference_name": event.name, "status": "Not Sent"},
 			)
@@ -175,15 +175,15 @@ class TestNotification(unittest.TestCase):
 		event.save()
 
 		self.assertTrue(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{"reference_doctype": "Event", "reference_name": event.name, "status": "Not Sent"},
 			)
 		)
 
 	def test_alert_disabled_on_wrong_field(self):
-		frappe.set_user("Administrator")
-		notification = frappe.get_doc(
+		capkpi.set_user("Administrator")
+		notification = capkpi.get_doc(
 			{
 				"doctype": "Notification",
 				"subject": "_Test Notification for wrong field",
@@ -195,9 +195,9 @@ class TestNotification(unittest.TestCase):
 				"recipients": [{"receiver_by_document_field": "owner"}],
 			}
 		).insert()
-		frappe.db.commit()
+		capkpi.db.commit()
 
-		event = frappe.new_doc("Event")
+		event = capkpi.new_doc("Event")
 		event.subject = ("test-2",)
 		event.event_type = "Private"
 		event.starts_on = "2014-06-06 12:00:00"
@@ -213,53 +213,53 @@ class TestNotification(unittest.TestCase):
 
 	def test_date_changed(self):
 
-		event = frappe.new_doc("Event")
+		event = capkpi.new_doc("Event")
 		event.subject = ("test",)
 		event.event_type = "Private"
 		event.starts_on = "2014-01-01 12:00:00"
 		event.insert()
 
 		self.assertFalse(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{"reference_doctype": "Event", "reference_name": event.name, "status": "Not Sent"},
 			)
 		)
 
-		frappe.set_user("Administrator")
-		frappe.get_doc(
+		capkpi.set_user("Administrator")
+		capkpi.get_doc(
 			"Scheduled Job Type",
-			dict(method="frappe.email.doctype.notification.notification.trigger_daily_alerts"),
+			dict(method="capkpi.email.doctype.notification.notification.trigger_daily_alerts"),
 		).execute()
 
 		# not today, so no alert
 		self.assertFalse(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{"reference_doctype": "Event", "reference_name": event.name, "status": "Not Sent"},
 			)
 		)
 
-		event.starts_on = frappe.utils.add_days(frappe.utils.nowdate(), 2) + " 12:00:00"
+		event.starts_on = capkpi.utils.add_days(capkpi.utils.nowdate(), 2) + " 12:00:00"
 		event.save()
 
 		# Value Change notification alert will be trigger as description is not changed
 		# mail will not be sent
 		self.assertFalse(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{"reference_doctype": "Event", "reference_name": event.name, "status": "Not Sent"},
 			)
 		)
 
-		frappe.get_doc(
+		capkpi.get_doc(
 			"Scheduled Job Type",
-			dict(method="frappe.email.doctype.notification.notification.trigger_daily_alerts"),
+			dict(method="capkpi.email.doctype.notification.notification.trigger_daily_alerts"),
 		).execute()
 
 		# today so show alert
 		self.assertTrue(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{"reference_doctype": "Event", "reference_name": event.name, "status": "Not Sent"},
 			)
@@ -267,11 +267,11 @@ class TestNotification(unittest.TestCase):
 
 	def test_cc_jinja(self):
 
-		frappe.db.sql("""delete from `tabUser` where email='test_jinja@example.com'""")
-		frappe.db.sql("""delete from `tabEmail Queue`""")
-		frappe.db.sql("""delete from `tabEmail Queue Recipient`""")
+		capkpi.db.sql("""delete from `tabUser` where email='test_jinja@example.com'""")
+		capkpi.db.sql("""delete from `tabEmail Queue`""")
+		capkpi.db.sql("""delete from `tabEmail Queue Recipient`""")
 
-		test_user = frappe.new_doc("User")
+		test_user = capkpi.new_doc("User")
 		test_user.name = "test_jinja"
 		test_user.first_name = "test_jinja"
 		test_user.email = "test_jinja@example.com"
@@ -279,22 +279,22 @@ class TestNotification(unittest.TestCase):
 		test_user.insert(ignore_permissions=True)
 
 		self.assertTrue(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{"reference_doctype": "User", "reference_name": test_user.name, "status": "Not Sent"},
 			)
 		)
 
 		self.assertTrue(
-			frappe.db.get_value("Email Queue Recipient", {"recipient": "test_jinja@example.com"})
+			capkpi.db.get_value("Email Queue Recipient", {"recipient": "test_jinja@example.com"})
 		)
 
-		frappe.db.sql("""delete from `tabUser` where email='test_jinja@example.com'""")
-		frappe.db.sql("""delete from `tabEmail Queue`""")
-		frappe.db.sql("""delete from `tabEmail Queue Recipient`""")
+		capkpi.db.sql("""delete from `tabUser` where email='test_jinja@example.com'""")
+		capkpi.db.sql("""delete from `tabEmail Queue`""")
+		capkpi.db.sql("""delete from `tabEmail Queue Recipient`""")
 
 	def test_notification_to_assignee(self):
-		todo = frappe.new_doc("ToDo")
+		todo = capkpi.new_doc("ToDo")
 		todo.description = "Test Notification"
 		todo.save()
 
@@ -320,7 +320,7 @@ class TestNotification(unittest.TestCase):
 		todo.status = "Closed"
 		todo.save()
 
-		email_queue = frappe.get_doc(
+		email_queue = capkpi.get_doc(
 			"Email Queue", {"reference_doctype": "ToDo", "reference_name": todo.name}
 		)
 
@@ -334,7 +334,7 @@ class TestNotification(unittest.TestCase):
 		self.assertTrue("test1@example.com" in recipients)
 
 	def test_notification_by_child_table_field(self):
-		contact = frappe.new_doc("Contact")
+		contact = capkpi.new_doc("Contact")
 		contact.first_name = "John Doe"
 		contact.status = "Open"
 		contact.append("email_ids", {"email_id": "test2@example.com", "is_primary": 1})
@@ -347,7 +347,7 @@ class TestNotification(unittest.TestCase):
 		contact.status = "Replied"
 		contact.save()
 
-		email_queue = frappe.get_doc(
+		email_queue = capkpi.get_doc(
 			"Email Queue", {"reference_doctype": "Contact", "reference_name": contact.name}
 		)
 
@@ -359,7 +359,7 @@ class TestNotification(unittest.TestCase):
 
 	def test_notification_value_change_casted_types(self):
 		"""Make sure value change event dont fire because of incorrect type comparisons."""
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 
 		notification = {
 			"document_type": "User",
@@ -371,18 +371,18 @@ class TestNotification(unittest.TestCase):
 		}
 
 		with get_test_notification(notification) as n:
-			frappe.db.delete("Notification Log", {"subject": n.subject})
+			capkpi.db.delete("Notification Log", {"subject": n.subject})
 
-			user = frappe.get_doc("User", "test@example.com")
-			user.birth_date = frappe.utils.add_days(user.birth_date, 1)
+			user = capkpi.get_doc("User", "test@example.com")
+			user.birth_date = capkpi.utils.add_days(user.birth_date, 1)
 			user.save()
 
 			user.reload()
-			user.birth_date = frappe.utils.getdate(user.birth_date)
+			user.birth_date = capkpi.utils.getdate(user.birth_date)
 			user.save()
-			self.assertEqual(1, frappe.db.count("Notification Log", {"subject": n.subject}))
+			self.assertEqual(1, capkpi.db.count("Notification Log", {"subject": n.subject}))
 
 	@classmethod
 	def tearDownClass(cls):
-		frappe.delete_doc_if_exists("Notification", "ToDo Status Update")
-		frappe.delete_doc_if_exists("Notification", "Contact Status Update")
+		capkpi.delete_doc_if_exists("Notification", "ToDo Status Update")
+		capkpi.delete_doc_if_exists("Notification", "Contact Status Update")

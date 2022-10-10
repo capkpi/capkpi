@@ -1,9 +1,9 @@
 // Copyright (c) 2019, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Notification Settings', {
+capkpi.ui.form.on('Notification Settings', {
 	onload: (frm) => {
-		frappe.breadcrumbs.add({
+		capkpi.breadcrumbs.add({
 			label: __('Settings'),
 			route: '#modules/Settings',
 			type: 'Custom'
@@ -18,9 +18,9 @@ frappe.ui.form.on('Notification Settings', {
 	},
 
 	refresh: (frm) => {
-		if (frappe.user.has_role('System Manager')) {
+		if (capkpi.user.has_role('System Manager')) {
 			frm.add_custom_button(__('Go to Notification Settings List'), () => {
-				frappe.set_route('List', 'Notification Settings');
+				capkpi.set_route('List', 'Notification Settings');
 			});
 		}
 	}

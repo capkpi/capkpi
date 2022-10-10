@@ -6,20 +6,20 @@ from __future__ import unicode_literals
 import functools
 import re
 
-import frappe
-from frappe import _
+import capkpi
+from capkpi import _
 
 
 def load_address_and_contact(doc, key=None):
 	"""Loads address list and contact list in `__onload`"""
-	from frappe.contacts.doctype.address.address import get_address_display, get_condensed_address
+	from capkpi.contacts.doctype.address.address import get_address_display, get_condensed_address
 
 	filters = [
 		["Dynamic Link", "link_doctype", "=", doc.doctype],
 		["Dynamic Link", "link_name", "=", doc.name],
 		["Dynamic Link", "parenttype", "=", "Address"],
 	]
-	address_list = frappe.get_list("Address", filters=filters, fields=["*"], order_by="creation asc")
+	address_list = capkpi.get_list("Address", filters=filters, fields=["*"], order_by="creation asc")
 	address_list = [a.update({"display": get_address_display(a)}) for a in address_list]
 
 	address_list = sorted(
@@ -39,16 +39,16 @@ def load_address_and_contact(doc, key=None):
 		["Dynamic Link", "link_name", "=", doc.name],
 		["Dynamic Link", "parenttype", "=", "Contact"],
 	]
-	contact_list = frappe.get_all("Contact", filters=filters, fields=["*"])
+	contact_list = capkpi.get_all("Contact", filters=filters, fields=["*"])
 
 	for contact in contact_list:
-		contact["email_ids"] = frappe.get_list(
+		contact["email_ids"] = capkpi.get_list(
 			"Contact Email",
 			filters={"parenttype": "Contact", "parent": contact.name, "is_primary": 0},
 			fields=["email_id"],
 		)
 
-		contact["phone_nos"] = frappe.get_list(
+		contact["phone_nos"] = capkpi.get_list(
 			"Contact Phone",
 			filters={
 				"parenttype": "Contact",
@@ -60,7 +60,7 @@ def load_address_and_contact(doc, key=None):
 		)
 
 		if contact.address:
-			address = frappe.get_doc("Address", contact.address)
+			address = capkpi.get_doc("Address", contact.address)
 			contact["address"] = get_condensed_address(address)
 
 	contact_list = sorted(
@@ -88,7 +88,7 @@ def has_permission(doc, ptype, user):
 		name = doc.get(df.fieldname)
 		names.append(name)
 
-		if name and frappe.has_permission(doctype, ptype, doc=name):
+		if name and capkpi.has_permission(doctype, ptype, doc=name):
 			return True
 
 	if not any(names):
@@ -139,8 +139,8 @@ def get_permitted_and_not_permitted_links(doctype):
 	permitted_links = []
 	not_permitted_links = []
 
-	meta = frappe.get_meta(doctype)
-	allowed_doctypes = frappe.permissions.get_doctypes_with_read()
+	meta = capkpi.get_meta(doctype)
+	allowed_doctypes = capkpi.permissions.get_doctypes_with_read()
 
 	for df in meta.get_link_fields():
 		if df.options not in ("Customer", "Supplier", "Company", "Sales Partner"):
@@ -156,25 +156,25 @@ def get_permitted_and_not_permitted_links(doctype):
 
 def delete_contact_and_address(doctype, docname):
 	for parenttype in ("Contact", "Address"):
-		items = frappe.db.sql_list(
+		items = capkpi.db.sql_list(
 			"""select parent from `tabDynamic Link`
 			where parenttype=%s and link_doctype=%s and link_name=%s""",
 			(parenttype, doctype, docname),
 		)
 
 		for name in items:
-			doc = frappe.get_doc(parenttype, name)
+			doc = capkpi.get_doc(parenttype, name)
 			if len(doc.links) == 1:
 				doc.delete()
 
 
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
+@capkpi.whitelist()
+@capkpi.validate_and_sanitize_search_inputs
 def filter_dynamic_link_doctypes(doctype, txt, searchfield, start, page_len, filters):
 	if not txt:
 		txt = ""
 
-	doctypes = frappe.db.get_all(
+	doctypes = capkpi.db.get_all(
 		"DocField", filters=filters, fields=["parent"], distinct=True, as_list=True
 	)
 
@@ -182,12 +182,12 @@ def filter_dynamic_link_doctypes(doctype, txt, searchfield, start, page_len, fil
 
 	filters.update({"dt": ("not in", [d[0] for d in doctypes])})
 
-	_doctypes = frappe.db.get_all("Custom Field", filters=filters, fields=["dt"], as_list=True)
+	_doctypes = capkpi.db.get_all("Custom Field", filters=filters, fields=["dt"], as_list=True)
 
 	_doctypes = tuple([d for d in _doctypes if re.search(txt + ".*", _(d[0]), re.IGNORECASE)])
 
 	all_doctypes = [d[0] for d in doctypes + _doctypes]
-	allowed_doctypes = frappe.permissions.get_doctypes_with_read()
+	allowed_doctypes = capkpi.permissions.get_doctypes_with_read()
 
 	valid_doctypes = sorted(set(all_doctypes).intersection(set(allowed_doctypes)))
 	valid_doctypes = [[doctype] for doctype in valid_doctypes]
@@ -200,5 +200,5 @@ def set_link_title(doc):
 		return
 	for link in doc.links:
 		if not link.link_title:
-			linked_doc = frappe.get_doc(link.link_doctype, link.link_name)
+			linked_doc = capkpi.get_doc(link.link_doctype, link.link_name)
 			link.link_title = linked_doc.get_title() or link.link_name

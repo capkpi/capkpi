@@ -9,17 +9,17 @@ import os
 
 from six import string_types
 
-import frappe
-from frappe import _
-from frappe.core.doctype.role.role import get_info_based_on_role, get_user_info
-from frappe.core.doctype.sms_settings.sms_settings import send_sms
-from frappe.desk.doctype.notification_log.notification_log import enqueue_create_notification
-from frappe.integrations.doctype.slack_webhook_url.slack_webhook_url import send_slack_message
-from frappe.model.document import Document
-from frappe.modules.utils import export_module_json, get_doc_module
-from frappe.utils import add_to_date, cast, is_html, nowdate, validate_email_address
-from frappe.utils.jinja import validate_template
-from frappe.utils.safe_exec import get_safe_globals
+import capkpi
+from capkpi import _
+from capkpi.core.doctype.role.role import get_info_based_on_role, get_user_info
+from capkpi.core.doctype.sms_settings.sms_settings import send_sms
+from capkpi.desk.doctype.notification_log.notification_log import enqueue_create_notification
+from capkpi.integrations.doctype.slack_webhook_url.slack_webhook_url import send_slack_message
+from capkpi.model.document import Document
+from capkpi.modules.utils import export_module_json, get_doc_module
+from capkpi.utils import add_to_date, cast, is_html, nowdate, validate_email_address
+from capkpi.utils.jinja import validate_template
+from capkpi.utils.safe_exec import get_safe_globals
 
 
 class Notification(Document):
@@ -39,15 +39,15 @@ class Notification(Document):
 		validate_template(self.message)
 
 		if self.event in ("Days Before", "Days After") and not self.date_changed:
-			frappe.throw(_("Please specify which date field must be checked"))
+			capkpi.throw(_("Please specify which date field must be checked"))
 
 		if self.event == "Value Change" and not self.value_changed:
-			frappe.throw(_("Please specify which value field must be checked"))
+			capkpi.throw(_("Please specify which value field must be checked"))
 
 		self.validate_forbidden_types()
 		self.validate_condition()
 		self.validate_standard()
-		frappe.cache().hdel("notifications", self.document_type)
+		capkpi.cache().hdel("notifications", self.document_type)
 
 	def on_update(self):
 		path = export_module_json(self, self.is_standard, self.module)
@@ -63,7 +63,7 @@ class Notification(Document):
 					f.write(
 						"""from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 def get_context(context):
 	# do your magic here
@@ -72,25 +72,25 @@ def get_context(context):
 					)
 
 	def validate_standard(self):
-		if self.is_standard and self.enabled and not frappe.conf.developer_mode:
-			frappe.throw(
+		if self.is_standard and self.enabled and not capkpi.conf.developer_mode:
+			capkpi.throw(
 				_("Cannot edit Standard Notification. To edit, please disable this and duplicate it")
 			)
 
 	def validate_condition(self):
-		temp_doc = frappe.new_doc(self.document_type)
+		temp_doc = capkpi.new_doc(self.document_type)
 		if self.condition:
 			try:
-				frappe.safe_eval(self.condition, None, get_context(temp_doc.as_dict()))
+				capkpi.safe_eval(self.condition, None, get_context(temp_doc.as_dict()))
 			except Exception:
-				frappe.throw(_("The Condition '{0}' is invalid").format(self.condition))
+				capkpi.throw(_("The Condition '{0}' is invalid").format(self.condition))
 
 	def validate_forbidden_types(self):
 		forbidden_document_types = ("Email Queue",)
-		if self.document_type in forbidden_document_types or frappe.get_meta(self.document_type).istable:
+		if self.document_type in forbidden_document_types or capkpi.get_meta(self.document_type).istable:
 			# currently notifications don't work on child tables as events are not fired for each record of child table
 
-			frappe.throw(_("Cannot set Notification on Document Type {0}").format(self.document_type))
+			capkpi.throw(_("Cannot set Notification on Document Type {0}").format(self.document_type))
 
 	def get_documents_for_today(self):
 		"""get list of documents that will be triggered today"""
@@ -104,7 +104,7 @@ def get_context(context):
 		reference_date_start = reference_date + " 00:00:00.000000"
 		reference_date_end = reference_date + " 23:59:59.000000"
 
-		doc_list = frappe.get_all(
+		doc_list = capkpi.get_all(
 			self.document_type,
 			fields="name",
 			filters=[
@@ -114,9 +114,9 @@ def get_context(context):
 		)
 
 		for d in doc_list:
-			doc = frappe.get_doc(self.document_type, d.name)
+			doc = capkpi.get_doc(self.document_type, d.name)
 
-			if self.condition and not frappe.safe_eval(self.condition, None, get_context(doc)):
+			if self.condition and not capkpi.safe_eval(self.condition, None, get_context(doc)):
 				continue
 
 			docs.append(doc)
@@ -147,7 +147,7 @@ def get_context(context):
 				self.create_system_notification(doc, context)
 
 		except Exception:
-			frappe.log_error(title="Failed to send notification", message=frappe.get_traceback())
+			capkpi.log_error(title="Failed to send notification", message=capkpi.get_traceback())
 
 		if self.set_property_after_alert:
 			allow_update = True
@@ -157,8 +157,8 @@ def get_context(context):
 				if allow_update and not doc.flags.in_notification_update:
 					fieldname = self.set_property_after_alert
 					value = self.property_value
-					if doc.meta.get_field(fieldname).fieldtype in frappe.model.numeric_fieldtypes:
-						value = frappe.utils.cint(value)
+					if doc.meta.get_field(fieldname).fieldtype in capkpi.model.numeric_fieldtypes:
+						value = capkpi.utils.cint(value)
 
 					doc.reload()
 					doc.set(fieldname, value)
@@ -171,12 +171,12 @@ def get_context(context):
 					doc.save(ignore_permissions=True)
 					doc.flags.in_notification_update = False
 			except Exception:
-				frappe.log_error(title="Document update failed", message=frappe.get_traceback())
+				capkpi.log_error(title="Document update failed", message=capkpi.get_traceback())
 
 	def create_system_notification(self, doc, context):
 		subject = self.subject
 		if "{" in subject:
-			subject = frappe.render_template(self.subject, context)
+			subject = capkpi.render_template(self.subject, context)
 
 		attachments = self.get_attachment(doc)
 
@@ -193,7 +193,7 @@ def get_context(context):
 			"document_name": doc.name,
 			"subject": subject,
 			"from_user": doc.modified_by or doc.owner,
-			"email_content": frappe.render_template(self.message, context),
+			"email_content": capkpi.render_template(self.message, context),
 			"attached_file": attachments and json.dumps(attachments[0]),
 		}
 		enqueue_create_notification(users, notification_doc)
@@ -201,11 +201,11 @@ def get_context(context):
 	def send_an_email(self, doc, context):
 		from email.utils import formataddr
 
-		from frappe.core.doctype.communication.email import _make as make_communication
+		from capkpi.core.doctype.communication.email import _make as make_communication
 
 		subject = self.subject
 		if "{" in subject:
-			subject = frappe.render_template(self.subject, context)
+			subject = capkpi.render_template(self.subject, context)
 
 		attachments = self.get_attachment(doc)
 		recipients, cc, bcc = self.get_list_of_recipients(doc, context)
@@ -213,10 +213,10 @@ def get_context(context):
 			return
 
 		sender = None
-		message = frappe.render_template(self.message, context)
+		message = capkpi.render_template(self.message, context)
 		if self.sender and self.sender_email:
 			sender = formataddr((self.sender, self.sender_email))
-		frappe.sendmail(
+		capkpi.sendmail(
 			recipients=recipients,
 			subject=subject,
 			sender=sender,
@@ -251,7 +251,7 @@ def get_context(context):
 	def send_a_slack_msg(self, doc, context):
 		send_slack_message(
 			webhook_url=self.slack_webhook_url,
-			message=frappe.render_template(self.message, context),
+			message=capkpi.render_template(self.message, context),
 			reference_doctype=doc.doctype,
 			reference_name=doc.name,
 		)
@@ -259,7 +259,7 @@ def get_context(context):
 	def send_sms(self, doc, context):
 		send_sms(
 			receiver_list=self.get_receiver_list(doc, context),
-			msg=frappe.render_template(self.message, context),
+			msg=capkpi.render_template(self.message, context),
 		)
 
 	def get_list_of_recipients(self, doc, context):
@@ -268,7 +268,7 @@ def get_context(context):
 		bcc = []
 		for recipient in self.recipients:
 			if recipient.condition:
-				if not frappe.safe_eval(recipient.condition, None, context):
+				if not capkpi.safe_eval(recipient.condition, None, context):
 					continue
 			if recipient.receiver_by_document_field:
 				fields = recipient.receiver_by_document_field.split(",")
@@ -286,14 +286,14 @@ def get_context(context):
 						recipients = recipients + email_ids.split("\n")
 
 			if recipient.cc and "{" in recipient.cc:
-				recipient.cc = frappe.render_template(recipient.cc, context)
+				recipient.cc = capkpi.render_template(recipient.cc, context)
 
 			if recipient.cc:
 				recipient.cc = recipient.cc.replace(",", "\n")
 				cc = cc + recipient.cc.split("\n")
 
 			if recipient.bcc and "{" in recipient.bcc:
-				recipient.bcc = frappe.render_template(recipient.bcc, context)
+				recipient.bcc = capkpi.render_template(recipient.bcc, context)
 
 			if recipient.bcc:
 				recipient.bcc = recipient.bcc.replace(",", "\n")
@@ -316,7 +316,7 @@ def get_context(context):
 		receiver_list = []
 		for recipient in self.recipients:
 			if recipient.condition:
-				if not frappe.safe_eval(recipient.condition, None, context):
+				if not capkpi.safe_eval(recipient.condition, None, context):
 					continue
 
 			# For sending messages to the owner's mobile phone number
@@ -337,14 +337,14 @@ def get_context(context):
 		if not self.attach_print:
 			return None
 
-		print_settings = frappe.get_doc("Print Settings", "Print Settings")
+		print_settings = capkpi.get_doc("Print Settings", "Print Settings")
 		if (doc.docstatus == 0 and not print_settings.allow_print_for_draft) or (
 			doc.docstatus == 2 and not print_settings.allow_print_for_cancelled
 		):
 
 			# ignoring attachment as draft and cancelled documents are not allowed to print
 			status = "Draft" if doc.docstatus == 0 else "Cancelled"
-			frappe.throw(
+			capkpi.throw(
 				_(
 					"""Not allowed to attach {0} document, please enable Allow Print For {0} in Print Settings"""
 				).format(status),
@@ -358,7 +358,7 @@ def get_context(context):
 					"name": doc.name,
 					"print_format": self.print_format,
 					"print_letterhead": print_settings.with_letterhead,
-					"lang": frappe.db.get_value("Print Format", self.print_format, "default_print_language")
+					"lang": capkpi.db.get_value("Print Format", self.print_format, "default_print_language")
 					if self.print_format
 					else "en",
 				}
@@ -369,7 +369,7 @@ def get_context(context):
 
 		def load_template(extn):
 			template = ""
-			template_path = os.path.join(os.path.dirname(module.__file__), frappe.scrub(self.name) + extn)
+			template_path = os.path.join(os.path.dirname(module.__file__), capkpi.scrub(self.name) + extn)
 			if os.path.exists(template_path):
 				with open(template_path, "r") as f:
 					template = f.read()
@@ -389,12 +389,12 @@ def get_context(context):
 		self.message = self.get_template()
 
 		if not is_html(self.message):
-			self.message = frappe.utils.md_to_html(self.message)
+			self.message = capkpi.utils.md_to_html(self.message)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_documents_for_today(notification):
-	notification = frappe.get_doc("Notification", notification)
+	notification = capkpi.get_doc("Notification", notification)
 	notification.check_permission("read")
 	return [d.name for d in notification.get_documents_for_today()]
 
@@ -404,20 +404,20 @@ def trigger_daily_alerts():
 
 
 def trigger_notifications(doc, method=None):
-	if frappe.flags.in_import or frappe.flags.in_patch:
+	if capkpi.flags.in_import or capkpi.flags.in_patch:
 		# don't send notifications while syncing or patching
 		return
 
 	if method == "daily":
-		doc_list = frappe.get_all(
+		doc_list = capkpi.get_all(
 			"Notification", filters={"event": ("in", ("Days Before", "Days After")), "enabled": 1}
 		)
 		for d in doc_list:
-			alert = frappe.get_doc("Notification", d.name)
+			alert = capkpi.get_doc("Notification", d.name)
 
 			for doc in alert.get_documents_for_today():
 				evaluate_alert(doc, alert, alert.event)
-				frappe.db.commit()
+				capkpi.db.commit()
 
 
 def evaluate_alert(doc: Document, alert, event):
@@ -425,18 +425,18 @@ def evaluate_alert(doc: Document, alert, event):
 
 	try:
 		if isinstance(alert, string_types):
-			alert = frappe.get_doc("Notification", alert)
+			alert = capkpi.get_doc("Notification", alert)
 
 		context = get_context(doc)
 
 		if alert.condition:
-			if not frappe.safe_eval(alert.condition, None, context):
+			if not capkpi.safe_eval(alert.condition, None, context):
 				return
 
 		if event == "Value Change" and not doc.is_new():
-			if not frappe.db.has_column(doc.doctype, alert.value_changed):
+			if not capkpi.db.has_column(doc.doctype, alert.value_changed):
 				alert.db_set("enabled", 0)
-				frappe.log_error("Notification {0} has been disabled due to missing field".format(alert.name))
+				capkpi.log_error("Notification {0} has been disabled due to missing field".format(alert.name))
 				return
 
 			doc_before_save = doc.get_doc_before_save()
@@ -453,14 +453,14 @@ def evaluate_alert(doc: Document, alert, event):
 			doc.reload()
 		alert.send(doc)
 	except TemplateError:
-		frappe.throw(
+		capkpi.throw(
 			_("Error while evaluating Notification {0}. Please fix your template.").format(alert)
 		)
 	except Exception as e:
-		error_log = frappe.log_error(message=frappe.get_traceback(), title=str(e))
-		frappe.throw(
+		error_log = capkpi.log_error(message=capkpi.get_traceback(), title=str(e))
+		capkpi.throw(
 			_("Error in Notification: {}").format(
-				frappe.utils.get_link_to_form("Error Log", error_log.name)
+				capkpi.utils.get_link_to_form("Error Log", error_log.name)
 			)
 		)
 
@@ -469,13 +469,13 @@ def get_context(doc):
 	return {
 		"doc": doc,
 		"nowdate": nowdate,
-		"frappe": frappe._dict(utils=get_safe_globals().get("frappe").get("utils")),
+		"capkpi": capkpi._dict(utils=get_safe_globals().get("capkpi").get("utils")),
 	}
 
 
 def get_assignees(doc):
 	assignees = []
-	assignees = frappe.get_all(
+	assignees = capkpi.get_all(
 		"ToDo",
 		filters={"status": "Open", "reference_name": doc.name, "reference_type": doc.doctype},
 		fields=["owner"],

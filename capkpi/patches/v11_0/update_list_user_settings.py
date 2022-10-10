@@ -2,21 +2,21 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe.model.utils.user_settings import sync_user_settings, update_user_settings
+import capkpi
+from capkpi.model.utils.user_settings import sync_user_settings, update_user_settings
 
 
 def execute():
 	"""Update list_view's order by property from __UserSettings"""
 
-	users = frappe.db.sql("select distinct(user) from `__UserSettings`", as_dict=True)
+	users = capkpi.db.sql("select distinct(user) from `__UserSettings`", as_dict=True)
 
 	for user in users:
 		# get user_settings for each user
-		settings = frappe.db.sql(
+		settings = capkpi.db.sql(
 			"select * from `__UserSettings` \
 			where user={0}".format(
-				frappe.db.escape(user.user)
+				capkpi.db.escape(user.user)
 			),
 			as_dict=True,
 		)

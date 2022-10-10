@@ -7,13 +7,13 @@ from __future__ import unicode_literals
 import json
 import os
 
-import frappe
-from frappe.utils.momentjs import get_all_timezones
+import capkpi
+from capkpi.utils.momentjs import get_all_timezones
 
 
 def get_country_info(country=None):
 	data = get_all()
-	data = frappe._dict(data.get(country, {}))
+	data = capkpi._dict(data.get(country, {}))
 	if "date_format" not in data:
 		data.date_format = "dd-mm-yyyy"
 	if "time_format" not in data:
@@ -28,7 +28,7 @@ def get_all():
 	return all_data
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_country_timezone_info():
 	return {"country_info": get_all(), "all_timezones": get_all_timezones()}
 
@@ -37,7 +37,7 @@ def get_translated_dict():
 	from babel.dates import Locale, get_timezone, get_timezone_name
 
 	translated_dict = {}
-	locale = Locale.parse(frappe.local.lang, sep="-")
+	locale = Locale.parse(capkpi.local.lang, sep="-")
 
 	# timezones
 	for tz in get_all_timezones():

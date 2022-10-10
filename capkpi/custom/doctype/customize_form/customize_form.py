@@ -9,34 +9,34 @@ from __future__ import unicode_literals
 """
 import json
 
-import frappe
-import frappe.translate
-from frappe import _
-from frappe.core.doctype.doctype.doctype import (
+import capkpi
+import capkpi.translate
+from capkpi import _
+from capkpi.core.doctype.doctype.doctype import (
 	check_email_append_to,
 	validate_fields_for_doctype,
 	validate_series,
 )
-from frappe.custom.doctype.custom_field.custom_field import create_custom_field
-from frappe.custom.doctype.property_setter.property_setter import delete_property_setter
-from frappe.model import core_doctypes_list, no_value_fields
-from frappe.model.docfield import supports_translation
-from frappe.model.document import Document
-from frappe.utils import cint
+from capkpi.custom.doctype.custom_field.custom_field import create_custom_field
+from capkpi.custom.doctype.property_setter.property_setter import delete_property_setter
+from capkpi.model import core_doctypes_list, no_value_fields
+from capkpi.model.docfield import supports_translation
+from capkpi.model.document import Document
+from capkpi.utils import cint
 
 
 class CustomizeForm(Document):
 	def on_update(self):
-		frappe.db.sql("delete from tabSingles where doctype='Customize Form'")
-		frappe.db.sql("delete from `tabCustomize Form Field`")
+		capkpi.db.sql("delete from tabSingles where doctype='Customize Form'")
+		capkpi.db.sql("delete from `tabCustomize Form Field`")
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def fetch_to_customize(self):
 		self.clear_existing_doc()
 		if not self.doc_type:
 			return
 
-		meta = frappe.get_meta(self.doc_type)
+		meta = capkpi.get_meta(self.doc_type)
 
 		self.validate_doctype(meta)
 
@@ -56,13 +56,13 @@ class CustomizeForm(Document):
 		Check if the doctype is allowed to be customized.
 		"""
 		if self.doc_type in core_doctypes_list:
-			frappe.throw(_("Core DocTypes cannot be customized."))
+			capkpi.throw(_("Core DocTypes cannot be customized."))
 
 		if meta.issingle:
-			frappe.throw(_("Single DocTypes cannot be customized."))
+			capkpi.throw(_("Single DocTypes cannot be customized."))
 
 		if meta.custom:
-			frappe.throw(_("Only standard DocTypes are allowed to be customized from Customize Form."))
+			capkpi.throw(_("Only standard DocTypes are allowed to be customized from Customize Form."))
 
 	def load_properties(self, meta):
 		"""
@@ -109,9 +109,9 @@ class CustomizeForm(Document):
 
 	def get_name_translation(self):
 		"""Get translation object if exists of current doctype name in the default language"""
-		return frappe.get_value(
+		return capkpi.get_value(
 			"Translation",
-			{"source_text": self.doc_type, "language": frappe.local.lang or "en"},
+			{"source_text": self.doc_type, "language": capkpi.local.lang or "en"},
 			["name", "translated_text"],
 			as_dict=True,
 		)
@@ -122,23 +122,23 @@ class CustomizeForm(Document):
 		if not self.label:
 			if current:
 				# clear translation
-				frappe.delete_doc("Translation", current.name)
+				capkpi.delete_doc("Translation", current.name)
 			return
 
 		if not current:
-			frappe.get_doc(
+			capkpi.get_doc(
 				{
 					"doctype": "Translation",
 					"source_text": self.doc_type,
 					"translated_text": self.label,
-					"language_code": frappe.local.lang or "en",
+					"language_code": capkpi.local.lang or "en",
 				}
 			).insert()
 			return
 
 		if self.label != current.translated_text:
-			frappe.db.set_value("Translation", current.name, "translated_text", self.label)
-			frappe.translate.clear_cache()
+			capkpi.db.set_value("Translation", current.name, "translated_text", self.label)
+			capkpi.translate.clear_cache()
 
 	def clear_existing_doc(self):
 		doc_type = self.doc_type
@@ -152,7 +152,7 @@ class CustomizeForm(Document):
 		self.doc_type = doc_type
 		self.name = "Customize Form"
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def save_customization(self):
 		if not self.doc_type:
 			return
@@ -166,20 +166,20 @@ class CustomizeForm(Document):
 		check_email_append_to(self)
 
 		if self.flags.update_db:
-			frappe.db.updatedb(self.doc_type)
+			capkpi.db.updatedb(self.doc_type)
 
 		if not hasattr(self, "hide_success") or not self.hide_success:
-			frappe.msgprint(_("{0} updated").format(_(self.doc_type)), alert=True)
-		frappe.clear_cache(doctype=self.doc_type)
+			capkpi.msgprint(_("{0} updated").format(_(self.doc_type)), alert=True)
+		capkpi.clear_cache(doctype=self.doc_type)
 		self.fetch_to_customize()
 
 		if self.flags.rebuild_doctype_for_global_search:
-			frappe.enqueue(
-				"frappe.utils.global_search.rebuild_for_doctype", now=True, doctype=self.doc_type
+			capkpi.enqueue(
+				"capkpi.utils.global_search.rebuild_for_doctype", now=True, doctype=self.doc_type
 			)
 
 	def set_property_setters(self):
-		meta = frappe.get_meta(self.doc_type)
+		meta = capkpi.get_meta(self.doc_type)
 
 		# doctype
 		self.set_property_setters_for_doctype(meta)
@@ -222,22 +222,22 @@ class CustomizeForm(Document):
 				self.flags.update_db = True
 
 		elif prop == "allow_on_submit" and df.get(prop):
-			if not frappe.db.get_value(
+			if not capkpi.db.get_value(
 				"DocField", {"parent": self.doc_type, "fieldname": df.fieldname}, "allow_on_submit"
 			):
-				frappe.msgprint(
+				capkpi.msgprint(
 					_("Row {0}: Not allowed to enable Allow on Submit for standard fields").format(df.idx)
 				)
 				return False
 
 		elif prop == "reqd" and (
 			(
-				frappe.db.get_value("DocField", {"parent": self.doc_type, "fieldname": df.fieldname}, "reqd")
+				capkpi.db.get_value("DocField", {"parent": self.doc_type, "fieldname": df.fieldname}, "reqd")
 				== 1
 			)
 			and (df.get(prop) == 0)
 		):
-			frappe.msgprint(
+			capkpi.msgprint(
 				_("Row {0}: Not allowed to disable Mandatory for standard fields").format(df.idx)
 			)
 			return False
@@ -248,7 +248,7 @@ class CustomizeForm(Document):
 			and df.fieldtype != "Attach Image"
 			and df.fieldtype in no_value_fields
 		):
-			frappe.msgprint(
+			capkpi.msgprint(
 				_("'In List View' not allowed for type {0} in row {1}").format(df.fieldtype, df.idx)
 			)
 			return False
@@ -266,21 +266,21 @@ class CustomizeForm(Document):
 		elif (
 			prop == "read_only"
 			and cint(df.get("read_only")) == 0
-			and frappe.db.get_value(
+			and capkpi.db.get_value(
 				"DocField", {"parent": self.doc_type, "fieldname": df.fieldname}, "read_only"
 			)
 			== 1
 		):
 			# if docfield has read_only checked and user is trying to make it editable, don't allow it
-			frappe.msgprint(_("You cannot unset 'Read Only' for field {0}").format(df.label))
+			capkpi.msgprint(_("You cannot unset 'Read Only' for field {0}").format(df.label))
 			return False
 
 		elif prop == "options" and df.get("fieldtype") not in ALLOWED_OPTIONS_CHANGE:
-			frappe.msgprint(_("You can't set 'Options' for field {0}").format(df.label))
+			capkpi.msgprint(_("You can't set 'Options' for field {0}").format(df.label))
 			return False
 
 		elif prop == "translatable" and not supports_translation(df.get("fieldtype")):
-			frappe.msgprint(_("You can't set 'Translatable' for field {0}").format(df.label))
+			capkpi.msgprint(_("You can't set 'Translatable' for field {0}").format(df.label))
 			return False
 
 		elif prop == "in_global_search" and df.in_global_search != meta_df[0].get("in_global_search"):
@@ -300,9 +300,9 @@ class CustomizeForm(Document):
 			items = []
 			for i, d in enumerate(self.get(fieldname) or []):
 				d.idx = i
-				if frappe.db.exists(doctype, d.name) and not d.custom:
+				if capkpi.db.exists(doctype, d.name) and not d.custom:
 					# check property and apply property setter
-					original = frappe.get_doc(doctype, d.name)
+					original = capkpi.get_doc(doctype, d.name)
 					for prop, prop_type in field_map.items():
 						if d.get(prop) != original.get(prop):
 							self.make_property_setter(prop, d.get(prop), prop_type, apply_on=doctype, row_name=d.name)
@@ -330,21 +330,21 @@ class CustomizeForm(Document):
 				property_name, json.dumps([d.name for d in self.get(fieldname)]), "Small Text"
 			)
 		else:
-			frappe.db.delete("Property Setter", dict(property=property_name, doc_type=self.doc_type))
+			capkpi.db.delete("Property Setter", dict(property=property_name, doc_type=self.doc_type))
 
 	def clear_removed_items(self, doctype, items):
 		"""
 		Clear rows that do not appear in `items`. These have been removed by the user.
 		"""
 		if items:
-			frappe.db.delete(doctype, dict(parent=self.doc_type, custom=1, name=("not in", items)))
+			capkpi.db.delete(doctype, dict(parent=self.doc_type, custom=1, name=("not in", items)))
 		else:
-			frappe.db.delete(doctype, dict(parent=self.doc_type, custom=1))
+			capkpi.db.delete(doctype, dict(parent=self.doc_type, custom=1))
 
 	def update_custom_fields(self):
 		for i, df in enumerate(self.get("fields")):
 			if df.get("is_custom_field"):
-				if not frappe.db.exists("Custom Field", {"dt": self.doc_type, "fieldname": df.fieldname}):
+				if not capkpi.db.exists("Custom Field", {"dt": self.doc_type, "fieldname": df.fieldname}):
 					self.add_custom_field(df, i)
 					self.flags.update_db = True
 				else:
@@ -353,7 +353,7 @@ class CustomizeForm(Document):
 		self.delete_custom_fields()
 
 	def add_custom_field(self, df, i):
-		d = frappe.new_doc("Custom Field")
+		d = capkpi.new_doc("Custom Field")
 
 		d.dt = self.doc_type
 
@@ -371,13 +371,13 @@ class CustomizeForm(Document):
 			self.flags.rebuild_doctype_for_global_search = True
 
 	def update_in_custom_field(self, df, i):
-		meta = frappe.get_meta(self.doc_type)
+		meta = capkpi.get_meta(self.doc_type)
 		meta_df = meta.get("fields", {"fieldname": df.fieldname})
 		if not (meta_df and meta_df[0].get("is_custom_field")):
 			# not a custom field
 			return
 
-		custom_field = frappe.get_doc("Custom Field", meta_df[0].name)
+		custom_field = capkpi.get_doc("Custom Field", meta_df[0].name)
 		changed = False
 		for prop in docfield_properties:
 			if df.get(prop) != custom_field.get(prop):
@@ -403,7 +403,7 @@ class CustomizeForm(Document):
 			# custom_field.save()
 
 	def delete_custom_fields(self):
-		meta = frappe.get_meta(self.doc_type)
+		meta = capkpi.get_meta(self.doc_type)
 		fields_to_remove = set([df.fieldname for df in meta.get("fields")]) - set(
 			df.fieldname for df in self.get("fields")
 		)
@@ -411,7 +411,7 @@ class CustomizeForm(Document):
 		for fieldname in fields_to_remove:
 			df = meta.get("fields", {"fieldname": fieldname})[0]
 			if df.get("is_custom_field"):
-				frappe.delete_doc("Custom Field", df.name)
+				capkpi.delete_doc("Custom Field", df.name)
 
 	def make_property_setter(
 		self, prop, value, property_type, fieldname=None, apply_on=None, row_name=None
@@ -427,7 +427,7 @@ class CustomizeForm(Document):
 			apply_on = "DocField" if fieldname else "DocType"
 
 		# create a new property setter
-		frappe.make_property_setter(
+		capkpi.make_property_setter(
 			{
 				"doctype": self.doc_type,
 				"doctype_or_field": apply_on,
@@ -442,12 +442,12 @@ class CustomizeForm(Document):
 	def get_existing_property_value(self, property_name, fieldname=None):
 		# check if there is any need to make property setter!
 		if fieldname:
-			property_value = frappe.db.get_value(
+			property_value = capkpi.db.get_value(
 				"DocField", {"parent": self.doc_type, "fieldname": fieldname}, property_name
 			)
 		else:
-			if frappe.db.has_column("DocType", property_name):
-				property_value = frappe.db.get_value("DocType", self.doc_type, property_name)
+			if capkpi.db.has_column("DocType", property_name):
+				property_value = capkpi.db.get_value("DocType", self.doc_type, property_name)
 			else:
 				property_value = None
 
@@ -456,8 +456,8 @@ class CustomizeForm(Document):
 	def validate_fieldtype_change(self, df, old_value, new_value):
 		allowed = self.allow_fieldtype_change(old_value, new_value)
 		if allowed:
-			old_value_length = cint(frappe.db.type_map.get(old_value)[1])
-			new_value_length = cint(frappe.db.type_map.get(new_value)[1])
+			old_value_length = cint(capkpi.db.type_map.get(old_value)[1])
+			new_value_length = cint(capkpi.db.type_map.get(new_value)[1])
 
 			# Ignore fieldtype check validation if new field type has unspecified maxlength
 			# Changes like DATA to TEXT, where new_value_lenth equals 0 will not be validated
@@ -467,7 +467,7 @@ class CustomizeForm(Document):
 			else:
 				self.flags.update_db = True
 		if not allowed:
-			frappe.throw(
+			capkpi.throw(
 				_("Fieldtype cannot be changed from {0} to {1} in row {2}").format(
 					old_value, new_value, df.idx
 				)
@@ -476,9 +476,9 @@ class CustomizeForm(Document):
 	def validate_fieldtype_length(self):
 		for field in self.check_length_for_fieldtypes:
 			df = field.get("df")
-			max_length = cint(frappe.db.type_map.get(df.fieldtype)[1])
+			max_length = cint(capkpi.db.type_map.get(df.fieldtype)[1])
 			fieldname = df.fieldname
-			docs = frappe.db.sql(
+			docs = capkpi.db.sql(
 				"""
 				SELECT name, {fieldname}, LENGTH({fieldname}) AS len
 				FROM `tab{doctype}`
@@ -491,21 +491,21 @@ class CustomizeForm(Document):
 			links = []
 			label = df.label
 			for doc in docs:
-				links.append(frappe.utils.get_link_to_form(self.doc_type, doc.name))
+				links.append(capkpi.utils.get_link_to_form(self.doc_type, doc.name))
 			links_str = ", ".join(links)
 
 			if docs:
-				frappe.throw(
+				capkpi.throw(
 					_(
 						"Value for field {0} is too long in {1}. Length should be lesser than {2} characters"
-					).format(frappe.bold(label), links_str, frappe.bold(max_length)),
+					).format(capkpi.bold(label), links_str, capkpi.bold(max_length)),
 					title=_("Data Too Long"),
 					is_minimizable=len(docs) > 1,
 				)
 
 		self.flags.update_db = True
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def reset_to_defaults(self):
 		if not self.doc_type:
 			return
@@ -523,7 +523,7 @@ class CustomizeForm(Document):
 
 
 def reset_customization(doctype):
-	setters = frappe.get_all(
+	setters = capkpi.get_all(
 		"Property Setter",
 		filters={
 			"doc_type": doctype,
@@ -534,9 +534,9 @@ def reset_customization(doctype):
 	)
 
 	for setter in setters:
-		frappe.delete_doc("Property Setter", setter)
+		capkpi.delete_doc("Property Setter", setter)
 
-	frappe.clear_cache(doctype=doctype)
+	capkpi.clear_cache(doctype=doctype)
 
 
 doctype_properties = {

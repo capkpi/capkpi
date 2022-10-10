@@ -3,9 +3,9 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
 
 not_allowed_fieldtype_change = ["naming_series"]
 
@@ -22,21 +22,21 @@ class PropertySetter(Document):
 			delete_property_setter(self.doc_type, self.property, self.field_name, self.row_name)
 
 		# clear cache
-		frappe.clear_cache(doctype=self.doc_type)
+		capkpi.clear_cache(doctype=self.doc_type)
 
 	def validate_fieldtype_change(self):
 		if self.field_name in not_allowed_fieldtype_change and self.property == "fieldtype":
-			frappe.throw(_("Field type cannot be changed for {0}").format(self.field_name))
+			capkpi.throw(_("Field type cannot be changed for {0}").format(self.field_name))
 
 	def get_property_list(self, dt):
-		return frappe.db.get_all(
+		return capkpi.db.get_all(
 			"DocField",
 			fields=["fieldname", "label", "fieldtype"],
 			filters={
 				"parent": dt,
 				"fieldtype": [
 					"not in",
-					("Section Break", "Column Break", "HTML", "Read Only", "Fold") + frappe.model.table_fields,
+					("Section Break", "Column Break", "HTML", "Read Only", "Fold") + capkpi.model.table_fields,
 				],
 				"fieldname": ["!=", ""],
 			},
@@ -46,13 +46,13 @@ class PropertySetter(Document):
 
 	def get_setup_data(self):
 		return {
-			"doctypes": [d[0] for d in frappe.db.sql("select name from tabDocType")],
+			"doctypes": [d[0] for d in capkpi.db.sql("select name from tabDocType")],
 			"dt_properties": self.get_property_list("DocType"),
 			"df_properties": self.get_property_list("DocField"),
 		}
 
 	def get_field_ids(self):
-		return frappe.db.sql(
+		return capkpi.db.sql(
 			"select name, fieldtype, label, fieldname from tabDocField where parent=%s",
 			self.doc_type,
 			as_dict=1,
@@ -60,20 +60,20 @@ class PropertySetter(Document):
 
 	def get_defaults(self):
 		if not self.field_name:
-			return frappe.db.sql("select * from `tabDocType` where name=%s", self.doc_type, as_dict=1)[0]
+			return capkpi.db.sql("select * from `tabDocType` where name=%s", self.doc_type, as_dict=1)[0]
 		else:
-			return frappe.db.sql(
+			return capkpi.db.sql(
 				"select * from `tabDocField` where fieldname=%s and parent=%s",
 				(self.field_name, self.doc_type),
 				as_dict=1,
 			)[0]
 
 	def on_update(self):
-		if frappe.flags.in_patch:
+		if capkpi.flags.in_patch:
 			self.flags.validate_fields_for_doctype = False
 
 		if not self.flags.ignore_validate and self.flags.validate_fields_for_doctype:
-			from frappe.core.doctype.doctype.doctype import validate_fields_for_doctype
+			from capkpi.core.doctype.doctype.doctype import validate_fields_for_doctype
 
 			validate_fields_for_doctype(self.doc_type)
 
@@ -88,7 +88,7 @@ def make_property_setter(
 	validate_fields_for_doctype=True,
 ):
 	# WARNING: Ignores Permissions
-	property_setter = frappe.get_doc(
+	property_setter = capkpi.get_doc(
 		{
 			"doctype": "Property Setter",
 			"doctype_or_field": for_doctype and "DocType" or "DocField",
@@ -113,4 +113,4 @@ def delete_property_setter(doc_type, property, field_name=None, row_name=None):
 	if row_name:
 		filters["row_name"] = row_name
 
-	frappe.db.delete("Property Setter", filters)
+	capkpi.db.delete("Property Setter", filters)

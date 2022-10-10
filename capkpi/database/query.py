@@ -2,12 +2,12 @@ import operator
 import re
 from typing import Any, Dict, List, Tuple, Union
 
-import frappe
-from frappe import _
-from frappe.query_builder import Criterion, Field, Order
+import capkpi
+from capkpi import _
+from capkpi.query_builder import Criterion, Field, Order
 
 
-def like(key: str, value: str) -> frappe.qb:
+def like(key: str, value: str) -> capkpi.qb:
 	"""Wrapper method for `LIKE`
 
 	Args:
@@ -15,12 +15,12 @@ def like(key: str, value: str) -> frappe.qb:
 	        value (str): criterion
 
 	Returns:
-	        frappe.qb: `frappe.qb object with `LIKE`
+	        capkpi.qb: `capkpi.qb object with `LIKE`
 	"""
 	return Field(key).like(value)
 
 
-def func_in(key: str, value: Union[List, Tuple]) -> frappe.qb:
+def func_in(key: str, value: Union[List, Tuple]) -> capkpi.qb:
 	"""Wrapper method for `IN`
 
 	Args:
@@ -28,12 +28,12 @@ def func_in(key: str, value: Union[List, Tuple]) -> frappe.qb:
 	        value (Union[int, str]): criterion
 
 	Returns:
-	        frappe.qb: `frappe.qb object with `IN`
+	        capkpi.qb: `capkpi.qb object with `IN`
 	"""
 	return Field(key).isin(value)
 
 
-def not_like(key: str, value: str) -> frappe.qb:
+def not_like(key: str, value: str) -> capkpi.qb:
 	"""Wrapper method for `NOT LIKE`
 
 	Args:
@@ -41,7 +41,7 @@ def not_like(key: str, value: str) -> frappe.qb:
 	        value (str): criterion
 
 	Returns:
-	        frappe.qb: `frappe.qb object with `NOT LIKE`
+	        capkpi.qb: `capkpi.qb object with `NOT LIKE`
 	"""
 	return Field(key).not_like(value)
 
@@ -54,12 +54,12 @@ def func_not_in(key: str, value: Union[List, Tuple]):
 	        value (Union[int, str]): criterion
 
 	Returns:
-	        frappe.qb: `frappe.qb object with `NOT IN`
+	        capkpi.qb: `capkpi.qb object with `NOT IN`
 	"""
 	return Field(key).notin(value)
 
 
-def func_regex(key: str, value: str) -> frappe.qb:
+def func_regex(key: str, value: str) -> capkpi.qb:
 	"""Wrapper method for `REGEX`
 
 	Args:
@@ -67,12 +67,12 @@ def func_regex(key: str, value: str) -> frappe.qb:
 	        value (str): criterion
 
 	Returns:
-	        frappe.qb: `frappe.qb object with `REGEX`
+	        capkpi.qb: `capkpi.qb object with `REGEX`
 	"""
 	return Field(key).regex(value)
 
 
-def func_between(key: str, value: Union[List, Tuple]) -> frappe.qb:
+def func_between(key: str, value: Union[List, Tuple]) -> capkpi.qb:
 	"""Wrapper method for `BETWEEN`
 
 	Args:
@@ -80,7 +80,7 @@ def func_between(key: str, value: Union[List, Tuple]) -> frappe.qb:
 	        value (Union[int, str]): criterion
 
 	Returns:
-	        frappe.qb: `frappe.qb object with `BETWEEN`
+	        capkpi.qb: `capkpi.qb object with `BETWEEN`
 	"""
 	return Field(key)[slice(*value)]
 
@@ -93,7 +93,7 @@ def make_function(key: Any, value: Union[int, str]):
 	        value (Union[int, str]): criterion
 
 	Returns:
-	        frappe.qb: frappe.qb object
+	        capkpi.qb: capkpi.qb object
 	"""
 	return OPERATOR_MAP[value[0]](key, value[1])
 
@@ -134,22 +134,22 @@ OPERATOR_MAP = {
 
 
 class Query:
-	def get_condition(self, table: str, **kwargs) -> frappe.qb:
+	def get_condition(self, table: str, **kwargs) -> capkpi.qb:
 		"""Get initial table object
 
 		Args:
 		        table (str): DocType
 
 		Returns:
-		        frappe.qb: DocType with initial condition
+		        capkpi.qb: DocType with initial condition
 		"""
 		if kwargs.get("update"):
-			return frappe.qb.update(table)
+			return capkpi.qb.update(table)
 		if kwargs.get("into"):
-			return frappe.qb.into(table)
-		return frappe.qb.from_(table)
+			return capkpi.qb.into(table)
+		return capkpi.qb.from_(table)
 
-	def criterion_query(self, table: str, criterion: Criterion, **kwargs) -> frappe.qb:
+	def criterion_query(self, table: str, criterion: Criterion, **kwargs) -> capkpi.qb:
 		"""Generate filters from Criterion objects
 
 		Args:
@@ -157,19 +157,19 @@ class Query:
 		        criterion (Criterion): Filters
 
 		Returns:
-		        frappe.qb: condition object
+		        capkpi.qb: condition object
 		"""
 		condition = self.add_conditions(self.get_condition(table, **kwargs), **kwargs)
 		return condition.where(criterion)
 
-	def add_conditions(self, conditions: frappe.qb, **kwargs):
+	def add_conditions(self, conditions: capkpi.qb, **kwargs):
 		"""Adding additional conditions
 
 		Args:
-		        conditions (frappe.qb): built conditions
+		        conditions (capkpi.qb): built conditions
 
 		Returns:
-		        conditions (frappe.qb): frappe.qb object
+		        conditions (capkpi.qb): capkpi.qb object
 		"""
 		if kwargs.get("orderby"):
 			orderby = kwargs.get("orderby")
@@ -217,7 +217,7 @@ class Query:
 
 	def dict_query(
 		self, table: str, filters: Dict[str, Union[str, int]] = None, **kwargs
-	) -> frappe.qb:
+	) -> capkpi.qb:
 		"""Build conditions using the given dictionary filters
 
 		Args:
@@ -225,7 +225,7 @@ class Query:
 		        filters (Dict[str, Union[str, int]], optional): Filters. Defaults to None.
 
 		Returns:
-		        frappe.qb: conditions object
+		        capkpi.qb: conditions object
 		"""
 		conditions = self.get_condition(table, **kwargs)
 		if not filters:
@@ -259,7 +259,7 @@ class Query:
 
 	def build_conditions(
 		self, table: str, filters: Union[Dict[str, Union[str, int]], str, int] = None, **kwargs
-	) -> frappe.qb:
+	) -> capkpi.qb:
 		"""Build conditions for sql query
 
 		Args:
@@ -267,7 +267,7 @@ class Query:
 		        table (str): DocType
 
 		Returns:
-		        frappe.qb: frappe.qb conditions object
+		        capkpi.qb: capkpi.qb conditions object
 		"""
 		if isinstance(filters, int) or isinstance(filters, str):
 			filters = {"name": str(filters)}
@@ -315,18 +315,18 @@ class Permission:
 
 		for dt in doctype:
 			dt = re.sub("^tab", "", dt)
-			if not frappe.has_permission(
+			if not capkpi.has_permission(
 				dt,
 				"select",
 				user=kwargs.get("user"),
 				parent_doctype=kwargs.get("parent_doctype"),
-			) and not frappe.has_permission(
+			) and not capkpi.has_permission(
 				dt,
 				"read",
 				user=kwargs.get("user"),
 				parent_doctype=kwargs.get("parent_doctype"),
 			):
-				frappe.throw(_("Insufficient Permission for {0}").format(frappe.bold(dt)))
+				capkpi.throw(_("Insufficient Permission for {0}").format(capkpi.bold(dt)))
 
 	@staticmethod
 	def get_tables_from_query(query: str):

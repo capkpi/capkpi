@@ -1,13 +1,13 @@
 // Copyright (c) 2015, CapKPI Technologies Pvt. Ltd. and Contributors
 // License: GNU General Public License v3. See license.txt
 
-frappe.ui.form.on('Newsletter', {
+capkpi.ui.form.on('Newsletter', {
 	refresh(frm) {
 		let doc = frm.doc;
 		if (!doc.__islocal && !cint(doc.email_sent) && !doc.__unsaved
-				&& in_list(frappe.boot.user.can_write, doc.doctype)) {
+				&& in_list(capkpi.boot.user.can_write, doc.doctype)) {
 			frm.add_custom_button(__('Send Now'), function() {
-				frappe.confirm(__("Do you really want to send this email newsletter?"), function() {
+				capkpi.confirm(__("Do you really want to send this email newsletter?"), function() {
 					frm.call('send_emails').then(() => {
 						frm.refresh();
 					});
@@ -18,7 +18,7 @@ frappe.ui.form.on('Newsletter', {
 		frm.events.setup_dashboard(frm);
 
 		if (doc.__islocal && !doc.send_from) {
-			let { fullname, email } = frappe.user_info(doc.owner);
+			let { fullname, email } = capkpi.user_info(doc.owner);
 			frm.set_value('send_from', `${fullname} <${email}>`);
 		}
 	},

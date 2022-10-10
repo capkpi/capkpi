@@ -1,16 +1,16 @@
 // Copyright (c) 2020, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Module Onboarding", {
+capkpi.ui.form.on("Module Onboarding", {
 	refresh: function(frm) {
-		frappe.boot.developer_mode &&
+		capkpi.boot.developer_mode &&
 			frm.set_intro(
 				__(
 					"Saving this will export this document as well as the steps linked here as json."
 				),
 				true
 			);
-		if (!frappe.boot.developer_mode) {
+		if (!capkpi.boot.developer_mode) {
 			frm.trigger("disable_form");
 		}
 	},

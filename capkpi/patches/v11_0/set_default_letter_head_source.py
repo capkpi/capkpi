@@ -1,10 +1,10 @@
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 
 def execute():
-	frappe.reload_doctype("Letter Head")
+	capkpi.reload_doctype("Letter Head")
 
 	# source of all existing letter heads must be HTML
-	frappe.db.sql("update `tabLetter Head` set source = 'HTML'")
+	capkpi.db.sql("update `tabLetter Head` set source = 'HTML'")

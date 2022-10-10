@@ -30,10 +30,10 @@ context('Control Date, Time and DateTime', () => {
 					date_format: d.date_format
 				});
 				cy.window()
-					.its('frappe')
-					.then(frappe => {
+					.its('capkpi')
+					.then(capkpi => {
 						// update sys_defaults value to avoid a reload
-						frappe.sys_defaults.date_format = d.date_format;
+						capkpi.sys_defaults.date_format = d.date_format;
 					});
 
 				cy.new_form(doctype_name);
@@ -75,9 +75,9 @@ context('Control Date, Time and DateTime', () => {
 					time_format: d.time_format
 				});
 				cy.window()
-					.its('frappe')
-					.then(frappe => {
-						frappe.sys_defaults.time_format = d.time_format;
+					.its('capkpi')
+					.then(capkpi => {
+						capkpi.sys_defaults.time_format = d.time_format;
 					});
 				cy.new_form(doctype_name);
 				cy.fill_field('time', d.value, 'Time').blur();
@@ -110,10 +110,10 @@ context('Control Date, Time and DateTime', () => {
 					time_format: d.time_format
 				});
 				cy.window()
-					.its('frappe')
-					.then(frappe => {
-						frappe.sys_defaults.date_format = d.date_format;
-						frappe.sys_defaults.time_format = d.time_format;
+					.its('capkpi')
+					.then(capkpi => {
+						capkpi.sys_defaults.date_format = d.date_format;
+						capkpi.sys_defaults.time_format = d.time_format;
 					});
 				cy.new_form(doctype_name);
 				cy.fill_field('datetime', d.value, 'Datetime').blur();

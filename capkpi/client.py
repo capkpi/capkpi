@@ -8,13 +8,13 @@ import os
 
 from six import integer_types, iteritems, string_types
 
-import frappe
-import frappe.model
-import frappe.utils
-from frappe import _
-from frappe.desk.reportview import validate_args
-from frappe.model.db_query import check_parent_permission
-from frappe.utils import get_safe_filters
+import capkpi
+import capkpi.model
+import capkpi.utils
+from capkpi import _
+from capkpi.desk.reportview import validate_args
+from capkpi.model.db_query import check_parent_permission
+from capkpi.utils import get_safe_filters
 
 """
 Handle RESTful requests that are mapped to the `/api/resource` route.
@@ -23,7 +23,7 @@ Requests via CapKPIClient are also handled here.
 """
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_list(
 	doctype,
 	fields=None,
@@ -44,10 +44,10 @@ def get_list(
 	:param order_by: Order by this fieldname
 	:param limit_start: Start at this index
 	:param limit_page_length: Number of records to be returned (default 20)"""
-	if frappe.is_table(doctype):
+	if capkpi.is_table(doctype):
 		check_parent_permission(parent, doctype)
 
-	args = frappe._dict(
+	args = capkpi._dict(
 		doctype=doctype,
 		fields=fields,
 		filters=filters,
@@ -60,54 +60,54 @@ def get_list(
 	)
 
 	validate_args(args)
-	return frappe.get_list(**args)
+	return capkpi.get_list(**args)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_count(doctype, filters=None, debug=False, cache=False):
-	return frappe.db.count(doctype, get_safe_filters(filters), debug, cache)
+	return capkpi.db.count(doctype, get_safe_filters(filters), debug, cache)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get(doctype, name=None, filters=None, parent=None):
 	"""Returns a document by name or filters
 
 	:param doctype: DocType of the document to be returned
 	:param name: return document of this `name`
 	:param filters: If name is not set, filter by these values and return the first match"""
-	if frappe.is_table(doctype):
+	if capkpi.is_table(doctype):
 		check_parent_permission(parent, doctype)
 
 	if name:
-		doc = frappe.get_doc(doctype, name)
+		doc = capkpi.get_doc(doctype, name)
 	elif filters or filters == {}:
-		doc = frappe.get_doc(doctype, frappe.parse_json(filters))
+		doc = capkpi.get_doc(doctype, capkpi.parse_json(filters))
 	else:
-		doc = frappe.get_doc(doctype)  # single
+		doc = capkpi.get_doc(doctype)  # single
 
 	doc.check_permission()
 	return doc.as_dict()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_value(doctype, fieldname, filters=None, as_dict=True, debug=False, parent=None):
 	"""Returns a value form a document
 
 	:param doctype: DocType to be queried
 	:param fieldname: Field to be returned (default `name`)
 	:param filters: dict or string for identifying the record"""
-	if frappe.is_table(doctype):
+	if capkpi.is_table(doctype):
 		check_parent_permission(parent, doctype)
 
-	if not frappe.has_permission(doctype):
-		frappe.throw(_("No permission for {0}").format(_(doctype)), frappe.PermissionError)
+	if not capkpi.has_permission(doctype):
+		capkpi.throw(_("No permission for {0}").format(_(doctype)), capkpi.PermissionError)
 
 	filters = get_safe_filters(filters)
 	if isinstance(filters, string_types):
 		filters = {"name": filters}
 
 	try:
-		fields = frappe.parse_json(fieldname)
+		fields = capkpi.parse_json(fieldname)
 	except (TypeError, ValueError):
 		# name passed, not json
 		fields = [fieldname]
@@ -117,8 +117,8 @@ def get_value(doctype, fieldname, filters=None, as_dict=True, debug=False, paren
 	if not filters:
 		filters = None
 
-	if frappe.get_meta(doctype).issingle:
-		value = frappe.db.get_values_from_single(fields, filters, doctype, as_dict=as_dict, debug=debug)
+	if capkpi.get_meta(doctype).issingle:
+		value = capkpi.db.get_values_from_single(fields, filters, doctype, as_dict=as_dict, debug=debug)
 	else:
 		value = get_list(
 			doctype,
@@ -139,15 +139,15 @@ def get_value(doctype, fieldname, filters=None, as_dict=True, debug=False, paren
 	return value[0] if len(fields) > 1 else value[0][0]
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_single_value(doctype, field):
-	if not frappe.has_permission(doctype):
-		frappe.throw(_("No permission for {0}").format(_(doctype)), frappe.PermissionError)
+	if not capkpi.has_permission(doctype):
+		capkpi.throw(_("No permission for {0}").format(_(doctype)), capkpi.PermissionError)
 
-	return frappe.db.get_single_value(doctype, field)
+	return capkpi.db.get_single_value(doctype, field)
 
 
-@frappe.whitelist(methods=["POST", "PUT"])
+@capkpi.whitelist(methods=["POST", "PUT"])
 def set_value(doctype, name, fieldname, value=None):
 	"""Set a value using get_doc, group of values
 
@@ -156,8 +156,8 @@ def set_value(doctype, name, fieldname, value=None):
 	:param fieldname: fieldname string or JSON / dict with key value pair
 	:param value: value if fieldname is JSON / dict"""
 
-	if fieldname != "idx" and fieldname in frappe.model.default_fields:
-		frappe.throw(_("Cannot edit standard fields"))
+	if fieldname != "idx" and fieldname in capkpi.model.default_fields:
+		capkpi.throw(_("Cannot edit standard fields"))
 
 	if not value:
 		values = fieldname
@@ -169,13 +169,13 @@ def set_value(doctype, name, fieldname, value=None):
 	else:
 		values = {fieldname: value}
 
-	doc = frappe.db.get_value(doctype, name, ["parenttype", "parent"], as_dict=True)
+	doc = capkpi.db.get_value(doctype, name, ["parenttype", "parent"], as_dict=True)
 	if doc and doc.parent and doc.parenttype:
-		doc = frappe.get_doc(doc.parenttype, doc.parent)
+		doc = capkpi.get_doc(doc.parenttype, doc.parent)
 		child = doc.getone({"doctype": doctype, "name": name})
 		child.update(values)
 	else:
-		doc = frappe.get_doc(doctype, name)
+		doc = capkpi.get_doc(doctype, name)
 		doc.update(values)
 
 	doc.save()
@@ -183,7 +183,7 @@ def set_value(doctype, name, fieldname, value=None):
 	return doc.as_dict()
 
 
-@frappe.whitelist(methods=["POST", "PUT"])
+@capkpi.whitelist(methods=["POST", "PUT"])
 def insert(doc=None):
 	"""Insert a document
 
@@ -193,16 +193,16 @@ def insert(doc=None):
 
 	if doc.get("parent") and doc.get("parenttype"):
 		# inserting a child record
-		parent = frappe.get_doc(doc.get("parenttype"), doc.get("parent"))
+		parent = capkpi.get_doc(doc.get("parenttype"), doc.get("parent"))
 		parent.append(doc.get("parentfield"), doc)
 		parent.save()
 		return parent.as_dict()
 	else:
-		doc = frappe.get_doc(doc).insert()
+		doc = capkpi.get_doc(doc).insert()
 		return doc.as_dict()
 
 
-@frappe.whitelist(methods=["POST", "PUT"])
+@capkpi.whitelist(methods=["POST", "PUT"])
 def insert_many(docs=None):
 	"""Insert multiple documents
 
@@ -213,23 +213,23 @@ def insert_many(docs=None):
 	out = []
 
 	if len(docs) > 200:
-		frappe.throw(_("Only 200 inserts allowed in one request"))
+		capkpi.throw(_("Only 200 inserts allowed in one request"))
 
 	for doc in docs:
 		if doc.get("parent") and doc.get("parenttype"):
 			# inserting a child record
-			parent = frappe.get_doc(doc.get("parenttype"), doc.get("parent"))
+			parent = capkpi.get_doc(doc.get("parenttype"), doc.get("parent"))
 			parent.append(doc.get("parentfield"), doc)
 			parent.save()
 			out.append(parent.name)
 		else:
-			doc = frappe.get_doc(doc).insert()
+			doc = capkpi.get_doc(doc).insert()
 			out.append(doc.name)
 
 	return out
 
 
-@frappe.whitelist(methods=["POST", "PUT"])
+@capkpi.whitelist(methods=["POST", "PUT"])
 def save(doc):
 	"""Update (save) an existing document
 
@@ -237,24 +237,24 @@ def save(doc):
 	if isinstance(doc, string_types):
 		doc = json.loads(doc)
 
-	doc = frappe.get_doc(doc)
+	doc = capkpi.get_doc(doc)
 	doc.save()
 
 	return doc.as_dict()
 
 
-@frappe.whitelist(methods=["POST", "PUT"])
+@capkpi.whitelist(methods=["POST", "PUT"])
 def rename_doc(doctype, old_name, new_name, merge=False):
 	"""Rename document
 
 	:param doctype: DocType of the document to be renamed
 	:param old_name: Current `name` of the document to be renamed
 	:param new_name: New `name` to be set"""
-	new_name = frappe.rename_doc(doctype, old_name, new_name, merge=merge)
+	new_name = capkpi.rename_doc(doctype, old_name, new_name, merge=merge)
 	return new_name
 
 
-@frappe.whitelist(methods=["POST", "PUT"])
+@capkpi.whitelist(methods=["POST", "PUT"])
 def submit(doc):
 	"""Submit a document
 
@@ -262,34 +262,34 @@ def submit(doc):
 	if isinstance(doc, string_types):
 		doc = json.loads(doc)
 
-	doc = frappe.get_doc(doc)
+	doc = capkpi.get_doc(doc)
 	doc.submit()
 
 	return doc.as_dict()
 
 
-@frappe.whitelist(methods=["POST", "PUT"])
+@capkpi.whitelist(methods=["POST", "PUT"])
 def cancel(doctype, name):
 	"""Cancel a document
 
 	:param doctype: DocType of the document to be cancelled
 	:param name: name of the document to be cancelled"""
-	wrapper = frappe.get_doc(doctype, name)
+	wrapper = capkpi.get_doc(doctype, name)
 	wrapper.cancel()
 
 	return wrapper.as_dict()
 
 
-@frappe.whitelist(methods=["DELETE", "POST"])
+@capkpi.whitelist(methods=["DELETE", "POST"])
 def delete(doctype, name):
 	"""Delete a remote document
 
 	:param doctype: DocType of the document to be deleted
 	:param name: name of the document to be deleted"""
-	frappe.delete_doc(doctype, name, ignore_missing=False)
+	capkpi.delete_doc(doctype, name, ignore_missing=False)
 
 
-@frappe.whitelist(methods=["POST", "PUT"])
+@capkpi.whitelist(methods=["POST", "PUT"])
 def bulk_update(docs):
 	"""Bulk update documents
 
@@ -299,16 +299,16 @@ def bulk_update(docs):
 	for doc in docs:
 		doc.pop("flags", None)
 		try:
-			existing_doc = frappe.get_doc(doc["doctype"], doc["docname"])
+			existing_doc = capkpi.get_doc(doc["doctype"], doc["docname"])
 			existing_doc.update(doc)
 			existing_doc.save()
 		except Exception:
-			failed_docs.append({"doc": doc, "exc": frappe.utils.get_traceback()})
+			failed_docs.append({"doc": doc, "exc": capkpi.utils.get_traceback()})
 
 	return {"failed_docs": failed_docs}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def has_permission(doctype, docname, perm_type="read"):
 	"""Returns a JSON with data whether the document has the requested permission
 
@@ -316,10 +316,10 @@ def has_permission(doctype, docname, perm_type="read"):
 	:param docname: `name` of the document to be checked
 	:param perm_type: one of `read`, `write`, `create`, `submit`, `cancel`, `report`. Default is `read`"""
 	# perm_type can be one of read, write, create, submit, cancel, report
-	return {"has_permission": frappe.has_permission(doctype, perm_type.lower(), docname)}
+	return {"has_permission": capkpi.has_permission(doctype, perm_type.lower(), docname)}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_password(doctype, name, fieldname):
 	"""Return a password type property. Only applicable for System Managers
 
@@ -327,14 +327,14 @@ def get_password(doctype, name, fieldname):
 	:param name: `name` of the document that holds the password
 	:param fieldname: `fieldname` of the password property
 	"""
-	frappe.only_for("System Manager")
-	return frappe.get_doc(doctype, name).get_password(fieldname)
+	capkpi.only_for("System Manager")
+	return capkpi.get_doc(doctype, name).get_password(fieldname)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_js(items):
 	"""Load JS code files.  Will also append translations
-	and extend `frappe._messages`
+	and extend `capkpi._messages`
 
 	:param items: JSON list of paths of the js files to be loaded."""
 	items = json.loads(items)
@@ -343,29 +343,29 @@ def get_js(items):
 		src = src.strip("/").split("/")
 
 		if ".." in src or src[0] != "assets":
-			frappe.throw(_("Invalid file path: {0}").format("/".join(src)))
+			capkpi.throw(_("Invalid file path: {0}").format("/".join(src)))
 
-		contentpath = os.path.join(frappe.local.sites_path, *src)
+		contentpath = os.path.join(capkpi.local.sites_path, *src)
 		with open(contentpath, "r") as srcfile:
-			code = frappe.utils.cstr(srcfile.read())
+			code = capkpi.utils.cstr(srcfile.read())
 
-		if frappe.local.lang != "en":
-			messages = frappe.get_lang_dict("jsfile", contentpath)
+		if capkpi.local.lang != "en":
+			messages = capkpi.get_lang_dict("jsfile", contentpath)
 			messages = json.dumps(messages)
-			code += "\n\n$.extend(frappe._messages, {})".format(messages)
+			code += "\n\n$.extend(capkpi._messages, {})".format(messages)
 
 		out.append(code)
 
 	return out
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def get_time_zone():
 	"""Returns default time zone"""
-	return {"time_zone": frappe.defaults.get_defaults().get("time_zone")}
+	return {"time_zone": capkpi.defaults.get_defaults().get("time_zone")}
 
 
-@frappe.whitelist(methods=["POST", "PUT"])
+@capkpi.whitelist(methods=["POST", "PUT"])
 def attach_file(
 	filename=None,
 	filedata=None,
@@ -387,17 +387,17 @@ def attach_file(
 	:param is_private: Attach file as private file (1 or 0)
 	:param docfield: file to attach to (optional)"""
 
-	request_method = frappe.local.request.environ.get("REQUEST_METHOD")
+	request_method = capkpi.local.request.environ.get("REQUEST_METHOD")
 
 	if request_method.upper() != "POST":
-		frappe.throw(_("Invalid Request"))
+		capkpi.throw(_("Invalid Request"))
 
-	doc = frappe.get_doc(doctype, docname)
+	doc = capkpi.get_doc(doctype, docname)
 
 	if not doc.has_permission():
-		frappe.throw(_("Not permitted"), frappe.PermissionError)
+		capkpi.throw(_("Not permitted"), capkpi.PermissionError)
 
-	_file = frappe.get_doc(
+	_file = capkpi.get_doc(
 		{
 			"doctype": "File",
 			"file_name": filename,
@@ -419,47 +419,47 @@ def attach_file(
 	return _file.as_dict()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def is_document_amended(doctype, docname):
-	if frappe.permissions.has_permission(doctype):
+	if capkpi.permissions.has_permission(doctype):
 		try:
-			return frappe.db.exists(doctype, {"amended_from": docname})
-		except frappe.db.InternalError:
+			return capkpi.db.exists(doctype, {"amended_from": docname})
+		except capkpi.db.InternalError:
 			pass
 
 	return False
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def validate_link(doctype: str, docname: str, fields=None):
 	if not isinstance(doctype, str):
-		frappe.throw(_("DocType must be a string"))
+		capkpi.throw(_("DocType must be a string"))
 
 	if not isinstance(docname, str):
-		frappe.throw(_("Document Name must be a string"))
+		capkpi.throw(_("Document Name must be a string"))
 
 	if doctype != "DocType" and not (
-		frappe.has_permission(doctype, "select") or frappe.has_permission(doctype, "read")
+		capkpi.has_permission(doctype, "select") or capkpi.has_permission(doctype, "read")
 	):
-		frappe.throw(
-			_("You do not have Read or Select Permissions for {}").format(frappe.bold(doctype)),
-			frappe.PermissionError,
+		capkpi.throw(
+			_("You do not have Read or Select Permissions for {}").format(capkpi.bold(doctype)),
+			capkpi.PermissionError,
 		)
 
-	values = frappe._dict()
-	values.name = frappe.db.get_value(doctype, docname, cache=True)
+	values = capkpi._dict()
+	values.name = capkpi.db.get_value(doctype, docname, cache=True)
 
-	fields = frappe.parse_json(fields)
+	fields = capkpi.parse_json(fields)
 	if not values.name or not fields:
 		return values
 
 	try:
 		values.update(get_value(doctype, fields, docname))
-	except frappe.PermissionError:
-		frappe.clear_last_message()
-		frappe.msgprint(
+	except capkpi.PermissionError:
+		capkpi.clear_last_message()
+		capkpi.msgprint(
 			_("You need {0} permission to fetch values from {1} {2}").format(
-				frappe.bold(_("Read")), frappe.bold(doctype), frappe.bold(docname)
+				capkpi.bold(_("Read")), capkpi.bold(doctype), capkpi.bold(docname)
 			),
 			title=_("Cannot Fetch Values"),
 			indicator="orange",

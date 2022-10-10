@@ -3,56 +3,56 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.translate import send_translations
+import capkpi
+from capkpi.translate import send_translations
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get(name):
 	"""
 	Return the :term:`doclist` of the `Page` specified by `name`
 	"""
-	page = frappe.get_doc("Page", name)
+	page = capkpi.get_doc("Page", name)
 	if page.is_permitted():
 		page.load_assets()
-		docs = frappe._dict(page.as_dict())
+		docs = capkpi._dict(page.as_dict())
 		if getattr(page, "_dynamic_page", None):
 			docs["_dynamic_page"] = 1
 
 		return docs
 	else:
-		frappe.response["403"] = 1
-		raise frappe.PermissionError("No read permission for Page %s" % (page.title or name))
+		capkpi.response["403"] = 1
+		raise capkpi.PermissionError("No read permission for Page %s" % (page.title or name))
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def getpage():
 	"""
-	Load the page from `frappe.form` and send it via `frappe.response`
+	Load the page from `capkpi.form` and send it via `capkpi.response`
 	"""
-	page = frappe.form_dict.get("name")
+	page = capkpi.form_dict.get("name")
 	doc = get(page)
 
 	# load translations
-	if frappe.lang != "en":
-		send_translations(frappe.get_lang_dict("page", page))
+	if capkpi.lang != "en":
+		send_translations(capkpi.get_lang_dict("page", page))
 
-	frappe.response.docs.append(doc)
+	capkpi.response.docs.append(doc)
 
 
 def has_permission(page):
-	if frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles():
+	if capkpi.session.user == "Administrator" or "System Manager" in capkpi.get_roles():
 		return True
 
 	page_roles = [d.role for d in page.get("roles")]
 	if page_roles:
-		if frappe.session.user == "Guest" and "Guest" not in page_roles:
+		if capkpi.session.user == "Guest" and "Guest" not in page_roles:
 			return False
-		elif not set(page_roles).intersection(set(frappe.get_roles())):
+		elif not set(page_roles).intersection(set(capkpi.get_roles())):
 			# check if roles match
 			return False
 
-	if not frappe.has_permission("Page", ptype="read", doc=page):
+	if not capkpi.has_permission("Page", ptype="read", doc=page):
 		# check if there are any user_permissions
 		return False
 	else:

@@ -6,9 +6,9 @@ from __future__ import unicode_literals
 import json
 from typing import Optional
 
-import frappe
-from frappe.model import no_value_fields, table_fields
-from frappe.model.document import Document
+import capkpi
+from capkpi.model import no_value_fields, table_fields
+from capkpi.model.document import Document
 
 
 class Version(Document):
@@ -26,7 +26,7 @@ class Version(Document):
 		if diff:
 			self.ref_doctype = new.doctype
 			self.docname = new.name
-			self.data = frappe.as_json(diff, indent=None, separators=(",", ":"))
+			self.data = capkpi.as_json(diff, indent=None, separators=(",", ":"))
 			return True
 		else:
 			return False
@@ -43,7 +43,7 @@ class Version(Document):
 		}
 		self.ref_doctype = doc.doctype
 		self.docname = doc.name
-		self.data = frappe.as_json(data, indent=None, separators=(",", ":"))
+		self.data = capkpi.as_json(data, indent=None, separators=(",", ":"))
 		return True
 
 	def get_data(self):
@@ -74,7 +74,7 @@ def get_diff(old, new, for_child=False):
 	data_import = new.flags.via_data_import
 	updater_reference = new.flags.updater_reference
 
-	out = frappe._dict(
+	out = capkpi._dict(
 		changed=[],
 		added=[],
 		removed=[],
@@ -131,4 +131,4 @@ def get_diff(old, new, for_child=False):
 
 
 def on_doctype_update():
-	frappe.db.add_index("Version", ["ref_doctype", "docname"])
+	capkpi.db.add_index("Version", ["ref_doctype", "docname"])

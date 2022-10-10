@@ -1,4 +1,4 @@
-frappe.ui.form.on("Note", {
+capkpi.ui.form.on("Note", {
 	refresh: function(frm) {
 		if (frm.doc.__islocal) {
 			frm.events.set_editable(frm, true);
@@ -39,7 +39,7 @@ frappe.ui.form.on("Note", {
 	}
 });
 
-frappe.tour['Note'] = [
+capkpi.tour['Note'] = [
 	{
 		fieldname: "title",
 		title: "Title of the Note",

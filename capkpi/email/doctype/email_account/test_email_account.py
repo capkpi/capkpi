@@ -7,30 +7,30 @@ import email
 import os
 import unittest
 
-import frappe
-from frappe.test_runner import make_test_records
+import capkpi
+from capkpi.test_runner import make_test_records
 
 make_test_records("User")
 make_test_records("Email Account")
 
 from datetime import datetime, timedelta
 
-from frappe.core.doctype.communication.email import make
-from frappe.desk.form.load import get_attachments
-from frappe.email.doctype.email_account.email_account import notify_unreplied
+from capkpi.core.doctype.communication.email import make
+from capkpi.desk.form.load import get_attachments
+from capkpi.email.doctype.email_account.email_account import notify_unreplied
 
 
 class TestEmailAccount(unittest.TestCase):
 	def setUp(self):
-		frappe.flags.mute_emails = False
-		frappe.flags.sent_mail = None
+		capkpi.flags.mute_emails = False
+		capkpi.flags.sent_mail = None
 
-		email_account = frappe.get_doc("Email Account", "_Test Email Account 1")
+		email_account = capkpi.get_doc("Email Account", "_Test Email Account 1")
 		email_account.db_set("enable_incoming", 1)
-		frappe.db.sql("delete from `tabEmail Queue`")
+		capkpi.db.sql("delete from `tabEmail Queue`")
 
 	def tearDown(self):
-		email_account = frappe.get_doc("Email Account", "_Test Email Account 1")
+		email_account = capkpi.get_doc("Email Account", "_Test Email Account 1")
 		email_account.db_set("enable_incoming", 0)
 
 	def test_incoming(self):
@@ -39,25 +39,25 @@ class TestEmailAccount(unittest.TestCase):
 		with open(os.path.join(os.path.dirname(__file__), "test_mails", "incoming-1.raw"), "r") as f:
 			test_mails = [f.read()]
 
-		email_account = frappe.get_doc("Email Account", "_Test Email Account 1")
+		email_account = capkpi.get_doc("Email Account", "_Test Email Account 1")
 		email_account.receive(test_mails=test_mails)
 
-		comm = frappe.get_doc("Communication", {"sender": "test_sender@example.com"})
+		comm = capkpi.get_doc("Communication", {"sender": "test_sender@example.com"})
 		self.assertTrue("test_receiver@example.com" in comm.recipients)
 
 		# check if todo is created
-		self.assertTrue(frappe.db.get_value(comm.reference_doctype, comm.reference_name, "name"))
+		self.assertTrue(capkpi.db.get_value(comm.reference_doctype, comm.reference_name, "name"))
 
 	def test_unread_notification(self):
 		self.test_incoming()
 
-		comm = frappe.get_doc("Communication", {"sender": "test_sender@example.com"})
+		comm = capkpi.get_doc("Communication", {"sender": "test_sender@example.com"})
 		comm.db_set("creation", datetime.now() - timedelta(seconds=30 * 60))
 
-		frappe.db.sql("DELETE FROM `tabEmail Queue`")
+		capkpi.db.sql("DELETE FROM `tabEmail Queue`")
 		notify_unreplied()
 		self.assertTrue(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Email Queue",
 				{
 					"reference_doctype": comm.reference_doctype,
@@ -70,18 +70,18 @@ class TestEmailAccount(unittest.TestCase):
 	def test_incoming_with_attach(self):
 		cleanup("test_sender@example.com")
 
-		existing_file = frappe.get_doc({"doctype": "File", "file_name": "erp-conf-14.png"})
-		frappe.delete_doc("File", existing_file.name)
+		existing_file = capkpi.get_doc({"doctype": "File", "file_name": "erp-conf-14.png"})
+		capkpi.delete_doc("File", existing_file.name)
 
 		with open(
 			os.path.join(os.path.dirname(__file__), "test_mails", "incoming-2.raw"), "r"
 		) as testfile:
 			test_mails = [testfile.read()]
 
-		email_account = frappe.get_doc("Email Account", "_Test Email Account 1")
+		email_account = capkpi.get_doc("Email Account", "_Test Email Account 1")
 		email_account.receive(test_mails=test_mails)
 
-		comm = frappe.get_doc("Communication", {"sender": "test_sender@example.com"})
+		comm = capkpi.get_doc("Communication", {"sender": "test_sender@example.com"})
 		self.assertTrue("test_receiver@example.com" in comm.recipients)
 
 		# check attachment
@@ -89,8 +89,8 @@ class TestEmailAccount(unittest.TestCase):
 		self.assertTrue("erp-conf-14.png" in [f.file_name for f in attachments])
 
 		# cleanup
-		existing_file = frappe.get_doc({"doctype": "File", "file_name": "erp-conf-14.png"})
-		frappe.delete_doc("File", existing_file.name)
+		existing_file = capkpi.get_doc({"doctype": "File", "file_name": "erp-conf-14.png"})
+		capkpi.delete_doc("File", existing_file.name)
 
 	def test_incoming_attached_email_from_outlook_plain_text_only(self):
 		cleanup("test_sender@example.com")
@@ -98,10 +98,10 @@ class TestEmailAccount(unittest.TestCase):
 		with open(os.path.join(os.path.dirname(__file__), "test_mails", "incoming-3.raw"), "r") as f:
 			test_mails = [f.read()]
 
-		email_account = frappe.get_doc("Email Account", "_Test Email Account 1")
+		email_account = capkpi.get_doc("Email Account", "_Test Email Account 1")
 		email_account.receive(test_mails=test_mails)
 
-		comm = frappe.get_doc("Communication", {"sender": "test_sender@example.com"})
+		comm = capkpi.get_doc("Communication", {"sender": "test_sender@example.com"})
 		self.assertTrue('From: "Microsoft Outlook" &lt;test_sender@example.com&gt;' in comm.content)
 		self.assertTrue(
 			"This is an e-mail message sent automatically by Microsoft Outlook while" in comm.content
@@ -113,10 +113,10 @@ class TestEmailAccount(unittest.TestCase):
 		with open(os.path.join(os.path.dirname(__file__), "test_mails", "incoming-4.raw"), "r") as f:
 			test_mails = [f.read()]
 
-		email_account = frappe.get_doc("Email Account", "_Test Email Account 1")
+		email_account = capkpi.get_doc("Email Account", "_Test Email Account 1")
 		email_account.receive(test_mails=test_mails)
 
-		comm = frappe.get_doc("Communication", {"sender": "test_sender@example.com"})
+		comm = capkpi.get_doc("Communication", {"sender": "test_sender@example.com"})
 		self.assertTrue('From: "Microsoft Outlook" &lt;test_sender@example.com&gt;' in comm.content)
 		self.assertTrue(
 			"This is an e-mail message sent automatically by Microsoft Outlook while" in comm.content
@@ -131,11 +131,11 @@ class TestEmailAccount(unittest.TestCase):
 			sender="test_sender@example.com",
 		)
 
-		mail = email.message_from_string(frappe.get_last_doc("Email Queue").message)
+		mail = email.message_from_string(capkpi.get_last_doc("Email Queue").message)
 		self.assertTrue("test-mail-000" in mail.get("Subject"))
 
 	def test_sendmail(self):
-		frappe.sendmail(
+		capkpi.sendmail(
 			sender="test_sender@example.com",
 			recipients="test_recipient@example.com",
 			content="test mail 001",
@@ -143,7 +143,7 @@ class TestEmailAccount(unittest.TestCase):
 			delayed=False,
 		)
 
-		sent_mail = email.message_from_string(frappe.safe_decode(frappe.flags.sent_mail))
+		sent_mail = email.message_from_string(capkpi.safe_decode(capkpi.flags.sent_mail))
 		self.assertTrue("test-mail-001" in sent_mail.get("Subject"))
 
 	def test_print_format(self):
@@ -158,7 +158,7 @@ class TestEmailAccount(unittest.TestCase):
 			send_email=True,
 		)
 
-		sent_mail = email.message_from_string(frappe.get_last_doc("Email Queue").message)
+		sent_mail = email.message_from_string(capkpi.get_last_doc("Email Queue").message)
 		self.assertTrue("test-mail-002" in sent_mail.get("Subject"))
 
 	def test_threading(self):
@@ -171,11 +171,11 @@ class TestEmailAccount(unittest.TestCase):
 			recipients="test_receiver@example.com",
 			sender="test@example.com",
 			doctype="ToDo",
-			name=frappe.get_last_doc("ToDo").name,
+			name=capkpi.get_last_doc("ToDo").name,
 			send_email=True,
 		)["name"]
 
-		sent_mail = email.message_from_string(frappe.get_last_doc("Email Queue").message)
+		sent_mail = email.message_from_string(capkpi.get_last_doc("Email Queue").message)
 
 		with open(os.path.join(os.path.dirname(__file__), "test_mails", "reply-1.raw"), "r") as f:
 			raw = f.read()
@@ -183,12 +183,12 @@ class TestEmailAccount(unittest.TestCase):
 			test_mails = [raw]
 
 		# parse reply
-		email_account = frappe.get_doc("Email Account", "_Test Email Account 1")
+		email_account = capkpi.get_doc("Email Account", "_Test Email Account 1")
 		email_account.receive(test_mails=test_mails)
 
-		sent = frappe.get_doc("Communication", sent_name)
+		sent = capkpi.get_doc("Communication", sent_name)
 
-		comm = frappe.get_doc("Communication", {"sender": "test_sender@example.com"})
+		comm = capkpi.get_doc("Communication", {"sender": "test_sender@example.com"})
 		self.assertEqual(comm.reference_doctype, sent.reference_doctype)
 		self.assertEqual(comm.reference_name, sent.reference_name)
 
@@ -202,10 +202,10 @@ class TestEmailAccount(unittest.TestCase):
 			test_mails.append(f.read())
 
 		# parse reply
-		email_account = frappe.get_doc("Email Account", "_Test Email Account 1")
+		email_account = capkpi.get_doc("Email Account", "_Test Email Account 1")
 		email_account.receive(test_mails=test_mails)
 
-		comm_list = frappe.get_all(
+		comm_list = capkpi.get_all(
 			"Communication",
 			filters={"sender": "test_sender@example.com"},
 			fields=["name", "reference_doctype", "reference_name"],
@@ -217,13 +217,13 @@ class TestEmailAccount(unittest.TestCase):
 
 	def test_threading_by_message_id(self):
 		cleanup()
-		frappe.db.sql("""delete from `tabEmail Queue`""")
+		capkpi.db.sql("""delete from `tabEmail Queue`""")
 
 		# reference document for testing
-		event = frappe.get_doc(dict(doctype="Event", subject="test-message")).insert()
+		event = capkpi.get_doc(dict(doctype="Event", subject="test-message")).insert()
 
 		# send a mail against this
-		frappe.sendmail(
+		capkpi.sendmail(
 			recipients="test@example.com",
 			subject="test message for threading",
 			message="testing",
@@ -231,17 +231,17 @@ class TestEmailAccount(unittest.TestCase):
 			reference_name=event.name,
 		)
 
-		last_mail = frappe.get_doc("Email Queue", dict(reference_name=event.name))
+		last_mail = capkpi.get_doc("Email Queue", dict(reference_name=event.name))
 
 		# get test mail with message-id as in-reply-to
 		with open(os.path.join(os.path.dirname(__file__), "test_mails", "reply-4.raw"), "r") as f:
 			test_mails = [f.read().replace("{{ message_id }}", "<" + last_mail.message_id + ">")]
 
 		# pull the mail
-		email_account = frappe.get_doc("Email Account", "_Test Email Account 1")
+		email_account = capkpi.get_doc("Email Account", "_Test Email Account 1")
 		email_account.receive(test_mails=test_mails)
 
-		comm_list = frappe.get_all(
+		comm_list = capkpi.get_all(
 			"Communication",
 			filters={"sender": "test_sender@example.com"},
 			fields=["name", "reference_doctype", "reference_name"],
@@ -257,7 +257,7 @@ def cleanup(sender=None):
 	if sender:
 		filters.update({"sender": sender})
 
-	names = frappe.get_list("Communication", filters=filters, fields=["name"])
+	names = capkpi.get_list("Communication", filters=filters, fields=["name"])
 	for name in names:
-		frappe.delete_doc_if_exists("Communication", name.name)
-		frappe.delete_doc_if_exists("Communication Link", {"parent": name.name})
+		capkpi.delete_doc_if_exists("Communication", name.name)
+		capkpi.delete_doc_if_exists("Communication Link", {"parent": name.name})

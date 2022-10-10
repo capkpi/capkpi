@@ -6,16 +6,16 @@ from __future__ import unicode_literals
 
 from six.moves.urllib.parse import urlencode
 
-import frappe
-from frappe import _
-from frappe.integrations.utils import (
+import capkpi
+from capkpi import _
+from capkpi.integrations.utils import (
 	create_payment_gateway,
 	create_request_log,
 	make_get_request,
 	make_post_request,
 )
-from frappe.model.document import Document
-from frappe.utils import call_hook_method, cint, flt, get_url
+from capkpi.model.document import Document
+from capkpi.utils import call_hook_method, cint, flt, get_url
 
 
 class StripeSettings(Document):
@@ -172,11 +172,11 @@ class StripeSettings(Document):
 			try:
 				make_get_request(url="https://api.stripe.com/v1/charges", headers=header)
 			except Exception:
-				frappe.throw(_("Seems Publishable Key or Secret Key is wrong !!!"))
+				capkpi.throw(_("Seems Publishable Key or Secret Key is wrong !!!"))
 
 	def validate_transaction_currency(self, currency):
 		if currency not in self.supported_currencies:
-			frappe.throw(
+			capkpi.throw(
 				_(
 					"Please select another payment method. Stripe does not support transactions in currency '{0}'"
 				).format(currency)
@@ -185,7 +185,7 @@ class StripeSettings(Document):
 	def validate_minimum_transaction_amount(self, currency, amount):
 		if currency in self.currency_wise_minimum_charge_amount:
 			if flt(amount) < self.currency_wise_minimum_charge_amount.get(currency, 0.0):
-				frappe.throw(
+				capkpi.throw(
 					_("For currency {0}, the minimum transaction amount should be {1}").format(
 						currency, self.currency_wise_minimum_charge_amount.get(currency, 0.0)
 					)
@@ -197,7 +197,7 @@ class StripeSettings(Document):
 	def create_request(self, data):
 		import stripe
 
-		self.data = frappe._dict(data)
+		self.data = capkpi._dict(data)
 		stripe.api_key = self.get_password(fieldname="secret_key", raise_exception=False)
 		stripe.default_http_client = stripe.http_client.RequestsClient()
 
@@ -206,9 +206,9 @@ class StripeSettings(Document):
 			return self.create_charge_on_stripe()
 
 		except Exception:
-			frappe.log_error(frappe.get_traceback())
+			capkpi.log_error(capkpi.get_traceback())
 			return {
-				"redirect_to": frappe.redirect_to_message(
+				"redirect_to": capkpi.redirect_to_message(
 					_("Server Error"),
 					_(
 						"It seems that there is an issue with the server's stripe configuration. In case of failure, the amount will get refunded to your account."
@@ -234,10 +234,10 @@ class StripeSettings(Document):
 				self.flags.status_changed_to = "Completed"
 
 			else:
-				frappe.log_error(charge.failure_message, "Stripe Payment not completed")
+				capkpi.log_error(charge.failure_message, "Stripe Payment not completed")
 
 		except Exception:
-			frappe.log_error(frappe.get_traceback())
+			capkpi.log_error(capkpi.get_traceback())
 
 		return self.finalize_request()
 
@@ -250,11 +250,11 @@ class StripeSettings(Document):
 			if self.data.reference_doctype and self.data.reference_docname:
 				custom_redirect_to = None
 				try:
-					custom_redirect_to = frappe.get_doc(
+					custom_redirect_to = capkpi.get_doc(
 						self.data.reference_doctype, self.data.reference_docname
 					).run_method("on_payment_authorized", self.flags.status_changed_to)
 				except Exception:
-					frappe.log_error(frappe.get_traceback())
+					capkpi.log_error(capkpi.get_traceback())
 
 				if custom_redirect_to:
 					redirect_to = custom_redirect_to
@@ -276,8 +276,8 @@ class StripeSettings(Document):
 
 
 def get_gateway_controller(doctype, docname):
-	reference_doc = frappe.get_doc(doctype, docname)
-	gateway_controller = frappe.db.get_value(
+	reference_doc = capkpi.get_doc(doctype, docname)
+	gateway_controller = capkpi.db.get_value(
 		"Payment Gateway", reference_doc.payment_gateway, "gateway_controller"
 	)
 	return gateway_controller

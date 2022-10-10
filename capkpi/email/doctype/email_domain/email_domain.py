@@ -8,11 +8,11 @@ import imaplib
 import poplib
 import smtplib
 
-import frappe
-from frappe import _
-from frappe.email.utils import get_port
-from frappe.model.document import Document
-from frappe.utils import cint, cstr, validate_email_address
+import capkpi
+from capkpi import _
+from capkpi.email.utils import get_port
+from capkpi.model.document import Document
+from capkpi.utils import cint, cstr, validate_email_address
 
 
 class EmailDomain(Document):
@@ -22,15 +22,15 @@ class EmailDomain(Document):
 
 	def validate(self):
 		"""Validate email id and check POP3/IMAP and SMTP connections is enabled."""
-		logger = frappe.logger()
+		logger = capkpi.logger()
 
 		if self.email_id:
 			validate_email_address(self.email_id, True)
 
-		if frappe.local.flags.in_patch or frappe.local.flags.in_test:
+		if capkpi.local.flags.in_patch or capkpi.local.flags.in_test:
 			return
 
-		if not frappe.local.flags.in_install and not frappe.local.flags.in_patch:
+		if not capkpi.local.flags.in_install and not capkpi.local.flags.in_patch:
 			try:
 				if self.use_imap:
 					logger.info(
@@ -59,7 +59,7 @@ class EmailDomain(Document):
 				logger.warning(
 					'Incoming email account "{host}" not correct'.format(host=self.email_server), exc_info=e
 				)
-				frappe.throw(
+				capkpi.throw(
 					title=_("Incoming email account not correct"),
 					msg='Error connecting IMAP/POP3 "{host}": {e}'.format(host=self.email_server, e=e),
 				)
@@ -100,16 +100,16 @@ class EmailDomain(Document):
 				logger.warning(
 					'Outgoing email account "{host}" not correct'.format(host=self.smtp_server), exc_info=e
 				)
-				frappe.throw(
+				capkpi.throw(
 					title=_("Outgoing email account not correct"),
 					msg='Error connecting SMTP "{host}": {e}'.format(host=self.smtp_server, e=e),
 				)
 
 	def on_update(self):
 		"""update all email accounts using this domain"""
-		for email_account in frappe.get_all("Email Account", filters={"domain": self.name}):
+		for email_account in capkpi.get_all("Email Account", filters={"domain": self.name}):
 			try:
-				email_account = frappe.get_doc("Email Account", email_account.name)
+				email_account = capkpi.get_doc("Email Account", email_account.name)
 				for attr in [
 					"email_server",
 					"use_imap",
@@ -127,6 +127,6 @@ class EmailDomain(Document):
 				email_account.save()
 
 			except Exception as e:
-				frappe.msgprint(
+				capkpi.msgprint(
 					_("Error has occurred in {0}").format(email_account.name), raise_exception=e.__class__
 				)

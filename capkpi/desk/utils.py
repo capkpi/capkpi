@@ -1,7 +1,7 @@
 # Copyright (c) 2020, CapKPI Technologies Pvt. Ltd. and Contributors
 # MIT License. See license.txt
 
-import frappe
+import capkpi
 
 
 def validate_route_conflict(doctype, name):
@@ -14,15 +14,15 @@ def validate_route_conflict(doctype, name):
 		try:
 			all_names.extend(
 				[
-					slug(d) for d in frappe.get_all(_doctype, pluck="name") if (doctype != _doctype and d != name)
+					slug(d) for d in capkpi.get_all(_doctype, pluck="name") if (doctype != _doctype and d != name)
 				]
 			)
-		except frappe.db.TableMissingError:
+		except capkpi.db.TableMissingError:
 			pass
 
 	if slug(name) in all_names:
-		frappe.msgprint(frappe._("Name already taken, please set a new name"))
-		raise frappe.NameError
+		capkpi.msgprint(capkpi._("Name already taken, please set a new name"))
+		raise capkpi.NameError
 
 
 def slug(name):

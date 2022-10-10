@@ -5,8 +5,8 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
-import frappe.desk.form.document_follow as document_follow
+import capkpi
+import capkpi.desk.form.document_follow as document_follow
 
 
 class TestDocumentFollow(unittest.TestCase):
@@ -23,8 +23,8 @@ class TestDocumentFollow(unittest.TestCase):
 
 		document_follow.send_hourly_updates()
 
-		email_queue_entry_name = frappe.get_all("Email Queue", limit=1)[0].name
-		email_queue_entry_doc = frappe.get_doc("Email Queue", email_queue_entry_name)
+		email_queue_entry_name = capkpi.get_all("Email Queue", limit=1)[0].name
+		email_queue_entry_doc = capkpi.get_doc("Email Queue", email_queue_entry_name)
 
 		self.assertEquals((email_queue_entry_doc.recipients[0].recipient), user.name)
 
@@ -32,16 +32,16 @@ class TestDocumentFollow(unittest.TestCase):
 		self.assertIn(event_doc.name, email_queue_entry_doc.message)
 
 	def tearDown(self):
-		frappe.db.rollback()
+		capkpi.db.rollback()
 
 
 def get_event():
-	doc = frappe.get_doc(
+	doc = capkpi.get_doc(
 		{
 			"doctype": "Event",
 			"subject": "_Test_Doc_Follow",
-			"doc.starts_on": frappe.utils.now(),
-			"doc.ends_on": frappe.utils.add_days(frappe.utils.now(), 5),
+			"doc.starts_on": capkpi.utils.now(),
+			"doc.ends_on": capkpi.utils.add_days(capkpi.utils.now(), 5),
 			"doc.description": "Hello",
 		}
 	)
@@ -50,10 +50,10 @@ def get_event():
 
 
 def get_user():
-	if frappe.db.exists("User", "test@docsub.com"):
-		doc = frappe.get_doc("User", "test@docsub.com")
+	if capkpi.db.exists("User", "test@docsub.com"):
+		doc = capkpi.get_doc("User", "test@docsub.com")
 	else:
-		doc = frappe.new_doc("User")
+		doc = capkpi.new_doc("User")
 		doc.email = "test@docsub.com"
 		doc.first_name = "Test"
 		doc.last_name = "User"

@@ -1,15 +1,15 @@
 // Copyright (c) 2016, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Page', {
+capkpi.ui.form.on('Page', {
 	refresh: function(frm) {
-		if (!frappe.boot.developer_mode && frappe.session.user != 'Administrator') {
+		if (!capkpi.boot.developer_mode && capkpi.session.user != 'Administrator') {
 			// make the document read-only
 			frm.set_read_only();
 		}
 		if (!frm.is_new() && !frm.doc.istable) {
 			frm.add_custom_button(__('Go to {0} Page', [frm.doc.title || frm.doc.name]), () => {
-				frappe.set_route(frm.doc.name);
+				capkpi.set_route(frm.doc.name);
 			});
 		}
 	}

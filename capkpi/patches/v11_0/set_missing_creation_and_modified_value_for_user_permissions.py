@@ -1,8 +1,8 @@
-import frappe
+import capkpi
 
 
 def execute():
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""UPDATE `tabUser Permission`
 		SET `modified`=NOW(), `creation`=NOW()
 		WHERE `creation` IS NULL"""

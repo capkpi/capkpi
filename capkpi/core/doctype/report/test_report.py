@@ -7,33 +7,33 @@ import json
 import os
 import unittest
 
-import frappe
-from frappe.core.doctype.user_permission.test_user_permission import create_user
-from frappe.custom.doctype.customize_form.customize_form import reset_customization
-from frappe.desk.query_report import add_total_row, run, save_report
-from frappe.desk.reportview import delete_report
-from frappe.desk.reportview import save_report as _save_report
+import capkpi
+from capkpi.core.doctype.user_permission.test_user_permission import create_user
+from capkpi.custom.doctype.customize_form.customize_form import reset_customization
+from capkpi.desk.query_report import add_total_row, run, save_report
+from capkpi.desk.reportview import delete_report
+from capkpi.desk.reportview import save_report as _save_report
 
-test_records = frappe.get_test_records("Report")
+test_records = capkpi.get_test_records("Report")
 test_dependencies = ["User"]
 
 
 class TestReport(unittest.TestCase):
 	def test_report_builder(self):
-		if frappe.db.exists("Report", "User Activity Report"):
-			frappe.delete_doc("Report", "User Activity Report")
+		if capkpi.db.exists("Report", "User Activity Report"):
+			capkpi.delete_doc("Report", "User Activity Report")
 
 		with open(os.path.join(os.path.dirname(__file__), "user_activity_report.json"), "r") as f:
-			frappe.get_doc(json.loads(f.read())).insert()
+			capkpi.get_doc(json.loads(f.read())).insert()
 
-		report = frappe.get_doc("Report", "User Activity Report")
+		report = capkpi.get_doc("Report", "User Activity Report")
 		columns, data = report.get_data()
 		self.assertEqual(columns[0].get("label"), "ID")
 		self.assertEqual(columns[1].get("label"), "User Type")
 		self.assertTrue("Administrator" in [d[0] for d in data])
 
 	def test_query_report(self):
-		report = frappe.get_doc("Report", "Permitted Documents For User")
+		report = capkpi.get_doc("Report", "Permitted Documents For User")
 		columns, data = report.get_data(filters={"user": "Administrator", "doctype": "DocType"})
 		self.assertEqual(columns[0].get("label"), "Name")
 		self.assertEqual(columns[1].get("label"), "Module")
@@ -43,7 +43,7 @@ class TestReport(unittest.TestCase):
 		"""Test for validations when editing / deleting report of type Report Builder"""
 
 		try:
-			report = frappe.get_doc(
+			report = capkpi.get_doc(
 				{
 					"doctype": "Report",
 					"ref_doctype": "User",
@@ -55,21 +55,21 @@ class TestReport(unittest.TestCase):
 
 			# Check for PermissionError
 			create_user("test_report_owner@example.com", "Website Manager")
-			frappe.set_user("test_report_owner@example.com")
-			self.assertRaises(frappe.PermissionError, delete_report, report.name)
+			capkpi.set_user("test_report_owner@example.com")
+			self.assertRaises(capkpi.PermissionError, delete_report, report.name)
 
 			# Check for Report Type
-			frappe.set_user("Administrator")
+			capkpi.set_user("Administrator")
 			report.db_set("report_type", "Custom Report")
 			self.assertRaisesRegex(
-				frappe.ValidationError,
+				capkpi.ValidationError,
 				"Only reports of type Report Builder can be deleted",
 				delete_report,
 				report.name,
 			)
 
 			# Check if creating and deleting works with proper validations
-			frappe.set_user("test@example.com")
+			capkpi.set_user("test@example.com")
 			report_name = _save_report(
 				"Dummy Report",
 				"User",
@@ -91,12 +91,12 @@ class TestReport(unittest.TestCase):
 				),
 			)
 
-			doc = frappe.get_doc("Report", report_name)
+			doc = capkpi.get_doc("Report", report_name)
 			delete_report(doc.name)
 
 		finally:
-			frappe.set_user("Administrator")
-			frappe.db.rollback()
+			capkpi.set_user("Administrator")
+			capkpi.db.rollback()
 
 	def test_custom_report(self):
 		reset_customization("User")
@@ -120,13 +120,13 @@ class TestReport(unittest.TestCase):
 				]
 			),
 		)
-		custom_report = frappe.get_doc("Report", custom_report_name)
+		custom_report = capkpi.get_doc("Report", custom_report_name)
 		columns, result = custom_report.run_query_report(
-			filters={"user": "Administrator", "doctype": "User"}, user=frappe.session.user
+			filters={"user": "Administrator", "doctype": "User"}, user=capkpi.session.user
 		)
 
 		self.assertListEqual(["email"], [column.get("fieldname") for column in columns])
-		admin_dict = frappe.core.utils.find(result, lambda d: d["name"] == "Administrator")
+		admin_dict = capkpi.core.utils.find(result, lambda d: d["name"] == "Administrator")
 		self.assertDictEqual(
 			{"name": "Administrator", "user_type": "System User", "email": "admin@example.com"}, admin_dict
 		)
@@ -156,27 +156,27 @@ class TestReport(unittest.TestCase):
 		self.assertListEqual(
 			["name", "email", "user_type"], [column.get("fieldname") for column in columns]
 		)
-		admin_dict = frappe.core.utils.find(result, lambda d: d["name"] == "Administrator")
+		admin_dict = capkpi.core.utils.find(result, lambda d: d["name"] == "Administrator")
 		self.assertDictEqual(
 			{"name": "Administrator", "user_type": "System User", "email": "admin@example.com"}, admin_dict
 		)
 
 	def test_report_permissions(self):
-		frappe.set_user("test@example.com")
-		frappe.db.sql(
+		capkpi.set_user("test@example.com")
+		capkpi.db.sql(
 			"""delete from `tabHas Role` where parent = %s
 			and role = 'Test Has Role'""",
-			frappe.session.user,
+			capkpi.session.user,
 			auto_commit=1,
 		)
 
-		if not frappe.db.exists("Role", "Test Has Role"):
-			role = frappe.get_doc({"doctype": "Role", "role_name": "Test Has Role"}).insert(
+		if not capkpi.db.exists("Role", "Test Has Role"):
+			role = capkpi.get_doc({"doctype": "Role", "role_name": "Test Has Role"}).insert(
 				ignore_permissions=True
 			)
 
-		if not frappe.db.exists("Report", "Test Report"):
-			report = frappe.get_doc(
+		if not capkpi.db.exists("Report", "Test Report"):
+			report = capkpi.get_doc(
 				{
 					"doctype": "Report",
 					"ref_doctype": "User",
@@ -187,17 +187,17 @@ class TestReport(unittest.TestCase):
 				}
 			).insert(ignore_permissions=True)
 		else:
-			report = frappe.get_doc("Report", "Test Report")
+			report = capkpi.get_doc("Report", "Test Report")
 
 		self.assertNotEquals(report.is_permitted(), True)
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 
 	def test_report_custom_permissions(self):
-		frappe.set_user("test@example.com")
-		frappe.db.delete("Custom Role", {"report": "Test Custom Role Report"})
-		frappe.db.commit()  # nosemgrep
-		if not frappe.db.exists("Report", "Test Custom Role Report"):
-			report = frappe.get_doc(
+		capkpi.set_user("test@example.com")
+		capkpi.db.delete("Custom Role", {"report": "Test Custom Role Report"})
+		capkpi.db.commit()  # nosemgrep
+		if not capkpi.db.exists("Report", "Test Custom Role Report"):
+			report = capkpi.get_doc(
 				{
 					"doctype": "Report",
 					"ref_doctype": "User",
@@ -208,11 +208,11 @@ class TestReport(unittest.TestCase):
 				}
 			).insert(ignore_permissions=True)
 		else:
-			report = frappe.get_doc("Report", "Test Custom Role Report")
+			report = capkpi.get_doc("Report", "Test Custom Role Report")
 
 		self.assertEqual(report.is_permitted(), True)
 
-		frappe.get_doc(
+		capkpi.get_doc(
 			{
 				"doctype": "Custom Role",
 				"report": "Test Custom Role Report",
@@ -222,29 +222,29 @@ class TestReport(unittest.TestCase):
 		).insert(ignore_permissions=True)
 
 		self.assertNotEqual(report.is_permitted(), True)
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 
 	# test for the `_format` method if report data doesn't have sort_by parameter
 	def test_format_method(self):
-		if frappe.db.exists("Report", "User Activity Report Without Sort"):
-			frappe.delete_doc("Report", "User Activity Report Without Sort")
+		if capkpi.db.exists("Report", "User Activity Report Without Sort"):
+			capkpi.delete_doc("Report", "User Activity Report Without Sort")
 		with open(
 			os.path.join(os.path.dirname(__file__), "user_activity_report_without_sort.json"), "r"
 		) as f:
-			frappe.get_doc(json.loads(f.read())).insert()
+			capkpi.get_doc(json.loads(f.read())).insert()
 
-		report = frappe.get_doc("Report", "User Activity Report Without Sort")
+		report = capkpi.get_doc("Report", "User Activity Report Without Sort")
 		columns, data = report.get_data()
 
 		self.assertEqual(columns[0].get("label"), "ID")
 		self.assertEqual(columns[1].get("label"), "User Type")
 		self.assertTrue("Administrator" in [d[0] for d in data])
-		frappe.delete_doc("Report", "User Activity Report Without Sort")
+		capkpi.delete_doc("Report", "User Activity Report Without Sort")
 
 	def test_non_standard_script_report(self):
 		report_name = "Test Non Standard Script Report"
-		if not frappe.db.exists("Report", report_name):
-			report = frappe.get_doc(
+		if not capkpi.db.exists("Report", report_name):
+			report = capkpi.get_doc(
 				{
 					"doctype": "Report",
 					"ref_doctype": "User",
@@ -254,11 +254,11 @@ class TestReport(unittest.TestCase):
 				}
 			).insert(ignore_permissions=True)
 		else:
-			report = frappe.get_doc("Report", report_name)
+			report = capkpi.get_doc("Report", report_name)
 
 		report.report_script = """
 totals = {}
-for user in frappe.get_all('User', fields = ['name', 'user_type', 'creation']):
+for user in capkpi.get_all('User', fields = ['name', 'user_type', 'creation']):
 	if not user.user_type in totals:
 		totals[user.user_type] = 0
 	totals[user.user_type] = totals[user.user_type] + 1
@@ -285,10 +285,10 @@ data = [
 	def test_script_report_with_columns(self):
 		report_name = "Test Script Report With Columns"
 
-		if frappe.db.exists("Report", report_name):
-			frappe.delete_doc("Report", report_name)
+		if capkpi.db.exists("Report", report_name):
+			capkpi.delete_doc("Report", report_name)
 
-		report = frappe.get_doc(
+		report = capkpi.get_doc(
 			{
 				"doctype": "Report",
 				"ref_doctype": "User",
@@ -304,7 +304,7 @@ data = [
 
 		report.report_script = """
 totals = {}
-for user in frappe.get_all('User', fields = ['name', 'user_type', 'creation']):
+for user in capkpi.get_all('User', fields = ['name', 'user_type', 'creation']):
 	if not user.user_type in totals:
 		totals[user.user_type] = 0
 	totals[user.user_type] = totals[user.user_type] + 1
@@ -326,25 +326,25 @@ result = [
 	def test_toggle_disabled(self):
 		"""Make sure that authorization is respected."""
 		# Assuming that there will be reports in the system.
-		reports = frappe.get_all(doctype="Report", limit=1)
+		reports = capkpi.get_all(doctype="Report", limit=1)
 		report_name = reports[0]["name"]
-		doc = frappe.get_doc("Report", report_name)
+		doc = capkpi.get_doc("Report", report_name)
 		status = doc.disabled
 
 		# User has write permission on reports and should pass through
-		frappe.set_user("test@example.com")
+		capkpi.set_user("test@example.com")
 		doc.toggle_disable(not status)
 		doc.reload()
 		self.assertNotEqual(status, doc.disabled)
 
 		# User has no write permission on reports, permission error is expected.
-		frappe.set_user("test1@example.com")
-		doc = frappe.get_doc("Report", report_name)
-		with self.assertRaises(frappe.exceptions.ValidationError):
+		capkpi.set_user("test1@example.com")
+		doc = capkpi.get_doc("Report", report_name)
+		with self.assertRaises(capkpi.exceptions.ValidationError):
 			doc.toggle_disable(1)
 
 		# Set user back to administrator
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 
 	def test_add_total_row_for_tree_reports(self):
 		report_settings = {"tree": True, "parent_field": "parent_value"}

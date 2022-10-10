@@ -4,8 +4,8 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.model.document import Document
+import capkpi
+from capkpi.model.document import Document
 
 
 class GoogleSettings(Document):
@@ -16,10 +16,10 @@ def get_auth_url():
 	return "https://www.googleapis.com/oauth2/v4/token"
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_file_picker_settings():
 	"""Return all the data FileUploader needs to start the Google Drive Picker."""
-	google_settings = frappe.get_single("Google Settings")
+	google_settings = capkpi.get_single("Google Settings")
 	if not (google_settings.enable and google_settings.google_drive_picker_enabled):
 		return {}
 

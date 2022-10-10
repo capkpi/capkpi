@@ -2,38 +2,38 @@
 # MIT License. See license.txt
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_list_settings(doctype):
 	try:
-		return frappe.get_cached_doc("List View Settings", doctype)
-	except frappe.DoesNotExistError:
-		frappe.clear_messages()
+		return capkpi.get_cached_doc("List View Settings", doctype)
+	except capkpi.DoesNotExistError:
+		capkpi.clear_messages()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def set_list_settings(doctype, values):
 	try:
-		doc = frappe.get_doc("List View Settings", doctype)
-	except frappe.DoesNotExistError:
-		doc = frappe.new_doc("List View Settings")
+		doc = capkpi.get_doc("List View Settings", doctype)
+	except capkpi.DoesNotExistError:
+		doc = capkpi.new_doc("List View Settings")
 		doc.name = doctype
-		frappe.clear_messages()
-	doc.update(frappe.parse_json(values))
+		capkpi.clear_messages()
+	doc.update(capkpi.parse_json(values))
 	doc.save()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_group_by_count(doctype, current_filters, field):
-	current_filters = frappe.parse_json(current_filters)
+	current_filters = capkpi.parse_json(current_filters)
 	subquery_condition = ""
 
-	subquery = frappe.get_all(doctype, filters=current_filters, return_query=True)
+	subquery = capkpi.get_all(doctype, filters=current_filters, return_query=True)
 	if field == "assigned_to":
 		subquery_condition = " and `tabToDo`.reference_name in ({subquery})".format(subquery=subquery)
-		return frappe.db.sql(
+		return capkpi.db.sql(
 			"""select `tabToDo`.owner as name, count(*) as count
 			from
 				`tabToDo`, `tabUser`
@@ -52,7 +52,7 @@ def get_group_by_count(doctype, current_filters, field):
 			as_dict=True,
 		)
 	else:
-		return frappe.db.get_list(
+		return capkpi.db.get_list(
 			doctype,
 			filters=current_filters,
 			group_by="`tab{0}`.{1}".format(doctype, field),

@@ -1,20 +1,20 @@
-frappe.pages['translation-tool'].on_page_load = function(wrapper) {
-	var page = frappe.ui.make_app_page({
+capkpi.pages['translation-tool'].on_page_load = function(wrapper) {
+	var page = capkpi.ui.make_app_page({
 		parent: wrapper,
 		title: __('Translation Tool'),
 		single_column: true,
 		card_layout: true,
 	});
 
-	frappe.translation_tool = new TranslationTool(page);
+	capkpi.translation_tool = new TranslationTool(page);
 };
 
 class TranslationTool {
 	constructor(page) {
 		this.page = page;
 		this.wrapper = $(page.body);
-		this.wrapper.append(frappe.render_template('translation_tool'));
-		frappe.utils.bind_actions_with_object(this.wrapper, this);
+		this.wrapper.append(capkpi.render_template('translation_tool'));
+		capkpi.utils.bind_actions_with_object(this.wrapper, this);
 		this.active_translation = null;
 		this.edited_translations = {};
 		this.setup_search_box();
@@ -31,8 +31,8 @@ class TranslationTool {
 	}
 
 	setup_language_filter() {
-		let languages = Object.keys(frappe.boot.lang_dict).map(language_label => {
-			let value = frappe.boot.lang_dict[language_label];
+		let languages = Object.keys(capkpi.boot.lang_dict).map(language_label => {
+			let value = capkpi.boot.lang_dict[language_label];
 			return {
 				label: `${language_label} (${value})`,
 				value: value
@@ -51,10 +51,10 @@ class TranslationTool {
 			}
 		});
 		let translation_language = localStorage.getItem('translation_language');
-		if (translation_language || frappe.boot.lang !== 'en') {
-			language_selector.set_value(translation_language || frappe.boot.lang);
+		if (translation_language || capkpi.boot.lang !== 'en') {
+			language_selector.set_value(translation_language || capkpi.boot.lang);
 		} else {
-			frappe.prompt(
+			capkpi.prompt(
 				{
 					label: __('Please select target language for translation'),
 					fieldname: 'language',
@@ -91,9 +91,9 @@ class TranslationTool {
 	}
 
 	fetch_messages() {
-		frappe.dom.freeze(__('Fetching...'));
-		return frappe
-			.xcall('frappe.translate.get_messages', {
+		capkpi.dom.freeze(__('Fetching...'));
+		return capkpi
+			.xcall('capkpi.translate.get_messages', {
 				language: this.language,
 				search_text: this.search_text
 			})
@@ -101,7 +101,7 @@ class TranslationTool {
 				return messages;
 			})
 			.finally(() => {
-				frappe.dom.unfreeze();
+				capkpi.dom.unfreeze();
 			});
 	}
 
@@ -113,7 +113,7 @@ class TranslationTool {
 				data-action="on_translation_click">
 				<div class="bold ellipsis">
 					<span class="indicator ${this.get_indicator_color(message)}">
-						<span>${frappe.utils.escape_html(message.source_text)}</span>
+						<span>${capkpi.utils.escape_html(message.source_text)}</span>
 					</span>
 				</div>
 			</div>
@@ -141,16 +141,16 @@ class TranslationTool {
 	}
 
 	get_additional_info(source_id) {
-		frappe.dom.freeze('Fetching...');
-		return frappe.xcall('frappe.translate.get_source_additional_info', {
+		capkpi.dom.freeze('Fetching...');
+		return capkpi.xcall('capkpi.translate.get_source_additional_info', {
 			source: source_id,
 			language: this.page.fields_dict['language'].get_value()
-		}).finally(frappe.dom.unfreeze);
+		}).finally(capkpi.dom.unfreeze);
 	}
 
 	make_edit_form(translation, { contributions, positions }) {
 		if (!this.form) {
-			this.form = new frappe.ui.FieldGroup({
+			this.form = new capkpi.ui.FieldGroup({
 				fields: [
 					{
 						fieldtype: 'HTML',
@@ -298,7 +298,7 @@ class TranslationTool {
 		this.form.set_df_property('contributed_translations_section', 'hidden', !contributions_exists);
 	}
 	show_confirmation_dialog() {
-		this.confirmation_dialog = new frappe.ui.Dialog({
+		this.confirmation_dialog = new capkpi.ui.Dialog({
 			fields: [
 				{
 					label: __('Language'),
@@ -337,29 +337,29 @@ class TranslationTool {
 		this.confirmation_dialog.show();
 	}
 	create_translations() {
-		frappe.dom.freeze(__('Submitting...'));
-		return frappe
+		capkpi.dom.freeze(__('Submitting...'));
+		return capkpi
 			.xcall(
-				'frappe.core.doctype.translation.translation.create_translations',
+				'capkpi.core.doctype.translation.translation.create_translations',
 				{
 					translation_map: this.edited_translations,
 					language: this.language
 				}
 			)
 			.then(() => {
-				frappe.dom.unfreeze();
-				frappe.show_alert({ message: __('Successfully Submitted!'), indicator: 'success'});
+				capkpi.dom.unfreeze();
+				capkpi.show_alert({ message: __('Successfully Submitted!'), indicator: 'success'});
 				this.edited_translations = {};
 				this.update_header();
 				this.fetch_messages_then_render();
 			})
-			.finally(() => frappe.dom.unfreeze());
+			.finally(() => capkpi.dom.unfreeze());
 	}
 
 	setup_local_contributions() {
 		// TODO: Refactor
-		frappe
-			.xcall('frappe.translate.get_contributions', {
+		capkpi
+			.xcall('capkpi.translate.get_contributions', {
 				language: this.language
 			})
 			.then(messages => {
@@ -370,7 +370,7 @@ class TranslationTool {
 						data-action="show_translation_status_modal">
 						<div class="bold ellipsis">
 							<span class="indicator ${this.get_contribution_indicator_color(message)}">
-								<span>${frappe.utils.escape_html(message.source_text)}</span>
+								<span>${capkpi.utils.escape_html(message.source_text)}</span>
 							</span>
 						</div>
 					</div>
@@ -384,9 +384,9 @@ class TranslationTool {
 	show_translation_status_modal(e, $el) {
 		let message_id = decodeURIComponent($el.data('message-id'));
 
-		frappe.xcall('frappe.translate.get_contribution_status', { message_id })
+		capkpi.xcall('capkpi.translate.get_contribution_status', { message_id })
 			.then(doc => {
-				let d = new frappe.ui.Dialog({
+				let d = new capkpi.ui.Dialog({
 					title: __('Contribution Status'),
 					fields: [
 						{
@@ -460,6 +460,6 @@ class TranslationTool {
 
 	get_code_url(path, line_no, app) {
 		const code_path = path.substring(`apps/${app}`.length);
-		return `https://github.com/frappe/${app}/blob/develop/${code_path}#L${line_no}`;
+		return `https://github.com/capkpi/${app}/blob/develop/${code_path}#L${line_no}`;
 	}
 }

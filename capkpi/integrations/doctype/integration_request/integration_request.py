@@ -8,9 +8,9 @@ import json
 
 from six import string_types
 
-import frappe
-from frappe.integrations.utils import json_handler
-from frappe.model.document import Document
+import capkpi
+from capkpi.integrations.utils import json_handler
+from capkpi.model.document import Document
 
 
 class IntegrationRequest(Document):
@@ -25,7 +25,7 @@ class IntegrationRequest(Document):
 		self.data = json.dumps(data)
 		self.status = status
 		self.save(ignore_permissions=True)
-		frappe.db.commit()
+		capkpi.db.commit()
 
 	def handle_success(self, response):
 		"""update the output field with the response along with the relevant status"""

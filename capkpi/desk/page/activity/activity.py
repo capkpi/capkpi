@@ -3,18 +3,18 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.core.doctype.activity_log.feed import get_feed_match_conditions
-from frappe.utils import cint
+import capkpi
+from capkpi.core.doctype.activity_log.feed import get_feed_match_conditions
+from capkpi.utils import cint
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_feed(start, page_length):
 	"""get feed"""
-	match_conditions_communication = get_feed_match_conditions(frappe.session.user, "Communication")
-	match_conditions_comment = get_feed_match_conditions(frappe.session.user, "Comment")
+	match_conditions_communication = get_feed_match_conditions(capkpi.session.user, "Communication")
+	match_conditions_comment = get_feed_match_conditions(capkpi.session.user, "Comment")
 
-	result = frappe.db.sql(
+	result = capkpi.db.sql(
 		"""select X.*
 		from (select name, owner, modified, creation, seen, comment_type,
 				reference_doctype, reference_name, '' as link_doctype, '' as link_name, subject,
@@ -46,17 +46,17 @@ def get_feed(start, page_length):
 			match_conditions_comment=match_conditions_comment,
 			match_conditions_communication=match_conditions_communication,
 		),
-		{"user": frappe.session.user, "start": cint(start), "page_length": cint(page_length)},
+		{"user": capkpi.session.user, "start": cint(start), "page_length": cint(page_length)},
 		as_dict=True,
 	)
 
 	return result
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_heatmap_data():
 	return dict(
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""select unix_timestamp(date(creation)), count(name)
 		from `tabActivity Log`
 		where

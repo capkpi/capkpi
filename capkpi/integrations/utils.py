@@ -10,9 +10,9 @@ import json
 from six import string_types, text_type
 from six.moves.urllib.parse import parse_qs
 
-import frappe
-from frappe import _
-from frappe.utils import get_request_session
+import capkpi
+from capkpi import _
+from capkpi.utils import get_request_session
 
 
 def make_request(method, url, auth=None, headers=None, data=None):
@@ -22,15 +22,15 @@ def make_request(method, url, auth=None, headers=None, data=None):
 
 	try:
 		s = get_request_session()
-		frappe.flags.integration_request = s.request(method, url, data=data, auth=auth, headers=headers)
-		frappe.flags.integration_request.raise_for_status()
+		capkpi.flags.integration_request = s.request(method, url, data=data, auth=auth, headers=headers)
+		capkpi.flags.integration_request.raise_for_status()
 
-		if frappe.flags.integration_request.headers.get("content-type") == "text/plain; charset=utf-8":
-			return parse_qs(frappe.flags.integration_request.text)
+		if capkpi.flags.integration_request.headers.get("content-type") == "text/plain; charset=utf-8":
+			return parse_qs(capkpi.flags.integration_request.text)
 
-		return frappe.flags.integration_request.json()
+		return capkpi.flags.integration_request.json()
 	except Exception as exc:
-		frappe.log_error()
+		capkpi.log_error()
 		raise exc
 
 
@@ -53,7 +53,7 @@ def create_request_log(data, integration_type, service_name, name=None, error=No
 	if isinstance(error, string_types):
 		error = json.loads(error)
 
-	integration_request = frappe.get_doc(
+	integration_request = capkpi.get_doc(
 		{
 			"doctype": "Integration Request",
 			"integration_type": integration_type,
@@ -69,49 +69,49 @@ def create_request_log(data, integration_type, service_name, name=None, error=No
 		integration_request.flags._name = name
 
 	integration_request.insert(ignore_permissions=True)
-	frappe.db.commit()
+	capkpi.db.commit()
 
 	return integration_request
 
 
 def get_payment_gateway_controller(payment_gateway):
 	"""Return payment gateway controller"""
-	gateway = frappe.get_doc("Payment Gateway", payment_gateway)
+	gateway = capkpi.get_doc("Payment Gateway", payment_gateway)
 	if gateway.gateway_controller is None:
 		try:
-			return frappe.get_doc("{0} Settings".format(payment_gateway))
+			return capkpi.get_doc("{0} Settings".format(payment_gateway))
 		except Exception:
-			frappe.throw(_("{0} Settings not found").format(payment_gateway))
+			capkpi.throw(_("{0} Settings not found").format(payment_gateway))
 	else:
 		try:
-			return frappe.get_doc(gateway.gateway_settings, gateway.gateway_controller)
+			return capkpi.get_doc(gateway.gateway_settings, gateway.gateway_controller)
 		except Exception:
-			frappe.throw(_("{0} Settings not found").format(payment_gateway))
+			capkpi.throw(_("{0} Settings not found").format(payment_gateway))
 
 
-@frappe.whitelist(allow_guest=True, xss_safe=True)
+@capkpi.whitelist(allow_guest=True, xss_safe=True)
 def get_checkout_url(**kwargs):
 	try:
 		if kwargs.get("payment_gateway"):
-			doc = frappe.get_doc("{0} Settings".format(kwargs.get("payment_gateway")))
+			doc = capkpi.get_doc("{0} Settings".format(kwargs.get("payment_gateway")))
 			return doc.get_payment_url(**kwargs)
 		else:
 			raise Exception
 	except Exception:
-		frappe.respond_as_web_page(
+		capkpi.respond_as_web_page(
 			_("Something went wrong"),
 			_(
 				"Looks like something is wrong with this site's payment gateway configuration. No payment has been made."
 			),
 			indicator_color="red",
-			http_status_code=frappe.ValidationError.http_status_code,
+			http_status_code=capkpi.ValidationError.http_status_code,
 		)
 
 
 def create_payment_gateway(gateway, settings=None, controller=None):
 	# NOTE: we don't translate Payment Gateway name because it is an internal doctype
-	if not frappe.db.exists("Payment Gateway", gateway):
-		payment_gateway = frappe.get_doc(
+	if not capkpi.db.exists("Payment Gateway", gateway):
+		payment_gateway = capkpi.get_doc(
 			{
 				"doctype": "Payment Gateway",
 				"gateway": gateway,

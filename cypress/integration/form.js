@@ -2,8 +2,8 @@ context('Form', () => {
 	before(() => {
 		cy.login();
 		cy.visit('/app/website');
-		return cy.window().its('frappe').then(frappe => {
-			return frappe.call("frappe.tests.ui_test_helpers.create_contact_records");
+		return cy.window().its('capkpi').then(capkpi => {
+			return capkpi.call("capkpi.tests.ui_test_helpers.create_contact_records");
 		});
 	});
 	it('create a new form', () => {
@@ -12,7 +12,7 @@ context('Form', () => {
 		cy.get('.page-title').should('contain', 'Not Saved');
 		cy.intercept({
 			method: 'POST',
-			url: 'api/method/frappe.desk.form.save.savedocs'
+			url: 'api/method/capkpi.desk.form.save.savedocs'
 		}).as('form_save');
 		cy.get('.primary-action').click();
 		cy.wait('@form_save').its('response.statusCode').should('eq', 200);
@@ -53,7 +53,7 @@ context('Form', () => {
 		let expectBackgroundColor = 'rgb(255, 245, 245)';
 
 		cy.visit('/app/contact/new');
-		cy.get('.frappe-control[data-fieldname="email_ids"]').as('table');
+		cy.get('.capkpi-control[data-fieldname="email_ids"]').as('table');
 		cy.get('@table').find('button.grid-add-row').click();
 		cy.get('@table').find('button.grid-add-row').click();
 		cy.get('@table').find('[data-idx="1"]').as('row1');

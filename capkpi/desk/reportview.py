@@ -10,18 +10,18 @@ import json
 from six import StringIO, string_types
 from six.moves import range
 
-import frappe
-import frappe.permissions
-from frappe import _
-from frappe.core.doctype.access_log.access_log import make_access_log
-from frappe.model import default_fields, optional_fields
-from frappe.model.base_document import get_controller
-from frappe.model.db_query import DatabaseQuery
-from frappe.utils import cstr, format_duration
+import capkpi
+import capkpi.permissions
+from capkpi import _
+from capkpi.core.doctype.access_log.access_log import make_access_log
+from capkpi.model import default_fields, optional_fields
+from capkpi.model.base_document import get_controller
+from capkpi.model.db_query import DatabaseQuery
+from capkpi.utils import cstr, format_duration
 
 
-@frappe.whitelist()
-@frappe.read_only()
+@capkpi.whitelist()
+@capkpi.read_only()
 def get():
 	args = get_form_params()
 	# If virtual doctype get data from controller het_list method
@@ -33,8 +33,8 @@ def get():
 	return data
 
 
-@frappe.whitelist()
-@frappe.read_only()
+@capkpi.whitelist()
+@capkpi.read_only()
 def get_list():
 	args = get_form_params()
 
@@ -42,14 +42,14 @@ def get_list():
 		controller = get_controller(args.doctype)
 		data = controller(args.doctype).get_list(args)
 	else:
-		# uncompressed (refactored from frappe.model.db_query.get_list)
+		# uncompressed (refactored from capkpi.model.db_query.get_list)
 		data = execute(**args)
 
 	return data
 
 
-@frappe.whitelist()
-@frappe.read_only()
+@capkpi.whitelist()
+@capkpi.read_only()
 def get_count():
 	args = get_form_params()
 
@@ -70,7 +70,7 @@ def execute(doctype, *args, **kwargs):
 
 def get_form_params():
 	"""Stringify GET request parameters."""
-	data = frappe._dict(frappe.local.form_dict)
+	data = capkpi._dict(capkpi.local.form_dict)
 	clean_params(data)
 	validate_args(data)
 	return data
@@ -134,7 +134,7 @@ def validate_filters(data, filters):
 				fieldname = condition[1]
 				if is_standard(fieldname):
 					continue
-				meta = frappe.get_meta(condition[0])
+				meta = capkpi.get_meta(condition[0])
 				if not meta.get_field(fieldname):
 					raise_invalid_field(fieldname)
 
@@ -151,9 +151,9 @@ def setup_group_by(data):
 	"""Add columns for aggregated values e.g. count(name)"""
 	if data.group_by and data.aggregate_function:
 		if data.aggregate_function.lower() not in ("count", "sum", "avg"):
-			frappe.throw(_("Invalid aggregate function"))
+			capkpi.throw(_("Invalid aggregate function"))
 
-		if frappe.db.has_column(data.aggregate_on_doctype, data.aggregate_on_field):
+		if capkpi.db.has_column(data.aggregate_on_doctype, data.aggregate_on_field):
 			data.fields.append(
 				"{aggregate_function}(`tab{aggregate_on_doctype}`.`{aggregate_on_field}`) AS _aggregate_column".format(
 					**data
@@ -170,7 +170,7 @@ def setup_group_by(data):
 
 
 def raise_invalid_field(fieldname):
-	frappe.throw(_("Field not permitted in query") + ": {0}".format(fieldname), frappe.DataError)
+	capkpi.throw(_("Field not permitted in query") + ": {0}".format(fieldname), capkpi.DataError)
 
 
 def is_standard(fieldname):
@@ -200,7 +200,7 @@ def extract_fieldname(field):
 
 def get_meta_and_docfield(fieldname, data):
 	parenttype, fieldname = get_parenttype_and_fieldname(fieldname, data)
-	meta = frappe.get_meta(parenttype)
+	meta = capkpi.get_meta(parenttype)
 	df = meta.get_field(fieldname)
 	return meta, df
 
@@ -209,7 +209,7 @@ def update_wildcard_field_param(data):
 	if (isinstance(data.fields, string_types) and data.fields == "*") or (
 		isinstance(data.fields, (list, tuple)) and len(data.fields) == 1 and data.fields[0] == "*"
 	):
-		data.fields = frappe.db.get_table_columns(data.doctype)
+		data.fields = capkpi.db.get_table_columns(data.doctype)
 		return True
 
 	return False
@@ -247,7 +247,7 @@ def get_parenttype_and_fieldname(field, data):
 
 def compress(data, args=None):
 	"""separate keys and values"""
-	from frappe.desk.query_report import add_total_row
+	from capkpi.desk.query_report import add_total_row
 
 	if not data:
 		return data
@@ -262,70 +262,70 @@ def compress(data, args=None):
 		values.append(new_row)
 
 	if args.get("add_total_row"):
-		meta = frappe.get_meta(args.doctype)
+		meta = capkpi.get_meta(args.doctype)
 		values = add_total_row(values, keys, meta)
 
 	return {"keys": keys, "values": values}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def save_report(name, doctype, report_settings):
 	"""Save reports of type Report Builder from Report View"""
 
-	if frappe.db.exists("Report", name):
-		report = frappe.get_doc("Report", name)
+	if capkpi.db.exists("Report", name):
+		report = capkpi.get_doc("Report", name)
 		if report.is_standard == "Yes":
-			frappe.throw(_("Standard Reports cannot be edited"))
+			capkpi.throw(_("Standard Reports cannot be edited"))
 
 		if report.report_type != "Report Builder":
-			frappe.throw(_("Only reports of type Report Builder can be edited"))
+			capkpi.throw(_("Only reports of type Report Builder can be edited"))
 
-		if report.owner != frappe.session.user and not frappe.has_permission("Report", "write"):
-			frappe.throw(_("Insufficient Permissions for editing Report"), frappe.PermissionError)
+		if report.owner != capkpi.session.user and not capkpi.has_permission("Report", "write"):
+			capkpi.throw(_("Insufficient Permissions for editing Report"), capkpi.PermissionError)
 	else:
-		report = frappe.new_doc("Report")
+		report = capkpi.new_doc("Report")
 		report.report_name = name
 		report.ref_doctype = doctype
 
 	report.report_type = "Report Builder"
 	report.json = report_settings
 	report.save(ignore_permissions=True)
-	frappe.msgprint(
-		_("Report {0} saved").format(frappe.bold(report.name)),
+	capkpi.msgprint(
+		_("Report {0} saved").format(capkpi.bold(report.name)),
 		indicator="green",
 		alert=True,
 	)
 	return report.name
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def delete_report(name):
 	"""Delete reports of type Report Builder from Report View"""
 
-	report = frappe.get_doc("Report", name)
+	report = capkpi.get_doc("Report", name)
 	if report.is_standard == "Yes":
-		frappe.throw(_("Standard Reports cannot be deleted"))
+		capkpi.throw(_("Standard Reports cannot be deleted"))
 
 	if report.report_type != "Report Builder":
-		frappe.throw(_("Only reports of type Report Builder can be deleted"))
+		capkpi.throw(_("Only reports of type Report Builder can be deleted"))
 
-	if report.owner != frappe.session.user and not frappe.has_permission("Report", "delete"):
-		frappe.throw(_("Insufficient Permissions for deleting Report"), frappe.PermissionError)
+	if report.owner != capkpi.session.user and not capkpi.has_permission("Report", "delete"):
+		capkpi.throw(_("Insufficient Permissions for deleting Report"), capkpi.PermissionError)
 
 	report.delete(ignore_permissions=True)
-	frappe.msgprint(
-		_("Report {0} deleted").format(frappe.bold(report.name)),
+	capkpi.msgprint(
+		_("Report {0} deleted").format(capkpi.bold(report.name)),
 		indicator="green",
 		alert=True,
 	)
 
 
-@frappe.whitelist()
-@frappe.read_only()
+@capkpi.whitelist()
+@capkpi.read_only()
 def export_query():
 	"""export from report builder"""
-	title = frappe.form_dict.title
-	frappe.form_dict.pop("title", None)
+	title = capkpi.form_dict.title
+	capkpi.form_dict.pop("title", None)
 
 	form_params = get_form_params()
 	form_params["limit_page_length"] = None
@@ -342,10 +342,10 @@ def export_query():
 		add_totals_row = 1
 		del form_params["add_totals_row"]
 
-	frappe.permissions.can_export(doctype, raise_exception=True)
+	capkpi.permissions.can_export(doctype, raise_exception=True)
 
 	if "selected_items" in form_params:
-		si = json.loads(frappe.form_dict.get("selected_items"))
+		si = json.loads(capkpi.form_dict.get("selected_items"))
 		form_params["filters"] = {"name": ("in", si)}
 		del form_params["selected_items"]
 
@@ -373,30 +373,30 @@ def export_query():
 		# convert to csv
 		import csv
 
-		from frappe.utils.xlsxutils import handle_html
+		from capkpi.utils.xlsxutils import handle_html
 
 		f = StringIO()
 		writer = csv.writer(f)
 		for r in data:
 			# encode only unicode type strings and not int, floats etc.
 			writer.writerow(
-				[handle_html(frappe.as_unicode(v)) if isinstance(v, string_types) else v for v in r]
+				[handle_html(capkpi.as_unicode(v)) if isinstance(v, string_types) else v for v in r]
 			)
 
 		f.seek(0)
-		frappe.response["result"] = cstr(f.read())
-		frappe.response["type"] = "csv"
-		frappe.response["doctype"] = title
+		capkpi.response["result"] = cstr(f.read())
+		capkpi.response["type"] = "csv"
+		capkpi.response["doctype"] = title
 
 	elif file_format_type == "Excel":
 
-		from frappe.utils.xlsxutils import make_xlsx
+		from capkpi.utils.xlsxutils import make_xlsx
 
 		xlsx_file = make_xlsx(data, doctype)
 
-		frappe.response["filename"] = title + ".xlsx"
-		frappe.response["filecontent"] = xlsx_file.getvalue()
-		frappe.response["type"] = "binary"
+		capkpi.response["filename"] = title + ".xlsx"
+		capkpi.response["filecontent"] = xlsx_file.getvalue()
+		capkpi.response["type"] = "binary"
 
 
 def append_totals_row(data):
@@ -434,7 +434,7 @@ def get_labels(fields, doctype):
 			parenttype = doctype
 			fieldname = fieldname.strip("`")
 
-		df = frappe.get_meta(parenttype).get_field(fieldname)
+		df = capkpi.get_meta(parenttype).get_field(fieldname)
 		label = df.label if df else fieldname.title()
 		if label in labels:
 			label = doctype + ": " + label
@@ -456,7 +456,7 @@ def handle_duration_fieldtype_values(doctype, data, fields):
 			parenttype = doctype
 			fieldname = field.strip("`")
 
-		df = frappe.get_meta(parenttype).get_field(fieldname)
+		df = capkpi.get_meta(parenttype).get_field(fieldname)
 
 		if df and df.fieldtype == "Duration":
 			index = fields.index(field) + 1
@@ -468,16 +468,16 @@ def handle_duration_fieldtype_values(doctype, data, fields):
 	return data
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def delete_items():
 	"""delete selected items"""
 	import json
 
-	items = sorted(json.loads(frappe.form_dict.get("items")), reverse=True)
-	doctype = frappe.form_dict.get("doctype")
+	items = sorted(json.loads(capkpi.form_dict.get("items")), reverse=True)
+	doctype = capkpi.form_dict.get("doctype")
 
 	if len(items) > 10:
-		frappe.enqueue("frappe.desk.reportview.delete_bulk", doctype=doctype, items=items)
+		capkpi.enqueue("capkpi.desk.reportview.delete_bulk", doctype=doctype, items=items)
 	else:
 		delete_bulk(doctype, items)
 
@@ -485,23 +485,23 @@ def delete_items():
 def delete_bulk(doctype, items):
 	for i, d in enumerate(items):
 		try:
-			frappe.delete_doc(doctype, d)
+			capkpi.delete_doc(doctype, d)
 			if len(items) >= 5:
-				frappe.publish_realtime(
+				capkpi.publish_realtime(
 					"progress",
 					dict(progress=[i + 1, len(items)], title=_("Deleting {0}").format(doctype), description=d),
-					user=frappe.session.user,
+					user=capkpi.session.user,
 				)
 			# Commit after successful deletion
-			frappe.db.commit()
+			capkpi.db.commit()
 		except Exception:
 			# rollback if any record failed to delete
 			# if not rollbacked, queries get committed on after_request method in app.py
-			frappe.db.rollback()
+			capkpi.db.rollback()
 
 
-@frappe.whitelist()
-@frappe.read_only()
+@capkpi.whitelist()
+@capkpi.read_only()
 def get_sidebar_stats(stats, doctype, filters=None):
 	if filters is None:
 		filters = []
@@ -516,8 +516,8 @@ def get_sidebar_stats(stats, doctype, filters=None):
 	return {"stats": data}
 
 
-@frappe.whitelist()
-@frappe.read_only()
+@capkpi.whitelist()
+@capkpi.read_only()
 def get_stats(stats, doctype, filters=None):
 	"""get tag info"""
 	import json
@@ -530,8 +530,8 @@ def get_stats(stats, doctype, filters=None):
 	stats = {}
 
 	try:
-		columns = frappe.db.get_table_columns(doctype)
-	except (frappe.db.InternalError, frappe.db.ProgrammingError):
+		columns = capkpi.db.get_table_columns(doctype)
+	except (capkpi.db.InternalError, capkpi.db.ProgrammingError):
 		# raised when _user_tags column is added on the fly
 		# raised if its a virtual doctype
 		columns = []
@@ -540,7 +540,7 @@ def get_stats(stats, doctype, filters=None):
 		if not tag in columns:
 			continue
 		try:
-			tag_count = frappe.get_list(
+			tag_count = capkpi.get_list(
 				doctype,
 				fields=[tag, "count(*)"],
 				filters=filters + [[tag, "!=", ""]],
@@ -551,7 +551,7 @@ def get_stats(stats, doctype, filters=None):
 
 			if tag == "_user_tags":
 				stats[tag] = scrub_user_tags(tag_count)
-				no_tag_count = frappe.get_list(
+				no_tag_count = capkpi.get_list(
 					doctype,
 					fields=[tag, "count(*)"],
 					filters=filters + [[tag, "in", ("", ",")]],
@@ -566,16 +566,16 @@ def get_stats(stats, doctype, filters=None):
 			else:
 				stats[tag] = tag_count
 
-		except frappe.db.SQLError:
+		except capkpi.db.SQLError:
 			pass
-		except frappe.db.InternalError as e:
+		except capkpi.db.InternalError as e:
 			# raised when _user_tags column is added on the fly
 			pass
 
 	return stats
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_filter_dashboard_data(stats, doctype, filters=None):
 	"""get tags info"""
 	import json
@@ -584,13 +584,13 @@ def get_filter_dashboard_data(stats, doctype, filters=None):
 	filters = json.loads(filters or [])
 	stats = {}
 
-	columns = frappe.db.get_table_columns(doctype)
+	columns = capkpi.db.get_table_columns(doctype)
 	for tag in tags:
 		if not tag["name"] in columns:
 			continue
 		tagcount = []
 		if tag["type"] not in ["Date", "Datetime"]:
-			tagcount = frappe.get_list(
+			tagcount = capkpi.get_list(
 				doctype,
 				fields=[tag["name"], "count(*)"],
 				filters=filters + ["ifnull(`%s`,'')!=''" % tag["name"]],
@@ -612,7 +612,7 @@ def get_filter_dashboard_data(stats, doctype, filters=None):
 			if stats[tag["name"]]:
 				data = [
 					"No Data",
-					frappe.get_list(
+					capkpi.get_list(
 						doctype,
 						fields=[tag["name"], "count(*)"],
 						filters=filters + ["({0} = '' or {0} is null)".format(tag["name"])],
@@ -716,4 +716,4 @@ def get_filters_cond(
 
 
 def is_virtual_doctype(doctype):
-	return frappe.db.get_value("DocType", doctype, "is_virtual")
+	return capkpi.db.get_value("DocType", doctype, "is_virtual")

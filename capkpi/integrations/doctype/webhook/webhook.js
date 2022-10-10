@@ -1,13 +1,13 @@
 // Copyright (c) 2017, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.webhook = {
+capkpi.webhook = {
 	set_fieldname_select: (frm) => {
 		if (frm.doc.webhook_doctype) {
-			frappe.model.with_doctype(frm.doc.webhook_doctype, () => {
+			capkpi.model.with_doctype(frm.doc.webhook_doctype, () => {
 				// get doctype fields
-				let fields = $.map(frappe.get_doc("DocType", frm.doc.webhook_doctype).fields, (d) => {
-					if (frappe.model.no_value_type.includes(d.fieldtype) && !(frappe.model.table_fields.includes(d.fieldtype))) {
+				let fields = $.map(capkpi.get_doc("DocType", frm.doc.webhook_doctype).fields, (d) => {
+					if (capkpi.model.no_value_type.includes(d.fieldtype) && !(capkpi.model.table_fields.includes(d.fieldtype))) {
 						return null;
 					} else if (d.fieldtype === 'Currency' || d.fieldtype === 'Float') {
 						return { label: d.label, value: d.fieldname };
@@ -17,7 +17,7 @@ frappe.webhook = {
 				});
 
 				// add meta fields
-				for (let field of frappe.model.std_fields) {
+				for (let field of capkpi.model.std_fields) {
 					if (field.fieldname == "name") {
 						fields.unshift({ label: "Name (Doc Name)", value: "name" });
 					} else {
@@ -44,7 +44,7 @@ frappe.webhook = {
 			if (header_value) {
 				let header_row = (frm.doc.webhook_headers || []).find(row => row.key === 'Content-Type');
 				if (header_row) {
-					frappe.model.set_value(header_row.doctype, header_row.name, "value", header_value);
+					capkpi.model.set_value(header_row.doctype, header_row.name, "value", header_value);
 				} else {
 					frm.add_child("webhook_headers", {
 						"key": "Content-Type",
@@ -57,17 +57,17 @@ frappe.webhook = {
 	}
 };
 
-frappe.ui.form.on('Webhook', {
+capkpi.ui.form.on('Webhook', {
 	refresh: (frm) => {
-		frappe.webhook.set_fieldname_select(frm);
+		capkpi.webhook.set_fieldname_select(frm);
 	},
 
 	request_structure: (frm) => {
-		frappe.webhook.set_request_headers(frm);
+		capkpi.webhook.set_request_headers(frm);
 	},
 
 	webhook_doctype: (frm) => {
-		frappe.webhook.set_fieldname_select(frm);
+		capkpi.webhook.set_fieldname_select(frm);
 	},
 
 	enable_security: (frm) => {
@@ -75,14 +75,14 @@ frappe.ui.form.on('Webhook', {
 	}
 });
 
-frappe.ui.form.on("Webhook Data", {
+capkpi.ui.form.on("Webhook Data", {
 	fieldname: (frm, cdt, cdn) => {
 		let row = locals[cdt][cdn];
-		let df = frappe.get_meta(frm.doc.webhook_doctype).fields.filter((field) => field.fieldname == row.fieldname);
+		let df = capkpi.get_meta(frm.doc.webhook_doctype).fields.filter((field) => field.fieldname == row.fieldname);
 
 		if (!df.length) {
 			// check if field is a meta field
-			df = frappe.model.std_fields.filter((field) => field.fieldname == row.fieldname);
+			df = capkpi.model.std_fields.filter((field) => field.fieldname == row.fieldname);
 		}
 
 		row.key = df.length ? df[0].fieldname : "name";

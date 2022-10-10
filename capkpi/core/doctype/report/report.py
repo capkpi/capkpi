@@ -8,42 +8,42 @@ import json
 
 from six import iteritems
 
-import frappe
-import frappe.desk.query_report
-from frappe import _, scrub
-from frappe.core.doctype.custom_role.custom_role import get_custom_allowed_roles
-from frappe.core.doctype.page.page import delete_custom_role
-from frappe.desk.reportview import append_totals_row
-from frappe.model.document import Document
-from frappe.modules import make_boilerplate
-from frappe.modules.export_file import export_to_files
-from frappe.utils import cint, cstr
-from frappe.utils.safe_exec import safe_exec
+import capkpi
+import capkpi.desk.query_report
+from capkpi import _, scrub
+from capkpi.core.doctype.custom_role.custom_role import get_custom_allowed_roles
+from capkpi.core.doctype.page.page import delete_custom_role
+from capkpi.desk.reportview import append_totals_row
+from capkpi.model.document import Document
+from capkpi.modules import make_boilerplate
+from capkpi.modules.export_file import export_to_files
+from capkpi.utils import cint, cstr
+from capkpi.utils.safe_exec import safe_exec
 
 
 class Report(Document):
 	def validate(self):
 		"""only administrator can save standard report"""
 		if not self.module:
-			self.module = frappe.db.get_value("DocType", self.ref_doctype, "module")
+			self.module = capkpi.db.get_value("DocType", self.ref_doctype, "module")
 
 		if not self.is_standard:
 			self.is_standard = "No"
 			if (
-				frappe.session.user == "Administrator" and getattr(frappe.local.conf, "developer_mode", 0) == 1
+				capkpi.session.user == "Administrator" and getattr(capkpi.local.conf, "developer_mode", 0) == 1
 			):
 				self.is_standard = "Yes"
 
 		if self.is_standard == "No":
 			# allow only script manager to edit scripts
 			if self.report_type != "Report Builder":
-				frappe.only_for("Script Manager", True)
+				capkpi.only_for("Script Manager", True)
 
-			if frappe.db.get_value("Report", self.name, "is_standard") == "Yes":
-				frappe.throw(_("Cannot edit a standard report. Please duplicate and create a new report"))
+			if capkpi.db.get_value("Report", self.name, "is_standard") == "Yes":
+				capkpi.throw(_("Cannot edit a standard report. Please duplicate and create a new report"))
 
-		if self.is_standard == "Yes" and frappe.session.user != "Administrator":
-			frappe.throw(_("Only Administrator can save a standard report. Please rename and save."))
+		if self.is_standard == "Yes" and capkpi.session.user != "Administrator":
+			capkpi.throw(_("Only Administrator can save a standard report. Please rename and save."))
 
 		if self.report_type == "Report Builder":
 			self.update_report_json()
@@ -57,40 +57,40 @@ class Report(Document):
 	def on_trash(self):
 		if (
 			self.is_standard == "Yes"
-			and not cint(getattr(frappe.local.conf, "developer_mode", 0))
-			and not frappe.flags.in_patch
+			and not cint(getattr(capkpi.local.conf, "developer_mode", 0))
+			and not capkpi.flags.in_patch
 		):
-			frappe.throw(_("You are not allowed to delete Standard Report"))
+			capkpi.throw(_("You are not allowed to delete Standard Report"))
 		delete_custom_role("report", self.name)
 		self.delete_prepared_reports()
 
 	def delete_prepared_reports(self):
-		prepared_reports = frappe.get_all(
+		prepared_reports = capkpi.get_all(
 			"Prepared Report", filters={"ref_report_doctype": self.name}, pluck="name"
 		)
 
 		for report in prepared_reports:
-			frappe.delete_doc(
+			capkpi.delete_doc(
 				"Prepared Report", report, ignore_missing=True, force=True, delete_permanently=True
 			)
 
 	def get_columns(self):
 		return [d.as_dict(no_default_fields=True) for d in self.columns]
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def set_doctype_roles(self):
 		if not self.get("roles") and self.is_standard == "No":
-			meta = frappe.get_meta(self.ref_doctype)
+			meta = capkpi.get_meta(self.ref_doctype)
 			if not meta.istable:
 				roles = [{"role": d.role} for d in meta.permissions if d.permlevel == 0]
 				self.set("roles", roles)
 
 	def is_permitted(self):
 		"""Returns true if Has Role is not set or the user is allowed."""
-		from frappe.utils import has_common
+		from capkpi.utils import has_common
 
 		allowed = [
-			d.role for d in frappe.get_all("Has Role", fields=["role"], filters={"parent": self.name})
+			d.role for d in capkpi.get_all("Has Role", fields=["role"], filters={"parent": self.name})
 		]
 
 		custom_roles = get_custom_allowed_roles("report", self.name)
@@ -101,7 +101,7 @@ class Report(Document):
 		if not allowed:
 			return True
 
-		if has_common(frappe.get_roles(), allowed):
+		if has_common(capkpi.get_roles(), allowed):
 			return True
 
 	def update_report_json(self):
@@ -109,10 +109,10 @@ class Report(Document):
 			self.json = "{}"
 
 	def export_doc(self):
-		if frappe.flags.in_import:
+		if capkpi.flags.in_import:
 			return
 
-		if self.is_standard == "Yes" and (frappe.local.conf.get("developer_mode") or 0) == 1:
+		if self.is_standard == "Yes" and (capkpi.local.conf.get("developer_mode") or 0) == 1:
 			export_to_files(
 				record_list=[["Report", self.name]], record_module=self.module, create_init=True
 			)
@@ -126,13 +126,13 @@ class Report(Document):
 
 	def execute_query_report(self, filters):
 		if not self.query:
-			frappe.throw(_("Must specify a Query to run"), title=_("Report Document Error"))
+			capkpi.throw(_("Must specify a Query to run"), title=_("Report Document Error"))
 
 		if not self.query.lower().startswith("select"):
-			frappe.throw(_("Query must be a SELECT"), title=_("Report Document Error"))
+			capkpi.throw(_("Query must be a SELECT"), title=_("Report Document Error"))
 
-		result = [list(t) for t in frappe.db.sql(self.query, filters)]
-		columns = self.get_columns() or [cstr(c[0]) for c in frappe.db.get_description()]
+		result = [list(t) for t in capkpi.db.sql(self.query, filters)]
+		columns = self.get_columns() or [cstr(c[0]) for c in capkpi.db.get_description()]
 
 		return [columns, result]
 
@@ -154,19 +154,19 @@ class Report(Document):
 		if execution_time > threshold and not self.prepared_report:
 			self.db_set("prepared_report", 1)
 
-		frappe.cache().hset("report_execution_time", self.name, execution_time)
+		capkpi.cache().hset("report_execution_time", self.name, execution_time)
 
 		return res
 
 	def execute_module(self, filters):
 		# report in python module
-		module = self.module or frappe.db.get_value("DocType", self.ref_doctype, "module")
+		module = self.module or capkpi.db.get_value("DocType", self.ref_doctype, "module")
 		method_name = get_report_module_dotted_path(module, self.name) + ".execute"
-		return frappe.get_attr(method_name)(frappe._dict(filters))
+		return capkpi.get_attr(method_name)(capkpi._dict(filters))
 
 	def execute_script(self, filters):
 		# server script
-		loc = {"filters": frappe._dict(filters), "data": None, "result": None}
+		loc = {"filters": capkpi._dict(filters), "data": None, "result": None}
 		safe_exec(self.report_script, None, loc)
 		if loc["data"]:
 			return loc["data"]
@@ -188,13 +188,13 @@ class Report(Document):
 
 	def run_query_report(self, filters, user, ignore_prepared_report=False):
 		columns, result = [], []
-		data = frappe.desk.query_report.run(
+		data = capkpi.desk.query_report.run(
 			self.name, filters=filters, user=user, ignore_prepared_report=ignore_prepared_report
 		)
 
 		for d in data.get("columns"):
 			if isinstance(d, dict):
-				col = frappe._dict(d)
+				col = capkpi._dict(d)
 				if not col.fieldname:
 					col.fieldname = col.label
 				columns.append(col)
@@ -208,7 +208,7 @@ class Report(Document):
 							fieldtype, options = fieldtype.split("/")
 
 				columns.append(
-					frappe._dict(label=parts[0], fieldtype=fieldtype, fieldname=parts[0], options=options)
+					capkpi._dict(label=parts[0], fieldtype=fieldtype, fieldname=parts[0], options=options)
 				)
 
 		result += data.get("result")
@@ -221,7 +221,7 @@ class Report(Document):
 		result = []
 		order_by, group_by, group_by_args = self.get_standard_report_order_by(params)
 
-		_result = frappe.get_list(
+		_result = capkpi.get_list(
 			self.ref_doctype,
 			fields=[
 				get_group_by_field(group_by_args, c[1])
@@ -260,7 +260,7 @@ class Report(Document):
 			columns = params.get("fields")
 		else:
 			columns = [["name", self.ref_doctype]]
-			for df in frappe.get_meta(self.ref_doctype).fields:
+			for df in capkpi.get_meta(self.ref_doctype).fields:
 				if df.in_list_view:
 					columns.append([df.fieldname, self.ref_doctype])
 
@@ -298,7 +298,7 @@ class Report(Document):
 
 		group_by = None
 		if params.get("group_by"):
-			group_by_args = frappe._dict(params["group_by"])
+			group_by_args = capkpi._dict(params["group_by"])
 			group_by = group_by_args["group_by"]
 			order_by = "_aggregate_column desc"
 
@@ -308,7 +308,7 @@ class Report(Document):
 		_columns = []
 
 		for (fieldname, doctype) in columns:
-			meta = frappe.get_meta(doctype)
+			meta = capkpi.get_meta(doctype)
 
 			if meta.get_field(fieldname):
 				field = meta.get_field(fieldname)
@@ -318,7 +318,7 @@ class Report(Document):
 				else:
 					label = meta.get_label(fieldname)
 
-				field = frappe._dict(fieldname=fieldname, label=label)
+				field = capkpi._dict(fieldname=fieldname, label=label)
 
 				# since name is the primary key for a document, it will always be a Link datatype
 				if fieldname == "name":
@@ -332,32 +332,32 @@ class Report(Document):
 		data = []
 		for row in result:
 			if isinstance(row, (list, tuple)):
-				_row = frappe._dict()
+				_row = capkpi._dict()
 				for i, val in enumerate(row):
 					_row[columns[i].get("fieldname")] = val
 			elif isinstance(row, dict):
 				# no need to convert from dict to dict
-				_row = frappe._dict(row)
+				_row = capkpi._dict(row)
 			data.append(_row)
 
 		return data
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def toggle_disable(self, disable):
 		if not self.has_permission("write"):
-			frappe.throw(_("You are not allowed to edit the report."))
+			capkpi.throw(_("You are not allowed to edit the report."))
 
 		self.db_set("disabled", cint(disable))
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def is_prepared_report_disabled(report):
-	return frappe.db.get_value("Report", report, "disable_prepared_report") or 0
+	return capkpi.db.get_value("Report", report, "disable_prepared_report") or 0
 
 
 def get_report_module_dotted_path(module, report_name):
 	return (
-		frappe.local.module_app[scrub(module)]
+		capkpi.local.module_app[scrub(module)]
 		+ "."
 		+ scrub(module)
 		+ ".report."

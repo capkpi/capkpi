@@ -6,16 +6,16 @@ from __future__ import unicode_literals
 import json
 import unittest
 
-import frappe
-from frappe.utils import add_to_date, get_link_to_form, today
-from frappe.utils.data import is_html
+import capkpi
+from capkpi.utils import add_to_date, get_link_to_form, today
+from capkpi.utils.data import is_html
 
-# test_records = frappe.get_test_records('Auto Email Report')
+# test_records = capkpi.get_test_records('Auto Email Report')
 
 
 class TestAutoEmailReport(unittest.TestCase):
 	def test_auto_email(self):
-		frappe.delete_doc("Auto Email Report", "Permitted Documents For User")
+		capkpi.delete_doc("Auto Email Report", "Permitted Documents For User")
 
 		auto_email_report = get_auto_email_report()
 
@@ -47,8 +47,8 @@ class TestAutoEmailReport(unittest.TestCase):
 
 
 def get_auto_email_report():
-	if not frappe.db.exists("Auto Email Report", "Permitted Documents For User"):
-		auto_email_report = frappe.get_doc(
+	if not capkpi.db.exists("Auto Email Report", "Permitted Documents For User"):
+		auto_email_report = capkpi.get_doc(
 			dict(
 				doctype="Auto Email Report",
 				report="Permitted Documents For User",
@@ -62,6 +62,6 @@ def get_auto_email_report():
 			)
 		).insert()
 	else:
-		auto_email_report = frappe.get_doc("Auto Email Report", "Permitted Documents For User")
+		auto_email_report = capkpi.get_doc("Auto Email Report", "Permitted Documents For User")
 
 	return auto_email_report

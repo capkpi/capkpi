@@ -27,10 +27,10 @@ from requests.exceptions import HTTPError, SSLError
 from six import PY2, BytesIO, string_types, text_type
 from six.moves.urllib.parse import quote, unquote
 
-import frappe
-from frappe import _, conf, safe_decode
-from frappe.model.document import Document
-from frappe.utils import (
+import capkpi
+from capkpi import _, conf, safe_decode
+from capkpi.model.document import Document
+from capkpi.utils import (
 	call_hook_method,
 	cint,
 	cstr,
@@ -41,18 +41,18 @@ from frappe.utils import (
 	random_string,
 	strip,
 )
-from frappe.utils.image import strip_exif_data
+from capkpi.utils.image import strip_exif_data
 
 if TYPE_CHECKING:
 	from PIL.ImageFile import ImageFile
 	from requests.models import Response
 
 
-class MaxFileSizeReachedError(frappe.ValidationError):
+class MaxFileSizeReachedError(capkpi.ValidationError):
 	pass
 
 
-class FolderNotEmpty(frappe.ValidationError):
+class FolderNotEmpty(capkpi.ValidationError):
 	pass
 
 
@@ -71,7 +71,7 @@ class File(Document):
 		return not self.content
 
 	def before_insert(self):
-		frappe.local.rollback_observers.append(self)
+		capkpi.local.rollback_observers.append(self)
 		self.set_folder_name()
 		if self.file_name:
 			self.file_name = re.sub(r"/", "", self.file_name)
@@ -100,7 +100,7 @@ class File(Document):
 				# home
 				self.name = self.file_name
 		else:
-			self.name = frappe.generate_hash("", 10)
+			self.name = capkpi.generate_hash("", 10)
 
 	def after_insert(self):
 		if not self.is_folder:
@@ -110,7 +110,7 @@ class File(Document):
 					"<a href='{file_url}' target='_blank'>{file_name}</a>{icon}".format(
 						**{
 							"icon": ' <i class="fa fa-lock text-warning"></i>' if self.is_private else "",
-							"file_url": quote(frappe.safe_encode(self.file_url)) if self.file_url else self.file_name,
+							"file_url": quote(capkpi.safe_encode(self.file_url)) if self.file_url else self.file_name,
 							"file_name": self.file_name or self.file_url,
 						}
 					)
@@ -122,7 +122,7 @@ class File(Document):
 			setup_folder_path(successor[0], self.name)
 
 	def get_successor(self):
-		return frappe.db.get_values(doctype="File", filters={"folder": self.name}, fieldname="name")
+		return capkpi.db.get_values(doctype="File", filters={"folder": self.name}, fieldname="name")
 
 	def validate(self):
 		if self.is_new():
@@ -138,7 +138,7 @@ class File(Document):
 		else:
 			self.validate_url()
 
-		self.file_size = frappe.form_dict.file_size or self.file_size
+		self.file_size = capkpi.form_dict.file_size or self.file_size
 
 	def validate_url(self):
 		if not self.file_url or self.file_url.startswith(("http://", "https://")):
@@ -149,7 +149,7 @@ class File(Document):
 
 		# Probably an invalid web URL
 		if not self.file_url.startswith(("/files/", "/private/files/")):
-			frappe.throw(_("URL must start with http:// or https://"), title=_("Invalid URL"))
+			capkpi.throw(_("URL must start with http:// or https://"), title=_("Invalid URL"))
 
 		# Ensure correct formatting and type
 		self.file_url = unquote(self.file_url)
@@ -159,17 +159,17 @@ class File(Document):
 
 		base_path = os.path.realpath(get_files_path(is_private=self.is_private))
 		if not os.path.realpath(self.get_full_path()).startswith(base_path):
-			frappe.throw(_("The File URL you've entered is incorrect"), title=_("Invalid File URL"))
+			capkpi.throw(_("The File URL you've entered is incorrect"), title=_("Invalid File URL"))
 
 	def handle_is_private_changed(self):
-		if not frappe.db.exists("File", {"name": self.name, "is_private": cint(not self.is_private)}):
+		if not capkpi.db.exists("File", {"name": self.name, "is_private": cint(not self.is_private)}):
 			return
 
 		old_file_url = self.file_url
 
 		file_name = self.file_url.split("/")[-1]
-		private_file_path = frappe.get_site_path("private", "files", file_name)
-		public_file_path = frappe.get_site_path("public", "files", file_name)
+		private_file_path = capkpi.get_site_path("private", "files", file_name)
+		public_file_path = capkpi.get_site_path("public", "files", file_name)
 
 		if self.is_private:
 			shutil.move(public_file_path, private_file_path)
@@ -188,7 +188,7 @@ class File(Document):
 		):
 			return
 
-		frappe.db.set_value(
+		capkpi.db.set_value(
 			self.attached_to_doctype, self.attached_to_name, self.attached_to_field, self.file_url
 		)
 
@@ -196,7 +196,7 @@ class File(Document):
 		if self.attached_to_field:
 			return True
 
-		reference_dict = frappe.get_doc(self.attached_to_doctype, self.attached_to_name).as_dict()
+		reference_dict = capkpi.get_doc(self.attached_to_doctype, self.attached_to_name).as_dict()
 
 		for key, value in reference_dict.items():
 			if value == old_file_url:
@@ -206,11 +206,11 @@ class File(Document):
 	def validate_attachment_limit(self):
 		attachment_limit = 0
 		if self.attached_to_doctype and self.attached_to_name:
-			attachment_limit = cint(frappe.get_meta(self.attached_to_doctype).max_attachments)
+			attachment_limit = cint(capkpi.get_meta(self.attached_to_doctype).max_attachments)
 
 		if attachment_limit:
 			current_attachment_count = len(
-				frappe.get_all(
+				capkpi.get_all(
 					"File",
 					filters={
 						"attached_to_doctype": self.attached_to_doctype,
@@ -221,11 +221,11 @@ class File(Document):
 			)
 
 			if current_attachment_count >= attachment_limit:
-				frappe.throw(
+				capkpi.throw(
 					_("Maximum Attachment Limit of {0} has been reached for {1} {2}.").format(
-						frappe.bold(attachment_limit), self.attached_to_doctype, self.attached_to_name
+						capkpi.bold(attachment_limit), self.attached_to_doctype, self.attached_to_name
 					),
-					exc=frappe.exceptions.AttachmentLimitReached,
+					exc=capkpi.exceptions.AttachmentLimitReached,
 					title=_("Attachment Limit Reached"),
 				)
 
@@ -238,7 +238,7 @@ class File(Document):
 	def set_folder_name(self):
 		"""Make parent folders if not exists based on reference doctype and name"""
 		if self.attached_to_doctype and not self.folder:
-			self.folder = frappe.db.get_value("File", {"is_attachments_folder": 1})
+			self.folder = capkpi.db.get_value("File", {"is_attachments_folder": 1})
 
 	def validate_folder(self):
 		if not self.is_home_folder and not self.folder and not self.flags.ignore_folder_validate:
@@ -254,7 +254,7 @@ class File(Document):
 			return True
 
 		if not os.path.exists(full_path):
-			frappe.throw(_("File {0} does not exist").format(self.file_url), IOError)
+			capkpi.throw(_("File {0} does not exist").format(self.file_url), IOError)
 
 	def validate_duplicate_entry(self):
 		if not self.flags.ignore_duplicate_entry_error and not self.is_folder:
@@ -272,10 +272,10 @@ class File(Document):
 				filters.update(
 					{"attached_to_doctype": self.attached_to_doctype, "attached_to_name": self.attached_to_name}
 				)
-			duplicate_file = frappe.db.get_value("File", filters, ["name", "file_url"], as_dict=1)
+			duplicate_file = capkpi.db.get_value("File", filters, ["name", "file_url"], as_dict=1)
 
 			if duplicate_file:
-				duplicate_file_doc = frappe.get_cached_doc("File", duplicate_file.name)
+				duplicate_file_doc = capkpi.get_cached_doc("File", duplicate_file.name)
 				if duplicate_file_doc.exists_on_disk():
 					# just use the url, to avoid uploading a duplicate
 					self.file_url = duplicate_file.file_url
@@ -294,11 +294,11 @@ class File(Document):
 			with open(get_files_path(file_name, is_private=self.is_private), "rb") as f:
 				self.content_hash = get_content_hash(f.read())
 		except IOError:
-			frappe.throw(_("File {0} does not exist").format(self.file_url))
+			capkpi.throw(_("File {0} does not exist").format(self.file_url))
 
 	def on_trash(self):
 		if self.is_home_folder or self.is_attachments_folder:
-			frappe.throw(_("Cannot delete Home and Attachments folders"))
+			capkpi.throw(_("Cannot delete Home and Attachments folders"))
 		self.check_folder_is_empty()
 		self.call_delete_file()
 		if not self.is_folder:
@@ -323,7 +323,7 @@ class File(Document):
 				image.thumbnail(size, Image.ANTIALIAS)
 
 			thumbnail_url = filename + "_" + suffix + "." + extn
-			path = os.path.abspath(frappe.get_site_path("public", thumbnail_url.lstrip("/")))
+			path = os.path.abspath(capkpi.get_site_path("public", thumbnail_url.lstrip("/")))
 
 			try:
 				image.save(path)
@@ -331,17 +331,17 @@ class File(Document):
 					self.db_set("thumbnail_url", thumbnail_url)
 
 			except IOError:
-				frappe.msgprint(_("Unable to write file format for {0}").format(path))
+				capkpi.msgprint(_("Unable to write file format for {0}").format(path))
 				return
 
 			return thumbnail_url
 
 	def check_folder_is_empty(self):
 		"""Throw exception if folder is not empty"""
-		files = frappe.get_all("File", filters={"folder": self.name}, fields=("name", "file_name"))
+		files = capkpi.get_all("File", filters={"folder": self.name}, fields=("name", "file_name"))
 
 		if self.is_folder and files:
-			frappe.throw(_("Folder {0} is not empty").format(self.name), FolderNotEmpty)
+			capkpi.throw(_("Folder {0} is not empty").format(self.name), FolderNotEmpty)
 
 	def call_delete_file(self):
 		"""If file not attached to any other record, delete it"""
@@ -349,7 +349,7 @@ class File(Document):
 			self.file_name
 			and self.content_hash
 			and (
-				not frappe.db.count("File", {"content_hash": self.content_hash, "name": ["!=", self.name]})
+				not capkpi.db.count("File", {"content_hash": self.content_hash, "name": ["!=", self.name]})
 			)
 		):
 			self.delete_file_data_content()
@@ -363,7 +363,7 @@ class File(Document):
 	def unzip(self):
 		"""Unzip current file and replace it by its children"""
 		if not self.file_url.endswith(".zip"):
-			frappe.throw(_("{0} is not a zip file").format(self.file_name))
+			capkpi.throw(_("{0} is not a zip file").format(self.file_name))
 
 		zip_path = self.get_full_path()
 
@@ -379,7 +379,7 @@ class File(Document):
 					# skip hidden files
 					continue
 
-				file_doc = frappe.new_doc("File")
+				file_doc = capkpi.new_doc("File")
 				file_doc.content = z.read(file.filename)
 				file_doc.file_name = filename
 				file_doc.folder = self.folder
@@ -389,7 +389,7 @@ class File(Document):
 				file_doc.save()
 				files.append(file_doc)
 
-		frappe.delete_doc("File", self.name)
+		capkpi.delete_doc("File", self.name)
 		return files
 
 	def exists_on_disk(self):
@@ -399,7 +399,7 @@ class File(Document):
 	def get_content(self):
 		"""Returns [`file_name`, `content`] for given file name `fname`"""
 		if self.is_folder:
-			frappe.throw(_("Cannot get file contents of a Folder"))
+			capkpi.throw(_("Cannot get file contents of a Folder"))
 
 		if self.get("content"):
 			return self.content
@@ -445,7 +445,7 @@ class File(Document):
 			pass
 
 		elif not self.file_url:
-			frappe.throw(_("There is some problem with the file url: {0}").format(file_path))
+			capkpi.throw(_("There is some problem with the file url: {0}").format(file_path))
 
 		return file_path
 
@@ -454,10 +454,10 @@ class File(Document):
 		file_path = get_files_path(is_private=self.is_private)
 
 		if os.path.sep in self.file_name:
-			frappe.throw(_("File name cannot have {0}").format(os.path.sep))
+			capkpi.throw(_("File name cannot have {0}").format(os.path.sep))
 
 		# create directory (if not exists)
-		frappe.create_folder(file_path)
+		capkpi.create_folder(file_path)
 		# write the file
 		self.content = self.get_content()
 		if isinstance(self.content, text_type):
@@ -489,7 +489,7 @@ class File(Document):
 		if (
 			self.content_type
 			and self.content_type == "image/jpeg"
-			and frappe.get_system_settings("strip_exif_metadata_from_uploaded_images")
+			and capkpi.get_system_settings("strip_exif_metadata_from_uploaded_images")
 		):
 			self.content = strip_exif_data(self.content, self.content_type)
 
@@ -499,7 +499,7 @@ class File(Document):
 
 		# check if a file exists with the same content hash and is also in the same folder (public or private)
 		if not ignore_existing_file_check:
-			duplicate_file = frappe.get_value(
+			duplicate_file = capkpi.get_value(
 				"File",
 				{"content_hash": self.content_hash, "is_private": self.is_private},
 				["file_url", "name"],
@@ -507,7 +507,7 @@ class File(Document):
 			)
 
 		if duplicate_file:
-			file_doc = frappe.get_cached_doc("File", duplicate_file.name)
+			file_doc = capkpi.get_cached_doc("File", duplicate_file.name)
 			if file_doc.exists_on_disk():
 				self.file_url = duplicate_file.file_url
 				file_exists = True
@@ -537,7 +537,7 @@ class File(Document):
 		file_size = len(self.content)
 
 		if file_size > max_file_size:
-			frappe.msgprint(
+			capkpi.msgprint(
 				_("File size exceeded the maximum allowed size of {0} MB").format(max_file_size / 1048576),
 				raise_exception=MaxFileSizeReachedError,
 			)
@@ -569,10 +569,10 @@ class File(Document):
 	def add_comment_in_reference_doc(self, comment_type, text):
 		if self.attached_to_doctype and self.attached_to_name:
 			try:
-				doc = frappe.get_doc(self.attached_to_doctype, self.attached_to_name)
+				doc = capkpi.get_doc(self.attached_to_doctype, self.attached_to_name)
 				doc.add_comment(comment_type, text)
-			except frappe.DoesNotExistError:
-				frappe.clear_messages()
+			except capkpi.DoesNotExistError:
+				capkpi.clear_messages()
 
 	def set_is_private(self):
 		if self.file_url:
@@ -580,15 +580,15 @@ class File(Document):
 
 
 def on_doctype_update():
-	frappe.db.add_index("File", ["attached_to_doctype", "attached_to_name"])
+	capkpi.db.add_index("File", ["attached_to_doctype", "attached_to_name"])
 
 
 def make_home_folder():
-	home = frappe.get_doc(
+	home = capkpi.get_doc(
 		{"doctype": "File", "is_folder": 1, "is_home_folder": 1, "file_name": _("Home")}
 	).insert()
 
-	frappe.get_doc(
+	capkpi.get_doc(
 		{
 			"doctype": "File",
 			"folder": home.name,
@@ -599,10 +599,10 @@ def make_home_folder():
 	).insert()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def create_new_folder(file_name, folder):
 	"""create new folder under current parent folder"""
-	file = frappe.new_doc("File")
+	file = capkpi.new_doc("File")
 	file.file_name = file_name
 	file.is_folder = 1
 	file.folder = folder
@@ -610,7 +610,7 @@ def create_new_folder(file_name, folder):
 	return file
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def move_file(file_list, new_parent, old_parent):
 
 	if isinstance(file_list, string_types):
@@ -620,17 +620,17 @@ def move_file(file_list, new_parent, old_parent):
 		setup_folder_path(file_obj.get("name"), new_parent)
 
 	# recalculate sizes
-	frappe.get_doc("File", old_parent).save()
-	frappe.get_doc("File", new_parent).save()
+	capkpi.get_doc("File", old_parent).save()
+	capkpi.get_doc("File", new_parent).save()
 
 
 def setup_folder_path(filename, new_parent):
-	file = frappe.get_doc("File", filename)
+	file = capkpi.get_doc("File", filename)
 	file.folder = new_parent
 	file.save()
 
 	if file.is_folder:
-		from frappe.model.rename_doc import rename_doc
+		from capkpi.model.rename_doc import rename_doc
 
 		rename_doc("File", file.name, file.get_name_based_on_parent_folder(), ignore_permissions=True)
 
@@ -666,12 +666,12 @@ def get_local_image(file_url):
 	else:
 		file_url_path = ("public", file_url.lstrip("/"))
 
-	file_path = frappe.get_site_path(*file_url_path)
+	file_path = capkpi.get_site_path(*file_url_path)
 
 	try:
 		image = Image.open(file_path)
 	except IOError:
-		frappe.throw(_("Unable to read file format for {0}").format(file_url))
+		capkpi.throw(_("Unable to read file format for {0}").format(file_url))
 
 	content = None
 
@@ -692,21 +692,21 @@ def get_local_image(file_url):
 
 def get_web_image(file_url: str) -> Tuple["ImageFile", str, str]:
 	# download
-	file_url = frappe.utils.get_url(file_url)
+	file_url = capkpi.utils.get_url(file_url)
 	r = requests.get(file_url, stream=True)
 	try:
 		r.raise_for_status()
 	except HTTPError:
 		if r.status_code == 404:
-			frappe.msgprint(_("File '{0}' not found").format(file_url))
+			capkpi.msgprint(_("File '{0}' not found").format(file_url))
 		else:
-			frappe.msgprint(_("Unable to read file format for {0}").format(file_url))
+			capkpi.msgprint(_("Unable to read file format for {0}").format(file_url))
 		raise
 
 	try:
 		image = Image.open(BytesIO(r.content))
 	except Exception as e:
-		frappe.msgprint(_("Image link '{0}' is not valid").format(file_url), raise_exception=e)
+		capkpi.msgprint(_("Image link '{0}' is not valid").format(file_url), raise_exception=e)
 
 	try:
 		filename, extn = file_url.rsplit("/", 1)[1].rsplit(".", 1)
@@ -729,16 +729,16 @@ def delete_file(path):
 	"""Delete file from `public folder`"""
 	if path:
 		if ".." in path.split("/"):
-			frappe.msgprint(
+			capkpi.msgprint(
 				_("It is risky to delete this file: {0}. Please contact your System Manager.").format(path)
 			)
 
 		parts = os.path.split(path.strip("/"))
 		if parts[0] == "files":
-			path = frappe.utils.get_site_path("public", "files", parts[-1])
+			path = capkpi.utils.get_site_path("public", "files", parts[-1])
 
 		else:
-			path = frappe.utils.get_site_path("private", "files", parts[-1])
+			path = capkpi.utils.get_site_path("private", "files", parts[-1])
 
 		path = encode(path)
 		if os.path.exists(path):
@@ -751,10 +751,10 @@ def get_max_file_size():
 
 def has_permission(doc, ptype=None, user=None):
 	has_access = False
-	user = user or frappe.session.user
+	user = user or capkpi.session.user
 
 	if ptype == "create":
-		has_access = frappe.has_permission("File", "create", user=user)
+		has_access = capkpi.has_permission("File", "create", user=user)
 
 	if not doc.is_private or doc.owner in [user, "Guest"] or user == "Administrator":
 		has_access = True
@@ -764,21 +764,21 @@ def has_permission(doc, ptype=None, user=None):
 		attached_to_name = doc.attached_to_name
 
 		try:
-			ref_doc = frappe.get_doc(attached_to_doctype, attached_to_name)
+			ref_doc = capkpi.get_doc(attached_to_doctype, attached_to_name)
 
 			if ptype in ["write", "create", "delete"]:
 				has_access = ref_doc.has_permission("write")
 
 				if ptype == "delete" and not has_access:
-					frappe.throw(
+					capkpi.throw(
 						_(
 							"Cannot delete file as it belongs to {0} {1} for which you do not have permissions"
 						).format(doc.attached_to_doctype, doc.attached_to_name),
-						frappe.PermissionError,
+						capkpi.PermissionError,
 					)
 			else:
 				has_access = ref_doc.has_permission("read")
-		except frappe.DoesNotExistError:
+		except capkpi.DoesNotExistError:
 			# if parent doc is not created before file is created
 			# we cannot check its permission so we will use file's permission
 			pass
@@ -788,14 +788,14 @@ def has_permission(doc, ptype=None, user=None):
 
 def remove_file_by_url(file_url, doctype=None, name=None):
 	if doctype and name:
-		fid = frappe.db.get_value(
+		fid = capkpi.db.get_value(
 			"File", {"file_url": file_url, "attached_to_doctype": doctype, "attached_to_name": name}
 		)
 	else:
-		fid = frappe.db.get_value("File", {"file_url": file_url})
+		fid = capkpi.db.get_value("File", {"file_url": file_url})
 
 	if fid:
-		from frappe.utils.file_manager import remove_file
+		from capkpi.utils.file_manager import remove_file
 
 		return remove_file(fid=fid)
 
@@ -818,33 +818,33 @@ def get_file_name(fname, optional_suffix):
 	return "{partial}{suffix}{extn}".format(partial=partial, extn=extn, suffix=optional_suffix)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def download_file(file_url):
 	"""
 	Download file using token and REST API. Valid session or
 	token is required to download private files.
 
 	Method : GET
-	Endpoint : frappe.core.doctype.file.file.download_file
+	Endpoint : capkpi.core.doctype.file.file.download_file
 	URL Params : file_name = /path/to/file relative to site path
 	"""
-	file_doc = frappe.get_doc("File", {"file_url": file_url})
+	file_doc = capkpi.get_doc("File", {"file_url": file_url})
 	file_doc.check_permission("read")
 
-	frappe.local.response.filename = os.path.basename(file_url)
-	frappe.local.response.filecontent = file_doc.get_content()
-	frappe.local.response.type = "download"
+	capkpi.local.response.filename = os.path.basename(file_url)
+	capkpi.local.response.filecontent = file_doc.get_content()
+	capkpi.local.response.type = "download"
 
 
 def extract_images_from_doc(doc, fieldname):
 	content = doc.get(fieldname)
 	content = extract_images_from_html(doc, content)
-	if frappe.flags.has_dataurl:
+	if capkpi.flags.has_dataurl:
 		doc.set(fieldname, content)
 
 
 def extract_images_from_html(doc, content, is_private=False):
-	frappe.flags.has_dataurl = False
+	capkpi.flags.has_dataurl = False
 
 	def _save_file(match):
 		data = match.group(1).split("data:")[1]
@@ -868,7 +868,7 @@ def extract_images_from_html(doc, content, is_private=False):
 			doctype = doc.doctype
 			name = doc.name
 
-		_file = frappe.get_doc(
+		_file = capkpi.get_doc(
 			{
 				"doctype": "File",
 				"file_name": filename,
@@ -882,7 +882,7 @@ def extract_images_from_html(doc, content, is_private=False):
 		_file.save(ignore_permissions=True)
 
 		file_url = _file.file_url
-		frappe.flags.has_dataurl = True
+		capkpi.flags.has_dataurl = True
 
 		return '<img src="{file_url}"'.format(file_url=file_url)
 
@@ -900,15 +900,15 @@ def get_random_filename(content_type=None):
 	return random_string(7) + (extn or "")
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def unzip_file(name):
 	"""Unzip the given file and make file records for each of the extracted files"""
-	file_obj = frappe.get_doc("File", name)
+	file_obj = capkpi.get_doc("File", name)
 	files = file_obj.unzip()
 	return files
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_attached_images(doctype, names):
 	"""get list of image urls attached in form
 	returns {name: ['image.jpg', 'image.png']}"""
@@ -916,13 +916,13 @@ def get_attached_images(doctype, names):
 	if isinstance(names, string_types):
 		names = json.loads(names)
 
-	img_urls = frappe.db.get_list(
+	img_urls = capkpi.db.get_list(
 		"File",
 		filters={"attached_to_doctype": doctype, "attached_to_name": ("in", names), "is_folder": 0},
 		fields=["file_url", "attached_to_name as docname"],
 	)
 
-	out = frappe._dict()
+	out = capkpi._dict()
 	for i in img_urls:
 		out[i.docname] = out.get(i.docname, [])
 		out[i.docname].append(i.file_url)
@@ -930,16 +930,16 @@ def get_attached_images(doctype, names):
 	return out
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_files_in_folder(folder, start=0, page_length=20):
 	start = cint(start)
 	page_length = cint(page_length)
 
-	attachment_folder = frappe.db.get_value(
+	attachment_folder = capkpi.db.get_value(
 		"File", "Home/Attachments", ["name", "file_name", "file_url", "is_folder", "modified"], as_dict=1
 	)
 
-	files = frappe.db.get_list(
+	files = capkpi.db.get_list(
 		"File",
 		{"folder": folder},
 		["name", "file_name", "file_url", "is_folder", "modified"],
@@ -953,13 +953,13 @@ def get_files_in_folder(folder, start=0, page_length=20):
 	return {"files": files[:page_length], "has_more": len(files) > page_length}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_files_by_search_text(text):
 	if not text:
 		return []
 
 	text = "%" + cstr(text).lower() + "%"
-	return frappe.db.get_all(
+	return capkpi.db.get_all(
 		"File",
 		fields=["name", "file_name", "file_url", "is_folder", "modified"],
 		filters={"is_folder": False},
@@ -971,7 +971,7 @@ def get_files_by_search_text(text):
 
 def update_existing_file_docs(doc):
 	# Update is private and file url of all file docs that point to the same file
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""
 		UPDATE `tabFile`
 		SET
@@ -1006,7 +1006,7 @@ def attach_files_to_document(doc, event):
 			if not (value or "").startswith(("/files", "/private/files")):
 				return
 
-			if frappe.db.exists(
+			if capkpi.db.exists(
 				"File",
 				{
 					"file_url": value,
@@ -1017,7 +1017,7 @@ def attach_files_to_document(doc, event):
 			):
 				return
 
-			frappe.get_doc(
+			capkpi.get_doc(
 				doctype="File",
 				file_url=value,
 				attached_to_name=doc.name,
@@ -1026,4 +1026,4 @@ def attach_files_to_document(doc, event):
 				folder="Home/Attachments",
 			).insert(ignore_permissions=True)
 		except Exception:
-			frappe.log_error(title=_("Error Attaching File"))
+			capkpi.log_error(title=_("Error Attaching File"))

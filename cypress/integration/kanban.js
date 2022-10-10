@@ -21,7 +21,7 @@ context('Kanban Board', () => {
 	it('Create ToDo from kanban', () => {
 		cy.intercept({
 			method: 'POST',
-			url: 'api/method/frappe.client.save'
+			url: 'api/method/capkpi.client.save'
 		}).as('save-todo');
 
 		cy.click_listview_primary_button('Add ToDo');
@@ -35,8 +35,8 @@ context('Kanban Board', () => {
 	it('Add and Remove fields', () => {
 		cy.visit('/app/todo/view/kanban/ToDo Kanban');
 
-		cy.intercept('POST', '/api/method/frappe.desk.doctype.kanban_board.kanban_board.save_settings').as('save-kanban');
-		cy.intercept('POST', '/api/method/frappe.desk.doctype.kanban_board.kanban_board.update_order').as('update-order');
+		cy.intercept('POST', '/api/method/capkpi.desk.doctype.kanban_board.kanban_board.save_settings').as('save-kanban');
+		cy.intercept('POST', '/api/method/capkpi.desk.doctype.kanban_board.kanban_board.update_order').as('update-order');
 
 		cy.get('.page-actions .menu-btn-group > .btn').click();
 		cy.get('.page-actions .menu-btn-group .dropdown-menu li').contains('Kanban Settings').click();
@@ -48,7 +48,7 @@ context('Kanban Board', () => {
 
 		cy.get('.modal-footer .btn-primary').last().click();
 
-		cy.get('.frappe-control .label-area').contains('Show Labels').click();
+		cy.get('.capkpi-control .label-area').contains('Show Labels').click();
 		cy.click_modal_primary_button('Save');
 
 		cy.wait('@save-kanban');
@@ -60,10 +60,10 @@ context('Kanban Board', () => {
 
 		cy.get('.page-actions .menu-btn-group > .btn').click();
 		cy.get('.page-actions .menu-btn-group .dropdown-menu li').contains('Kanban Settings').click();
-		cy.get_open_dialog().find('.frappe-control[data-fieldname="fields_html"] div[data-label="ID"] .remove-field').click();
+		cy.get_open_dialog().find('.capkpi-control[data-fieldname="fields_html"] div[data-label="ID"] .remove-field').click();
 
 		cy.wait('@update-order');
-		cy.get_open_dialog().find('.frappe-control .label-area').contains('Show Labels').click();
+		cy.get_open_dialog().find('.capkpi-control .label-area').contains('Show Labels').click();
 		cy.get('.modal-footer .btn-primary').last().click();
 
 		cy.wait('@save-kanban');
@@ -75,7 +75,7 @@ context('Kanban Board', () => {
 	// it('Drag todo', () => {
 	// 	cy.intercept({
 	// 		method: 'POST',
-	// 		url: 'api/method/frappe.desk.doctype.kanban_board.kanban_board.update_order_for_single_card'
+	// 		url: 'api/method/capkpi.desk.doctype.kanban_board.kanban_board.update_order_for_single_card'
 	// 	}).as('drag-completed');
 
 	// 	cy.get('.kanban-card-body')

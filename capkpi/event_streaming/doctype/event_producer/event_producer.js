@@ -1,7 +1,7 @@
 // Copyright (c) 2019, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Event Producer', {
+capkpi.ui.form.on('Event Producer', {
 	refresh: function(frm) {
 		frm.set_query('ref_doctype', 'producer_doctypes', function() {
 			return {

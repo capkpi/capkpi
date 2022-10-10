@@ -6,7 +6,7 @@ const fields = [
 	"api_endpoint", "api_endpoint_args", "auth_url_data"
 ];
 
-frappe.ui.form.on('Social Login Key', {
+capkpi.ui.form.on('Social Login Key', {
 	refresh(frm) {
 		frm.trigger("setup_fields");
 	},
@@ -17,7 +17,7 @@ frappe.ui.form.on('Social Login Key', {
 
 	social_login_provider(frm) {
 		if(frm.doc.social_login_provider != "Custom") {
-			frappe.call({
+			capkpi.call({
 				"doc": frm.doc,
 				"method": "get_social_login_provider",
 				"args": {

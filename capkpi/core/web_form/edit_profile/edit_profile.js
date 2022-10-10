@@ -1,3 +1,3 @@
-frappe.ready(function() {
+capkpi.ready(function() {
 	// bind events here
 })

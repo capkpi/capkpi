@@ -1,13 +1,13 @@
-import frappe
+import capkpi
 
 from ..role import desk_properties
 
 
 def execute():
-	frappe.reload_doctype("user")
-	frappe.reload_doctype("role")
-	for role in frappe.get_all("Role", ["name", "desk_access"]):
-		role_doc = frappe.get_doc("Role", role.name)
+	capkpi.reload_doctype("user")
+	capkpi.reload_doctype("role")
+	for role in capkpi.get_all("Role", ["name", "desk_access"]):
+		role_doc = capkpi.get_doc("Role", role.name)
 		for key in desk_properties:
 			role_doc.set(key, role_doc.desk_access)
 		role_doc.save()

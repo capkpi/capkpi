@@ -6,25 +6,25 @@ from __future__ import unicode_literals
 
 import os
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
-from frappe.modules.export_file import create_init_py
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
+from capkpi.modules.export_file import create_init_py
 
 from .connectors.base import BaseConnection
-from .connectors.frappe_connection import CapKPIConnection
+from .connectors.capkpi_connection import CapKPIConnection
 
 
 class DataMigrationConnector(Document):
 	def validate(self):
 		if not (self.python_module or self.connector_type):
-			frappe.throw(_("Enter python module or select connector type"))
+			capkpi.throw(_("Enter python module or select connector type"))
 
 		if self.python_module:
 			try:
 				get_connection_class(self.python_module)
 			except Exception:
-				frappe.throw(frappe._("Invalid module path"))
+				capkpi.throw(capkpi._("Invalid module path"))
 
 	def get_connection(self):
 		if self.python_module:
@@ -36,21 +36,21 @@ class DataMigrationConnector(Document):
 		return self.connection
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def create_new_connection(module, connection_name):
-	if not frappe.conf.get("developer_mode"):
-		frappe.msgprint(_("Please enable developer mode to create new connection"))
+	if not capkpi.conf.get("developer_mode"):
+		capkpi.msgprint(_("Please enable developer mode to create new connection"))
 		return
 	# create folder
-	module_path = frappe.get_module_path(module)
+	module_path = capkpi.get_module_path(module)
 	connectors_folder = os.path.join(module_path, "connectors")
-	frappe.create_folder(connectors_folder)
+	capkpi.create_folder(connectors_folder)
 
 	# create init py
 	create_init_py(module_path, "connectors", "")
 
 	connection_class = connection_name.replace(" ", "")
-	file_name = frappe.scrub(connection_name) + ".py"
+	file_name = capkpi.scrub(connection_name) + ".py"
 	file_path = os.path.join(module_path, "connectors", file_name)
 
 	# create boilerplate file
@@ -58,7 +58,7 @@ def create_new_connection(module, connection_name):
 		f.write(connection_boilerplate.format(connection_class=connection_class))
 
 	# get python module string from file_path
-	app_name = frappe.db.get_value("Module Def", module, "app_name")
+	app_name = capkpi.db.get_value("Module Def", module, "app_name")
 	python_module = os.path.relpath(file_path, "../apps/{0}".format(app_name)).replace(
 		os.path.sep, "."
 	)[:-3]
@@ -68,8 +68,8 @@ def create_new_connection(module, connection_name):
 
 def get_connection_class(python_module):
 	filename = python_module.rsplit(".", 1)[-1]
-	classname = frappe.unscrub(filename).replace(" ", "")
-	module = frappe.get_module(python_module)
+	classname = capkpi.unscrub(filename).replace(" ", "")
+	module = capkpi.get_module(python_module)
 
 	raise_error = False
 	if hasattr(module, classname):
@@ -86,7 +86,7 @@ def get_connection_class(python_module):
 
 
 connection_boilerplate = """from __future__ import unicode_literals
-from frappe.data_migration.doctype.data_migration_connector.connectors.base import BaseConnection
+from capkpi.data_migration.doctype.data_migration_connector.connectors.base import BaseConnection
 
 class {connection_class}(BaseConnection):
 	def __init__(self, connector):

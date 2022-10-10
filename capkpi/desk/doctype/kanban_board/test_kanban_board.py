@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
+import capkpi
 
-# test_records = frappe.get_test_records('Kanban Board')
+# test_records = capkpi.get_test_records('Kanban Board')
 
 
 class TestKanbanBoard(unittest.TestCase):

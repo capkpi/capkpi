@@ -5,15 +5,15 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
+import capkpi
 
 
 class TestViewLog(unittest.TestCase):
 	def tearDown(self):
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 
 	def test_if_user_is_added(self):
-		ev = frappe.get_doc(
+		ev = capkpi.get_doc(
 			{
 				"doctype": "Event",
 				"subject": "test event for view logs",
@@ -22,13 +22,13 @@ class TestViewLog(unittest.TestCase):
 			}
 		).insert()
 
-		frappe.set_user("test@example.com")
+		capkpi.set_user("test@example.com")
 
-		from frappe.desk.form.load import getdoc
+		from capkpi.desk.form.load import getdoc
 
 		# load the form
 		getdoc("Event", ev.name)
-		a = frappe.get_value(
+		a = capkpi.get_value(
 			doctype="View Log",
 			filters={"reference_doctype": "Event", "reference_name": ev.name},
 			fieldname=["viewed_by"],

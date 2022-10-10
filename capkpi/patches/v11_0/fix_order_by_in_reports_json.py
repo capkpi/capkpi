@@ -2,11 +2,11 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
+import capkpi
 
 
 def execute():
-	reports_data = frappe.get_all(
+	reports_data = capkpi.get_all(
 		"Report",
 		filters={
 			"json": ["not like", '%%%"order_by": "`tab%%%'],
@@ -17,7 +17,7 @@ def execute():
 	)
 
 	for d in reports_data:
-		doc = frappe.get_doc("Report", d.get("name"))
+		doc = capkpi.get_doc("Report", d.get("name"))
 
 		if not doc.get("json"):
 			continue

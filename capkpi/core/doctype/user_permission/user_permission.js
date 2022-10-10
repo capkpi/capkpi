@@ -1,7 +1,7 @@
 // Copyright (c) 2017, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('User Permission', {
+capkpi.ui.form.on('User Permission', {
 	setup: frm => {
 		frm.set_query("allow", () => {
 			return {
@@ -14,7 +14,7 @@ frappe.ui.form.on('User Permission', {
 
 		frm.set_query('applicable_for', () => {
 			return {
-				'query': 'frappe.core.doctype.user_permission.user_permission.get_applicable_for_doctype_list',
+				'query': 'capkpi.core.doctype.user_permission.user_permission.get_applicable_for_doctype_list',
 				'doctype': frm.doc.allow
 			};
 		});
@@ -23,7 +23,7 @@ frappe.ui.form.on('User Permission', {
 
 	refresh: frm => {
 		frm.add_custom_button(__('View Permitted Documents'),
-			() => frappe.set_route('query-report', 'Permitted Documents For User',
+			() => capkpi.set_route('query-report', 'Permitted Documents For User',
 				{ user: frm.doc.user }));
 		frm.trigger('set_applicable_for_constraint');
 		frm.trigger('toggle_hide_descendants');
@@ -50,7 +50,7 @@ frappe.ui.form.on('User Permission', {
 	},
 
 	toggle_hide_descendants: frm => {
-		let show = frappe.boot.nested_set_doctypes.includes(frm.doc.allow);
+		let show = capkpi.boot.nested_set_doctypes.includes(frm.doc.allow);
 		frm.toggle_display('hide_descendants', show);
 	}
 

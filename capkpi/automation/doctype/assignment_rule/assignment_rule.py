@@ -4,12 +4,12 @@
 
 from __future__ import unicode_literals
 
-import frappe
-import frappe.cache_manager
-from frappe import _
-from frappe.desk.form import assign_to
-from frappe.model import log_types
-from frappe.model.document import Document
+import capkpi
+import capkpi.cache_manager
+from capkpi import _
+from capkpi.desk.form import assign_to
+from capkpi.model import log_types
+from capkpi.model.document import Document
 
 
 class AssignmentRule(Document):
@@ -17,10 +17,10 @@ class AssignmentRule(Document):
 		assignment_days = self.get_assignment_days()
 		if not len(set(assignment_days)) == len(assignment_days):
 			repeated_days = get_repeated(assignment_days)
-			frappe.throw(_("Assignment Day {0} has been repeated.").format(frappe.bold(repeated_days)))
+			capkpi.throw(_("Assignment Day {0} has been repeated.").format(capkpi.bold(repeated_days)))
 		if self.document_type == "ToDo":
-			frappe.throw(
-				_("Assignment Rule is not allowed on {0} document type").format(frappe.bold("ToDo"))
+			capkpi.throw(
+				_("Assignment Rule is not allowed on {0} document type").format(capkpi.bold("ToDo"))
 			)
 
 	def on_update(self):
@@ -54,7 +54,7 @@ class AssignmentRule(Document):
 					assign_to=[user],
 					doctype=doc.get("doctype"),
 					name=doc.get("name"),
-					description=frappe.render_template(self.description, doc),
+					description=capkpi.render_template(self.description, doc),
 					assignment_rule=self.name,
 					notify=True,
 					date=doc.get(self.due_date_based_on) if self.due_date_based_on else None,
@@ -112,7 +112,7 @@ class AssignmentRule(Document):
 			counts.append(
 				dict(
 					user=d.user,
-					count=frappe.db.count(
+					count=capkpi.db.count(
 						"ToDo", dict(reference_type=self.document_type, owner=d.user, status="Open")
 					),
 				)
@@ -126,17 +126,17 @@ class AssignmentRule(Document):
 
 	def get_user_based_on_field(self, doc):
 		val = doc.get(self.field)
-		if frappe.db.exists("User", val):
+		if capkpi.db.exists("User", val):
 			return val
 
 	def safe_eval(self, fieldname, doc):
 		try:
 			if self.get(fieldname):
-				return frappe.safe_eval(self.get(fieldname), None, doc)
+				return capkpi.safe_eval(self.get(fieldname), None, doc)
 		except Exception as e:
 			# when assignment fails, don't block the document as it may be
 			# a part of the email pulling
-			frappe.msgprint(frappe._("Auto assignment failed: {0}").format(str(e)), indicator="orange")
+			capkpi.msgprint(capkpi._("Auto assignment failed: {0}").format(str(e)), indicator="orange")
 
 		return False
 
@@ -144,7 +144,7 @@ class AssignmentRule(Document):
 		return [d.day for d in self.get("assignment_days", [])]
 
 	def is_rule_not_applicable_today(self):
-		today = frappe.flags.assignment_day or frappe.utils.get_weekday()
+		today = capkpi.flags.assignment_day or capkpi.utils.get_weekday()
 		assignment_days = self.get_assignment_days()
 		if assignment_days and not today in assignment_days:
 			return True
@@ -153,7 +153,7 @@ class AssignmentRule(Document):
 
 
 def get_assignments(doc):
-	return frappe.get_all(
+	return capkpi.get_all(
 		"ToDo",
 		fields=["name", "assignment_rule"],
 		filters=dict(
@@ -163,7 +163,7 @@ def get_assignments(doc):
 	)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def bulk_apply(doctype, docnames):
 	import json
 
@@ -172,8 +172,8 @@ def bulk_apply(doctype, docnames):
 	background = len(docnames) > 5
 	for name in docnames:
 		if background:
-			frappe.enqueue(
-				"frappe.automation.doctype.assignment_rule.assignment_rule.apply",
+			capkpi.enqueue(
+				"capkpi.automation.doctype.assignment_rule.assignment_rule.apply",
 				doc=None,
 				doctype=doctype,
 				name=name,
@@ -183,13 +183,13 @@ def bulk_apply(doctype, docnames):
 
 
 def reopen_closed_assignment(doc):
-	todo_list = frappe.db.get_all(
+	todo_list = capkpi.db.get_all(
 		"ToDo", filters=dict(reference_type=doc.doctype, reference_name=doc.name, status="Closed")
 	)
 	if not todo_list:
 		return False
 	for todo in todo_list:
-		todo_doc = frappe.get_doc("ToDo", todo.name)
+		todo_doc = capkpi.get_doc("ToDo", todo.name)
 		todo_doc.status = "Open"
 		todo_doc.save(ignore_permissions=True)
 	return True
@@ -200,17 +200,17 @@ def apply(doc, method=None, doctype=None, name=None):
 		doctype = doc.doctype
 
 	if (
-		frappe.flags.in_patch
-		or frappe.flags.in_install
-		or frappe.flags.in_setup_wizard
+		capkpi.flags.in_patch
+		or capkpi.flags.in_install
+		or capkpi.flags.in_setup_wizard
 		or doctype in log_types
 	):
 		return
 
 	if not doc and doctype and name:
-		doc = frappe.get_doc(doctype, name)
+		doc = capkpi.get_doc(doctype, name)
 
-	assignment_rules = frappe.cache_manager.get_doctype_map(
+	assignment_rules = capkpi.cache_manager.get_doctype_map(
 		"Assignment Rule",
 		doc.doctype,
 		dict(document_type=doc.doctype, disabled=0),
@@ -221,7 +221,7 @@ def apply(doc, method=None, doctype=None, name=None):
 
 	# multiple auto assigns
 	for d in assignment_rules:
-		assignment_rule_docs.append(frappe.get_cached_doc("Assignment Rule", d.get("name")))
+		assignment_rule_docs.append(capkpi.get_cached_doc("Assignment Rule", d.get("name")))
 
 	if not assignment_rule_docs:
 		return
@@ -274,27 +274,27 @@ def apply(doc, method=None, doctype=None, name=None):
 def update_due_date(doc, state=None):
 	# called from hook
 	if (
-		frappe.flags.in_patch
-		or frappe.flags.in_install
-		or frappe.flags.in_migrate
-		or frappe.flags.in_import
-		or frappe.flags.in_setup_wizard
+		capkpi.flags.in_patch
+		or capkpi.flags.in_install
+		or capkpi.flags.in_migrate
+		or capkpi.flags.in_import
+		or capkpi.flags.in_setup_wizard
 	):
 		return
-	assignment_rules = frappe.cache_manager.get_doctype_map(
+	assignment_rules = capkpi.cache_manager.get_doctype_map(
 		"Assignment Rule",
 		"due_date_rules_for_" + doc.doctype,
 		dict(document_type=doc.doctype, disabled=0, due_date_based_on=["is", "set"]),
 	)
 	for rule in assignment_rules:
-		rule_doc = frappe.get_cached_doc("Assignment Rule", rule.get("name"))
+		rule_doc = capkpi.get_cached_doc("Assignment Rule", rule.get("name"))
 		due_date_field = rule_doc.due_date_based_on
 		if (
 			doc.meta.has_field(due_date_field)
 			and doc.has_value_changed(due_date_field)
 			and rule.get("name")
 		):
-			assignment_todos = frappe.get_all(
+			assignment_todos = capkpi.get_all(
 				"ToDo",
 				{
 					"assignment_rule": rule.get("name"),
@@ -304,7 +304,7 @@ def update_due_date(doc, state=None):
 				},
 			)
 			for todo in assignment_todos:
-				todo_doc = frappe.get_doc("ToDo", todo.name)
+				todo_doc = capkpi.get_doc("ToDo", todo.name)
 				todo_doc.date = doc.get(due_date_field)
 				todo_doc.flags.updater_reference = {
 					"doctype": "Assignment Rule",
@@ -317,7 +317,7 @@ def update_due_date(doc, state=None):
 def get_assignment_rules():
 	return [
 		d.document_type
-		for d in frappe.db.get_all("Assignment Rule", fields=["document_type"], filters=dict(disabled=0))
+		for d in capkpi.db.get_all("Assignment Rule", fields=["document_type"], filters=dict(disabled=0))
 	]
 
 
@@ -334,7 +334,7 @@ def get_repeated(values):
 
 
 def clear_assignment_rule_cache(rule):
-	frappe.cache_manager.clear_doctype_map("Assignment Rule", rule.document_type)
-	frappe.cache_manager.clear_doctype_map(
+	capkpi.cache_manager.clear_doctype_map("Assignment Rule", rule.document_type)
+	capkpi.cache_manager.clear_doctype_map(
 		"Assignment Rule", "due_date_rules_for_" + rule.document_type
 	)

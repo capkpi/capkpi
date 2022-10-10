@@ -6,14 +6,14 @@ from __future__ import unicode_literals
 import hashlib
 import unittest
 
-import frappe
+import capkpi
 
 test_records = []
 
 
 class TestTransactionLog(unittest.TestCase):
 	def test_validate_chaining(self):
-		frappe.get_doc(
+		capkpi.get_doc(
 			{
 				"doctype": "Transaction Log",
 				"reference_doctype": "Test Doctype",
@@ -22,7 +22,7 @@ class TestTransactionLog(unittest.TestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		second_log = frappe.get_doc(
+		second_log = capkpi.get_doc(
 			{
 				"doctype": "Transaction Log",
 				"reference_doctype": "Test Doctype",
@@ -31,7 +31,7 @@ class TestTransactionLog(unittest.TestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		third_log = frappe.get_doc(
+		third_log = capkpi.get_doc(
 			{
 				"doctype": "Transaction Log",
 				"reference_doctype": "Test Doctype",
@@ -42,8 +42,8 @@ class TestTransactionLog(unittest.TestCase):
 
 		sha = hashlib.sha256()
 		sha.update(
-			frappe.safe_encode(str(third_log.transaction_hash))
-			+ frappe.safe_encode(str(second_log.chaining_hash))
+			capkpi.safe_encode(str(third_log.transaction_hash))
+			+ capkpi.safe_encode(str(second_log.chaining_hash))
 		)
 
 		self.assertEqual(sha.hexdigest(), third_log.chaining_hash)

@@ -10,19 +10,19 @@ from typing import List
 from parse import compile
 from six.moves.urllib.parse import unquote
 
-import frappe
-from frappe import _
-from frappe.automation.doctype.assignment_rule.assignment_rule import (
+import capkpi
+from capkpi import _
+from capkpi.automation.doctype.assignment_rule.assignment_rule import (
 	apply as apply_assignment_rule,
 )
-from frappe.contacts.doctype.contact.contact import get_contact_name
-from frappe.core.doctype.comment.comment import update_comment_in_doc
-from frappe.core.doctype.communication.email import _notify, notify, validate_email
-from frappe.core.utils import get_parent_doc
-from frappe.model.document import Document
-from frappe.utils import cstr, parse_addr, strip_html, time_diff_in_seconds, validate_email_address
-from frappe.utils.bot import BotReply
-from frappe.utils.user import is_system_user
+from capkpi.contacts.doctype.contact.contact import get_contact_name
+from capkpi.core.doctype.comment.comment import update_comment_in_doc
+from capkpi.core.doctype.communication.email import _notify, notify, validate_email
+from capkpi.core.utils import get_parent_doc
+from capkpi.model.document import Document
+from capkpi.utils import cstr, parse_addr, strip_html, time_diff_in_seconds, validate_email_address
+from capkpi.utils.bot import BotReply
+from capkpi.utils.user import is_system_user
 
 exclude_from_linked_with = True
 
@@ -42,13 +42,13 @@ class Communication(Document):
 			and self.uid != -1
 		):
 
-			email_flag_queue = frappe.db.get_value(
+			email_flag_queue = capkpi.db.get_value(
 				"Email Flag Queue", {"communication": self.name, "is_completed": 0}
 			)
 			if email_flag_queue:
 				return
 
-			frappe.get_doc(
+			capkpi.get_doc(
 				{
 					"doctype": "Email Flag Queue",
 					"action": "Read",
@@ -57,13 +57,13 @@ class Communication(Document):
 					"email_account": self.email_account,
 				}
 			).insert(ignore_permissions=True)
-			frappe.db.commit()
+			capkpi.db.commit()
 
 	def validate(self):
 		self.validate_reference()
 
 		if not self.user:
-			self.user = frappe.session.user
+			self.user = capkpi.session.user
 
 		if not self.subject:
 			self.subject = strip_html((self.content or "")[:141])
@@ -86,13 +86,13 @@ class Communication(Document):
 	def validate_reference(self):
 		if self.reference_doctype and self.reference_name:
 			if not self.reference_owner:
-				self.reference_owner = frappe.db.get_value(
+				self.reference_owner = capkpi.db.get_value(
 					self.reference_doctype, self.reference_name, "owner"
 				)
 
 			# prevent communication against a child table
-			if frappe.get_meta(self.reference_doctype).istable:
-				frappe.throw(
+			if capkpi.get_meta(self.reference_doctype).istable:
+				capkpi.throw(
 					_("Cannot create a {0} against a child document: {1}").format(
 						_(self.communication_type), _(self.reference_doctype)
 					)
@@ -109,9 +109,9 @@ class Communication(Document):
 					doc = get_parent_doc(doc)
 
 				if circular_linking:
-					frappe.throw(
+					capkpi.throw(
 						_("Please make sure the Reference Communication Docs are not circularly linked."),
-						frappe.CircularLinkingError,
+						capkpi.CircularLinkingError,
 					)
 
 	def after_insert(self):
@@ -119,19 +119,19 @@ class Communication(Document):
 			return
 
 		if self.reference_doctype == "Communication" and self.sent_or_received == "Sent":
-			frappe.db.set_value("Communication", self.reference_name, "status", "Replied")
+			capkpi.db.set_value("Communication", self.reference_name, "status", "Replied")
 
 		if self.communication_type == "Communication":
 			self.notify_change("add")
 
 		elif self.communication_type in ("Chat", "Notification", "Bot"):
-			if self.reference_name == frappe.session.user:
+			if self.reference_name == capkpi.session.user:
 				message = self.as_dict()
 				message["broadcast"] = True
-				frappe.publish_realtime("new_message", message, after_commit=True)
+				capkpi.publish_realtime("new_message", message, after_commit=True)
 			else:
 				# reference_name contains the user who is addressed in the messages' page comment
-				frappe.publish_realtime(
+				capkpi.publish_realtime(
 					"new_message", self.as_dict(), user=self.reference_name, after_commit=True
 				)
 
@@ -149,7 +149,7 @@ class Communication(Document):
 		email_body = email_body[0]
 
 		user_email_signature = (
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"User",
 				self.sender,
 				"email_signature",
@@ -158,7 +158,7 @@ class Communication(Document):
 			else None
 		)
 
-		signature = user_email_signature or frappe.db.get_value(
+		signature = user_email_signature or capkpi.db.get_value(
 			"Email Account",
 			{"default_outgoing": 1, "add_signature": 1},
 			"signature",
@@ -190,7 +190,7 @@ class Communication(Document):
 			self.notify_change("delete")
 
 	def notify_change(self, action):
-		frappe.publish_realtime(
+		capkpi.publish_realtime(
 			"update_docinfo_for_{}_{}".format(self.reference_doctype, self.reference_name),
 			{"doc": self.as_dict(), "key": "communications", "action": action},
 			after_commit=True,
@@ -208,7 +208,7 @@ class Communication(Document):
 			self.status = "Closed"
 
 		# set email status to spam
-		email_rule = frappe.db.get_value("Email Rule", {"email_id": self.sender, "is_spam": 1})
+		email_rule = capkpi.db.get_value("Email Rule", {"email_id": self.sender, "is_spam": 1})
 		if (
 			self.communication_type == "Communication"
 			and self.communication_medium == "Email"
@@ -221,8 +221,8 @@ class Communication(Document):
 	def set_sender_full_name(self):
 		if not self.sender_full_name and self.sender:
 			if self.sender == "Administrator":
-				self.sender_full_name = frappe.db.get_value("User", "Administrator", "full_name")
-				self.sender = frappe.db.get_value("User", "Administrator", "email")
+				self.sender_full_name = capkpi.db.get_value("User", "Administrator", "full_name")
+				self.sender = capkpi.db.get_value("User", "Administrator", "email")
 			elif self.sender == "Guest":
 				self.sender_full_name = self.sender
 				self.sender = None
@@ -237,10 +237,10 @@ class Communication(Document):
 				self.sender_full_name = sender_name
 
 				if not self.sender_full_name:
-					self.sender_full_name = frappe.db.get_value("User", self.sender, "full_name")
+					self.sender_full_name = capkpi.db.get_value("User", self.sender, "full_name")
 
 				if not self.sender_full_name:
-					first_name, last_name = frappe.db.get_value(
+					first_name, last_name = capkpi.db.get_value(
 						"Contact", filters={"email_id": sender_email}, fieldname=["first_name", "last_name"]
 					) or [None, None]
 					self.sender_full_name = (first_name or "") + (last_name or "")
@@ -293,7 +293,7 @@ class Communication(Document):
 		if self.comment_type == "Bot" and self.communication_type == "Chat":
 			reply = BotReply().get_reply(self.content)
 			if reply:
-				frappe.get_doc(
+				capkpi.get_doc(
 					{
 						"doctype": "Communication",
 						"comment_type": "Bot",
@@ -303,13 +303,13 @@ class Communication(Document):
 						"reference_name": self.reference_name,
 					}
 				).insert()
-				frappe.local.flags.commit = True
+				capkpi.local.flags.commit = True
 
 	def set_delivery_status(self, commit=False):
 		"""Look into the status of Email Queue linked to this Communication and set the Delivery Status of this Communication"""
 		delivery_status = None
 		status_counts = Counter(
-			frappe.db.sql_list("""select status from `tabEmail Queue` where communication=%s""", self.name)
+			capkpi.db.sql_list("""select status from `tabEmail Queue` where communication=%s""", self.name)
 		)
 		if self.sent_or_received == "Received":
 			return
@@ -334,7 +334,7 @@ class Communication(Document):
 			self.notify_update()
 
 			if commit:
-				frappe.db.commit()
+				capkpi.db.commit()
 
 	def parse_email_for_timeline_links(self):
 		parse_email(self, [self.recipients, self.cc, self.bcc])
@@ -342,7 +342,7 @@ class Communication(Document):
 	# Timeline Links
 	def set_timeline_links(self):
 		contacts = []
-		create_contact_enabled = self.email_account and frappe.db.get_value(
+		create_contact_enabled = self.email_account and capkpi.db.get_value(
 			"Email Account", self.email_account, "create_contact"
 		)
 		contacts = get_contacts(
@@ -391,8 +391,8 @@ class Communication(Document):
 
 def on_doctype_update():
 	"""Add indexes in `tabCommunication`"""
-	frappe.db.add_index("Communication", ["reference_doctype", "reference_name"])
-	frappe.db.add_index("Communication", ["status", "communication_type"])
+	capkpi.db.add_index("Communication", ["reference_doctype", "reference_name"])
+	capkpi.db.add_index("Communication", ["status", "communication_type"])
 
 
 def has_permission(doc, ptype, user):
@@ -401,20 +401,20 @@ def has_permission(doc, ptype, user):
 			return
 
 		if doc.reference_doctype and doc.reference_name:
-			if frappe.has_permission(doc.reference_doctype, ptype="read", doc=doc.reference_name):
+			if capkpi.has_permission(doc.reference_doctype, ptype="read", doc=doc.reference_name):
 				return True
 
 
 def get_permission_query_conditions_for_communication(user):
 	if not user:
-		user = frappe.session.user
+		user = capkpi.session.user
 
-	roles = frappe.get_roles(user)
+	roles = capkpi.get_roles(user)
 
 	if "Super Email User" in roles or "System Manager" in roles:
 		return None
 	else:
-		accounts = frappe.get_all(
+		accounts = capkpi.get_all(
 			"User Email", filters={"parent": user}, fields=["email_account"], distinct=True, order_by="idx"
 		)
 
@@ -436,21 +436,21 @@ def get_contacts(email_strings: List[str], auto_create_contact=False) -> List[st
 
 		if not contact_name and email and auto_create_contact:
 			email_parts = email.split("@")
-			first_name = frappe.unscrub(email_parts[0])
+			first_name = capkpi.unscrub(email_parts[0])
 
 			try:
 				contact_name = (
 					"{0}-{1}".format(first_name, email_parts[1]) if first_name == "Contact" else first_name
 				)
-				contact = frappe.get_doc(
+				contact = capkpi.get_doc(
 					{"doctype": "Contact", "first_name": contact_name, "name": contact_name}
 				)
 				contact.add_email(email_id=email, is_primary=True)
 				contact.insert(ignore_permissions=True)
 				contact_name = contact.name
 			except Exception:
-				traceback = frappe.get_traceback()
-				frappe.log_error(traceback)
+				traceback = capkpi.get_traceback()
+				capkpi.log_error(traceback)
 
 		if contact_name:
 			contacts.append(contact_name)
@@ -471,7 +471,7 @@ def get_emails(email_strings: List[str]) -> List[str]:
 
 
 def add_contact_links_to_communication(communication, contact_name):
-	contact_links = frappe.get_list(
+	contact_links = capkpi.get_list(
 		"Dynamic Link",
 		filters={"parenttype": "Contact", "parent": contact_name},
 		fields=["link_doctype", "link_name"],
@@ -489,7 +489,7 @@ def parse_email(communication, email_strings):
 	a doctype and docname ie in the format `admin+doctype+docname@example.com`,
 	the email is parsed and doctype and docname is extracted and timeline link is added.
 	"""
-	if not frappe.get_all("Email Account", filters={"enable_automatic_linking": 1}):
+	if not capkpi.get_all("Email Account", filters={"enable_automatic_linking": 1}):
 		return
 
 	delimiter = "+"
@@ -506,7 +506,7 @@ def parse_email(communication, email_strings):
 					doctype = unquote(email_local_parts[1])
 					docname = unquote(email_local_parts[2])
 
-					if doctype and docname and frappe.db.exists(doctype, docname):
+					if doctype and docname and capkpi.db.exists(doctype, docname):
 						communication.add_link(doctype, docname)
 
 
@@ -515,7 +515,7 @@ def get_email_without_link(email):
 	returns email address without doctype links
 	returns admin@example.com for email admin+doctype+docname@example.com
 	"""
-	if not frappe.get_all("Email Account", filters={"enable_automatic_linking": 1}):
+	if not capkpi.get_all("Email Account", filters={"enable_automatic_linking": 1}):
 		return email
 
 	try:
@@ -573,7 +573,7 @@ def update_first_response_time(parent, communication):
 def set_avg_response_time(parent, communication):
 	if parent.meta.has_field("avg_response_time") and communication.sent_or_received == "Sent":
 		# avg response time for all the responses
-		communications = frappe.get_list(
+		communications = capkpi.get_list(
 			"Communication",
 			filters={"reference_doctype": parent.doctype, "reference_name": parent.name},
 			fields=["sent_or_received", "name", "creation"],

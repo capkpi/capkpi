@@ -1,17 +1,17 @@
-frappe.pages["leaderboard"].on_page_load = (wrapper) => {
-	frappe.leaderboard = new Leaderboard(wrapper);
+capkpi.pages["leaderboard"].on_page_load = (wrapper) => {
+	capkpi.leaderboard = new Leaderboard(wrapper);
 
 	$(wrapper).bind('show', ()=> {
 		// Get which leaderboard to show
-		let doctype = frappe.get_route()[1];
-		frappe.leaderboard.show_leaderboard(doctype);
+		let doctype = capkpi.get_route()[1];
+		capkpi.leaderboard.show_leaderboard(doctype);
 	});
 };
 
 class Leaderboard {
 
 	constructor(parent) {
-		frappe.ui.make_app_page({
+		capkpi.ui.make_app_page({
 			parent: parent,
 			title: __("Leaderboard"),
 			single_column: false,
@@ -32,7 +32,7 @@ class Leaderboard {
 		this.filters = {};
 		this.leaderboard_limit = 20;
 
-		frappe.xcall("frappe.desk.page.leaderboard.leaderboard.get_leaderboard_config").then(config => {
+		capkpi.xcall("capkpi.desk.page.leaderboard.leaderboard.get_leaderboard_config").then(config => {
 			this.leaderboard_config = config;
 			for (let doctype in this.leaderboard_config) {
 				this.doctypes.push(doctype);
@@ -55,7 +55,7 @@ class Leaderboard {
 			];
 
 			// for saving current selected filters
-			const _initial_doctype = frappe.get_route()[1] || this.doctypes[0];
+			const _initial_doctype = capkpi.get_route()[1] || this.doctypes[0];
 			const _initial_timespan = this.timespans[0];
 			const _initial_filter = this.filters[_initial_doctype];
 
@@ -92,7 +92,7 @@ class Leaderboard {
 		this.render_search_box();
 
 		// Get which leaderboard to show
-		let doctype = frappe.get_route()[1];
+		let doctype = capkpi.get_route()[1];
 		this.show_leaderboard(doctype);
 
 	}
@@ -103,7 +103,7 @@ class Leaderboard {
 			label: __("Company"),
 			fieldtype: "Link",
 			options: "Company",
-			default: frappe.defaults.get_default("company"),
+			default: capkpi.defaults.get_default("company"),
 			reqd: 1,
 			change: (e) => {
 				this.options.selected_company = e.currentTarget.value;
@@ -120,7 +120,7 @@ class Leaderboard {
 
 		this.type_select = this.page.add_select(__("Field"),
 			this.options.selected_filter.map(d => {
-				return {"label": __(frappe.model.unscrub(d)), value: d };
+				return {"label": __(capkpi.model.unscrub(d)), value: d };
 			})
 		);
 
@@ -141,15 +141,15 @@ class Leaderboard {
 	}
 
 	create_date_range_field() {
-		let timespan_field = $(this.parent).find(`.frappe-control[data-original-title="${__('Timespan')}"]`);
+		let timespan_field = $(this.parent).find(`.capkpi-control[data-original-title="${__('Timespan')}"]`);
 		this.date_range_field = $(`<div class="from-date-field"></div>`).insertAfter(timespan_field).hide();
 
-		let date_field = frappe.ui.form.make_control({
+		let date_field = capkpi.ui.form.make_control({
 			df: {
 				fieldtype: 'DateRange',
 				fieldname: 'selected_date_range',
 				placeholder: __("Date Range"),
-				default: [frappe.datetime.month_start(), frappe.datetime.now_date()],
+				default: [capkpi.datetime.month_start(), capkpi.datetime.now_date()],
 				input_class: 'input-xs',
 				reqd: 1,
 				change: () => {
@@ -168,14 +168,14 @@ class Leaderboard {
 			let $li = $(e.currentTarget);
 			let doctype = $li.find(".doctype-text").attr("doctype-value");
 
-			this.options.selected_company = frappe.defaults.get_default("company");
+			this.options.selected_company = capkpi.defaults.get_default("company");
 			this.options.selected_doctype = doctype;
 			this.options.selected_filter = this.filters[doctype];
 			this.options.selected_filter_item = this.filters[doctype][0];
 
 			this.type_select.empty().add_options(
 				this.options.selected_filter.map(d => {
-					return {"label": __(frappe.model.unscrub(d)), value: d };
+					return {"label": __(capkpi.model.unscrub(d)), value: d };
 				})
 			);
 			if (this.leaderboard_config[this.options.selected_doctype].company_disabled) {
@@ -187,7 +187,7 @@ class Leaderboard {
 			this.$sidebar_list.find("li").removeClass("active selected");
 			$li.addClass("active selected");
 
-			frappe.set_route("leaderboard", this.options.selected_doctype);
+			capkpi.set_route("leaderboard", this.options.selected_doctype);
 			this.make_request();
 		});
 	}
@@ -210,22 +210,22 @@ class Leaderboard {
 			}
 
 			this.$search_box.find(".leaderboard-search-input").val("");
-			frappe.set_route("leaderboard", this.options.selected_doctype);
+			capkpi.set_route("leaderboard", this.options.selected_doctype);
 		}
 	}
 
 	make_request() {
 
-		frappe.model.with_doctype(this.options.selected_doctype, ()=> {
+		capkpi.model.with_doctype(this.options.selected_doctype, ()=> {
 			this.get_leaderboard(this.get_leaderboard_data);
 		});
 	}
 
 	get_leaderboard(notify) {
 		if (!this.options.selected_company) {
-			frappe.throw(__("Please select Company"));
+			capkpi.throw(__("Please select Company"));
 		}
-		frappe.call(
+		capkpi.call(
 			this.leaderboard_config[this.options.selected_doctype].method,
 			{
 				'date_range': this.get_date_range(),
@@ -248,7 +248,7 @@ class Leaderboard {
 				format_tooltip_x: d => d[this.options.selected_filter_item],
 				height: 140
 			};
-			frappe.utils.make_chart('.leaderboard-graph', custom_options);
+			capkpi.utils.make_chart('.leaderboard-graph', custom_options);
 
 			notify(this, r);
 		});
@@ -258,7 +258,7 @@ class Leaderboard {
 		if (res && res.message.length) {
 			me.message = null;
 			me.$container.find(".leaderboard-list").html(me.render_list_view(res.message));
-			frappe.utils.setup_search($(me.parent), ".list-item-container", ".list-id");
+			capkpi.utils.setup_search($(me.parent), ".list-item-container", ".list-id");
 		} else {
 			me.$graph_area.hide();
 			me.message = __("No Items Found");
@@ -287,10 +287,10 @@ class Leaderboard {
 
 	render_list_header() {
 		const _selected_filter = this.options.selected_filter
-			.map(i => frappe.model.unscrub(i));
+			.map(i => capkpi.model.unscrub(i));
 		const fields = ["rank", "name", this.options.selected_filter_item];
 		const filters = fields.map(filter => {
-			const col = __(frappe.model.unscrub(filter));
+			const col = __(capkpi.model.unscrub(filter));
 			return (
 				`<div class="leaderboard-item list-item_content ellipsis text-muted list-item__content--flex-2
 					header-btn-base ${filter}
@@ -331,7 +331,7 @@ class Leaderboard {
 		const display_class = this.message ? '' : 'hide';
 		let html = `<div class="leaderboard-empty-state ${display_class}">
 			<div class="no-result text-center">
-				<img src="/assets/frappe/images/ui-states/search-empty-state.svg"
+				<img src="/assets/capkpi/images/ui-states/search-empty-state.svg"
 					alt="Empty State"
 					class="null-state"
 				>
@@ -343,12 +343,12 @@ class Leaderboard {
 
 	get_item_html(item, index) {
 		const fields = this.leaderboard_config[this.options.selected_doctype].fields;
-		const value = frappe.format(item.value, fields.find(field => {
+		const value = capkpi.format(item.value, fields.find(field => {
 			let fieldname = field.fieldname || field;
 			return fieldname === this.options.selected_filter_item;
 		}));
 
-		const link = `/app/${frappe.router.slug(this.options.selected_doctype)}/${item.name}`;
+		const link = `/app/${capkpi.router.slug(this.options.selected_doctype)}/${item.name}`;
 		const name_html = item.formatted_name ?
 			`<span class="text-muted ellipsis list-id">${item.formatted_name}</span>`
 			: `<a class="grey list-id ellipsis" href="${link}"> ${item.name} </a>`;
@@ -369,7 +369,7 @@ class Leaderboard {
 	}
 
 	get_sidebar_item(item, icon) {
-		let icon_html = icon ? frappe.utils.icon(icon, 'md') : '';
+		let icon_html = icon ? capkpi.utils.icon(icon, 'md') : '';
 		return $(`<li class="standard-sidebar-item">
 			<span>${icon_html}</span>
 			<a class="sidebar-link">
@@ -380,18 +380,18 @@ class Leaderboard {
 
 	get_date_range() {
 		let timespan = this.options.selected_timespan.toLowerCase();
-		let current_date = frappe.datetime.now_date();
+		let current_date = capkpi.datetime.now_date();
 		let date_range_map = {
-			"this week": [frappe.datetime.week_start(), frappe.datetime.week_end()],
-			"this month": [frappe.datetime.month_start(), frappe.datetime.month_end()],
-			"this quarter": [frappe.datetime.quarter_start(), frappe.datetime.quarter_end()],
-			"this year": [frappe.datetime.year_start(), frappe.datetime.year_end()],
-			"last week": [frappe.datetime.add_days(current_date, -7), current_date],
-			"last month": [frappe.datetime.add_months(current_date, -1), current_date],
-			"last quarter": [frappe.datetime.add_months(current_date, -3), current_date],
-			"last year": [frappe.datetime.add_months(current_date, -12), current_date],
+			"this week": [capkpi.datetime.week_start(), capkpi.datetime.week_end()],
+			"this month": [capkpi.datetime.month_start(), capkpi.datetime.month_end()],
+			"this quarter": [capkpi.datetime.quarter_start(), capkpi.datetime.quarter_end()],
+			"this year": [capkpi.datetime.year_start(), capkpi.datetime.year_end()],
+			"last week": [capkpi.datetime.add_days(current_date, -7), current_date],
+			"last month": [capkpi.datetime.add_months(current_date, -1), current_date],
+			"last quarter": [capkpi.datetime.add_months(current_date, -3), current_date],
+			"last year": [capkpi.datetime.add_months(current_date, -12), current_date],
 			"all time": null,
-			"select date range": this.selected_date_range || [frappe.datetime.month_start(), current_date]
+			"select date range": this.selected_date_range || [capkpi.datetime.month_start(), current_date]
 		}
 		return date_range_map[timespan];
 	}

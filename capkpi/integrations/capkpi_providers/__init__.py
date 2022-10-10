@@ -2,12 +2,12 @@
 import sys
 
 # imports - module imports
-from frappe.integrations.frappe_providers.frappecloud import frappecloud_migrator
+from capkpi.integrations.capkpi_providers.capkpicloud import capkpicloud_migrator
 
 
-def migrate_to(local_site, frappe_provider):
-	if frappe_provider in ("frappe.cloud", "frappecloud.com"):
-		return frappecloud_migrator(local_site)
+def migrate_to(local_site, capkpi_provider):
+	if capkpi_provider in ("capkpi.cloud", "capkpicloud.com"):
+		return capkpicloud_migrator(local_site)
 	else:
-		print("{} is not supported yet".format(frappe_provider))
+		print("{} is not supported yet".format(capkpi_provider))
 		sys.exit(1)

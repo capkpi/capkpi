@@ -4,14 +4,14 @@
 
 import os
 
-import frappe
-from frappe import _
-from frappe.core.doctype.data_import.exporter import Exporter
-from frappe.core.doctype.data_import.importer import Importer
-from frappe.model.document import Document
-from frappe.modules.import_file import import_file_by_path
-from frappe.utils.background_jobs import enqueue
-from frappe.utils.csvutils import validate_google_sheets_url
+import capkpi
+from capkpi import _
+from capkpi.core.doctype.data_import.exporter import Exporter
+from capkpi.core.doctype.data_import.importer import Importer
+from capkpi.model.document import Document
+from capkpi.modules.import_file import import_file_by_path
+from capkpi.utils.background_jobs import enqueue
+from capkpi.utils.csvutils import validate_google_sheets_url
 
 
 class DataImport(Document):
@@ -38,7 +38,7 @@ class DataImport(Document):
 			return
 		validate_google_sheets_url(self.google_sheets_url)
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def get_preview_from_template(self, import_file=None, google_sheets_url=None):
 		if import_file:
 			self.import_file = import_file
@@ -53,11 +53,11 @@ class DataImport(Document):
 		return i.get_data_for_import_preview()
 
 	def start_import(self):
-		from frappe.core.page.background_jobs.background_jobs import get_info
-		from frappe.utils.scheduler import is_scheduler_inactive
+		from capkpi.core.page.background_jobs.background_jobs import get_info
+		from capkpi.utils.scheduler import is_scheduler_inactive
 
-		if is_scheduler_inactive() and not frappe.flags.in_test:
-			frappe.throw(_("Scheduler is inactive. Cannot import data."), title=_("Scheduler Inactive"))
+		if is_scheduler_inactive() and not capkpi.flags.in_test:
+			capkpi.throw(_("Scheduler is inactive. Cannot import data."), title=_("Scheduler Inactive"))
 
 		enqueued_jobs = [d.get("job_name") for d in get_info()]
 
@@ -69,7 +69,7 @@ class DataImport(Document):
 				event="data_import",
 				job_name=self.name,
 				data_import=self.name,
-				now=frappe.conf.developer_mode or frappe.flags.in_test,
+				now=capkpi.conf.developer_mode or capkpi.flags.in_test,
 			)
 			return True
 
@@ -82,35 +82,35 @@ class DataImport(Document):
 		return Importer(self.reference_doctype, data_import=self)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_preview_from_template(data_import, import_file=None, google_sheets_url=None):
-	return frappe.get_doc("Data Import", data_import).get_preview_from_template(
+	return capkpi.get_doc("Data Import", data_import).get_preview_from_template(
 		import_file, google_sheets_url
 	)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def form_start_import(data_import):
-	return frappe.get_doc("Data Import", data_import).start_import()
+	return capkpi.get_doc("Data Import", data_import).start_import()
 
 
 def start_import(data_import):
 	"""This method runs in background job"""
-	data_import = frappe.get_doc("Data Import", data_import)
+	data_import = capkpi.get_doc("Data Import", data_import)
 	try:
 		i = Importer(data_import.reference_doctype, data_import=data_import)
 		i.import_data()
 	except Exception:
-		frappe.db.rollback()
+		capkpi.db.rollback()
 		data_import.db_set("status", "Error")
-		frappe.log_error(title=data_import.name)
+		capkpi.log_error(title=data_import.name)
 	finally:
-		frappe.flags.in_import = False
+		capkpi.flags.in_import = False
 
-	frappe.publish_realtime("data_import_refresh", {"data_import": data_import.name})
+	capkpi.publish_realtime("data_import_refresh", {"data_import": data_import.name})
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def download_template(
 	doctype, export_fields=None, export_records=None, export_filters=None, file_type="CSV"
 ):
@@ -123,8 +123,8 @@ def download_template(
 	        :param file_type: File type to export into
 	"""
 
-	export_fields = frappe.parse_json(export_fields)
-	export_filters = frappe.parse_json(export_filters)
+	export_fields = capkpi.parse_json(export_fields)
+	export_filters = capkpi.parse_json(export_filters)
 	export_data = export_records != "blank_template"
 
 	e = Exporter(
@@ -138,9 +138,9 @@ def download_template(
 	e.build_response()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def download_errored_template(data_import_name):
-	data_import = frappe.get_doc("Data Import", data_import_name)
+	data_import = capkpi.get_doc("Data Import", data_import_name)
 	data_import.export_errored_rows()
 
 
@@ -155,7 +155,7 @@ def import_file(doctype, file_path, import_type, submit_after_import=False, cons
 	:param console: Set to true if this is to be used from command line. Will print errors or progress to stdout.
 	"""
 
-	data_import = frappe.new_doc("Data Import")
+	data_import = capkpi.new_doc("Data Import")
 	data_import.submit_after_import = submit_after_import
 	data_import.import_type = (
 		"Insert New Records" if import_type.lower() == "insert" else "Update Existing Records"
@@ -176,15 +176,15 @@ def import_doc(path, pre_process=None):
 
 	for f in files:
 		if f.endswith(".json"):
-			frappe.flags.mute_emails = True
+			capkpi.flags.mute_emails = True
 			import_file_by_path(
 				f, data_import=True, force=True, pre_process=pre_process, reset_permissions=True
 			)
-			frappe.flags.mute_emails = False
-			frappe.db.commit()
+			capkpi.flags.mute_emails = False
+			capkpi.db.commit()
 		elif f.endswith(".csv"):
 			validate_csv_import_file(f)
-			frappe.db.commit()
+			capkpi.db.commit()
 
 
 def validate_csv_import_file(path):
@@ -192,7 +192,7 @@ def validate_csv_import_file(path):
 		print()
 		print("This method is deprecated.")
 		print('Import CSV files using the command "bench --site sitename data-import"')
-		print("Or use the method frappe.core.doctype.data_import.data_import.import_file")
+		print("Or use the method capkpi.core.doctype.data_import.data_import.import_file")
 		print()
 		raise Exception("Method deprecated")
 
@@ -218,11 +218,11 @@ def export_json(doctype, path, filters=None, or_filters=None, name=None, order_b
 
 	out = []
 	if name:
-		out.append(frappe.get_doc(doctype, name).as_dict())
-	elif frappe.db.get_value("DocType", doctype, "issingle"):
-		out.append(frappe.get_doc(doctype).as_dict())
+		out.append(capkpi.get_doc(doctype, name).as_dict())
+	elif capkpi.db.get_value("DocType", doctype, "issingle"):
+		out.append(capkpi.get_doc(doctype).as_dict())
 	else:
-		for doc in frappe.get_all(
+		for doc in capkpi.get_all(
 			doctype,
 			fields=["name"],
 			filters=filters,
@@ -230,7 +230,7 @@ def export_json(doctype, path, filters=None, or_filters=None, name=None, order_b
 			limit_page_length=0,
 			order_by=order_by,
 		):
-			out.append(frappe.get_doc(doctype, doc.name).as_dict())
+			out.append(capkpi.get_doc(doctype, doc.name).as_dict())
 	post_process(out)
 
 	dirname = os.path.dirname(path)
@@ -238,12 +238,12 @@ def export_json(doctype, path, filters=None, or_filters=None, name=None, order_b
 		path = os.path.join("..", path)
 
 	with open(path, "w") as outfile:
-		outfile.write(frappe.as_json(out))
+		outfile.write(capkpi.as_json(out))
 
 
 def export_csv(doctype, path):
-	from frappe.core.doctype.data_export.exporter import export_data
+	from capkpi.core.doctype.data_export.exporter import export_data
 
 	with open(path, "wb") as csvfile:
 		export_data(doctype=doctype, all_doctypes=True, template=True, with_data=True)
-		csvfile.write(frappe.response.result.encode("utf-8"))
+		csvfile.write(capkpi.response.result.encode("utf-8"))

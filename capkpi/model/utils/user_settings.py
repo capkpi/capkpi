@@ -4,8 +4,8 @@ import json
 
 from six import iteritems, string_types
 
-import frappe
-from frappe import safe_decode
+import capkpi
+from capkpi import safe_decode
 
 # Settings saved per user basis
 # such as page_limit, filters, last_view
@@ -16,15 +16,15 @@ filter_dict = {"doctype": 0, "docfield": 1, "operator": 2, "value": 3}
 
 
 def get_user_settings(doctype, for_update=False):
-	user_settings = frappe.cache().hget(
-		"_user_settings", "{0}::{1}".format(doctype, frappe.session.user)
+	user_settings = capkpi.cache().hget(
+		"_user_settings", "{0}::{1}".format(doctype, capkpi.session.user)
 	)
 
 	if user_settings is None:
-		user_settings = frappe.db.sql(
+		user_settings = capkpi.db.sql(
 			"""select data from `__UserSettings`
 			where `user`=%s and `doctype`=%s""",
-			(frappe.session.user, doctype),
+			(capkpi.session.user, doctype),
 		)
 		user_settings = user_settings and user_settings[0][0] or "{}"
 
@@ -48,17 +48,17 @@ def update_user_settings(doctype, user_settings, for_update=False):
 
 		current.update(user_settings)
 
-	frappe.cache().hset(
-		"_user_settings", "{0}::{1}".format(doctype, frappe.session.user), json.dumps(current)
+	capkpi.cache().hset(
+		"_user_settings", "{0}::{1}".format(doctype, capkpi.session.user), json.dumps(current)
 	)
 
 
 def sync_user_settings():
 	"""Sync from cache to database (called asynchronously via the browser)"""
-	for key, data in iteritems(frappe.cache().hgetall("_user_settings")):
+	for key, data in iteritems(capkpi.cache().hgetall("_user_settings")):
 		key = safe_decode(key)
 		doctype, user = key.split("::")  # WTF?
-		frappe.db.multisql(
+		capkpi.db.multisql(
 			{
 				"mariadb": """INSERT INTO `__UserSettings`(`user`, `doctype`, `data`)
 				VALUES (%s, %s, %s)
@@ -72,14 +72,14 @@ def sync_user_settings():
 		)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def save(doctype, user_settings):
 	user_settings = json.loads(user_settings or "{}")
 	update_user_settings(doctype, user_settings)
 	return user_settings
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get(doctype):
 	return get_user_settings(doctype)
 
@@ -102,12 +102,12 @@ def update_user_settings_data(
 						view_filter[filter_dict[fieldname]] = new
 						update = True
 		if update:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"update __UserSettings set data=%s where doctype=%s and user=%s",
 				(json.dumps(data), user_setting.doctype, user_setting.user),
 			)
 
 			# clear that user settings from the redis cache
-			frappe.cache().hset(
+			capkpi.cache().hset(
 				"_user_settings", "{0}::{1}".format(user_setting.doctype, user_setting.user), None
 			)

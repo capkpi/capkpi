@@ -1,17 +1,17 @@
-frappe.pages['recorder'].on_page_load = function(wrapper) {
-	frappe.ui.make_app_page({
+capkpi.pages['recorder'].on_page_load = function(wrapper) {
+	capkpi.ui.make_app_page({
 		parent: wrapper,
 		title: __('Recorder'),
 		single_column: true,
 		card_layout: true
 	});
 
-	frappe.recorder = new Recorder(wrapper);
+	capkpi.recorder = new Recorder(wrapper);
 	$(wrapper).bind('show', function() {
-		frappe.recorder.show();
+		capkpi.recorder.show();
 	});
 
-	frappe.require('/assets/js/frappe-recorder.min.js');
+	capkpi.require('/assets/js/capkpi-recorder.min.js');
 };
 
 class Recorder {

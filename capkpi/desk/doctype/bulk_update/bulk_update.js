@@ -1,23 +1,23 @@
 // Copyright (c) 2016, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Bulk Update', {
+capkpi.ui.form.on('Bulk Update', {
 	refresh: function(frm) {
 		frm.set_query("document_type", function() {
 			return {
 				filters: [
 					['DocType', 'issingle', '=', 0],
-					['DocType', 'name', 'not in', frappe.model.core_doctypes_list]
+					['DocType', 'name', 'not in', capkpi.model.core_doctypes_list]
 				]
 			};
 		});
 
 		frm.page.set_primary_action(__('Update'), function() {
 			if (!frm.doc.update_value) {
-				frappe.throw(__('Field "value" is mandatory. Please specify value to be updated'));
+				capkpi.throw(__('Field "value" is mandatory. Please specify value to be updated'));
 			} else {
-				frappe.call({
-					method: 'frappe.desk.doctype.bulk_update.bulk_update.update',
+				capkpi.call({
+					method: 'capkpi.desk.doctype.bulk_update.bulk_update.update',
 					args: {
 						doctype: frm.doc.document_type,
 						field: frm.doc.field,
@@ -30,16 +30,16 @@ frappe.ui.form.on('Bulk Update', {
 					if (!failed) failed = [];
 
 					if (failed.length && !r._server_messages) {
-						frappe.throw(__('Cannot update {0}', [failed.map(f => f.bold ? f.bold(): f).join(', ')]));
+						capkpi.throw(__('Cannot update {0}', [failed.map(f => f.bold ? f.bold(): f).join(', ')]));
 					} else {
-						frappe.msgprint({
+						capkpi.msgprint({
 							title: __('Success'),
 							message: __('Updated Successfully'),
 							indicator: 'green'
 						});
 					}
 
-					frappe.hide_progress();
+					capkpi.hide_progress();
 					frm.save();
 				});
 			}
@@ -50,10 +50,10 @@ frappe.ui.form.on('Bulk Update', {
 		// set field options
 		if(!frm.doc.document_type) return;
 
-		frappe.model.with_doctype(frm.doc.document_type, function() {
-			var options = $.map(frappe.get_meta(frm.doc.document_type).fields,
+		capkpi.model.with_doctype(frm.doc.document_type, function() {
+			var options = $.map(capkpi.get_meta(frm.doc.document_type).fields,
 				function(d) {
-					if(d.fieldname && frappe.model.no_value_type.indexOf(d.fieldtype)===-1) {
+					if(d.fieldname && capkpi.model.no_value_type.indexOf(d.fieldtype)===-1) {
 						return d.fieldname;
 					}
 					return null;

@@ -1,9 +1,9 @@
 // Copyright (c) 2019, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.provide('frappe.dashboards.chart_sources');
+capkpi.provide('capkpi.dashboards.chart_sources');
 
-frappe.ui.form.on('Dashboard Chart', {
+capkpi.ui.form.on('Dashboard Chart', {
 	setup: function(frm) {
 		// fetch timeseries from source
 		frm.add_fetch('source', 'timeseries', 'timeseries');
@@ -13,7 +13,7 @@ frappe.ui.form.on('Dashboard Chart', {
 		let dynamic_filters = JSON.parse(frm.doc.dynamic_filters_json || 'null');
 		let static_filters = JSON.parse(frm.doc.filters_json || 'null');
 		static_filters =
-			frappe.dashboard_utils.remove_common_static_filter_values(static_filters, dynamic_filters);
+			capkpi.dashboard_utils.remove_common_static_filter_values(static_filters, dynamic_filters);
 
 		frm.set_value('filters_json', JSON.stringify(static_filters));
 		frm.trigger('show_filters');
@@ -21,7 +21,7 @@ frappe.ui.form.on('Dashboard Chart', {
 
 	refresh: function(frm) {
 		frm.chart_filters = null;
-		frm.is_disabled = !frappe.boot.developer_mode && frm.doc.is_standard;
+		frm.is_disabled = !capkpi.boot.developer_mode && frm.doc.is_standard;
 
 		if (frm.is_disabled) {
 			!frm.doc.custom_options && frm.set_df_property('chart_options_section', 'hidden', 1);
@@ -29,14 +29,14 @@ frappe.ui.form.on('Dashboard Chart', {
 		}
 
 		frm.add_custom_button('Add Chart to Dashboard', () => {
-			const dialog = frappe.dashboard_utils.get_add_to_dashboard_dialog(
+			const dialog = capkpi.dashboard_utils.get_add_to_dashboard_dialog(
 				frm.doc.name,
 				'Dashboard Chart',
-				'frappe.desk.doctype.dashboard_chart.dashboard_chart.add_chart_to_dashboard'
+				'capkpi.desk.doctype.dashboard_chart.dashboard_chart.add_chart_to_dashboard'
 			);
 
 			if (!frm.doc.chart_name) {
-				frappe.msgprint(__('Please create chart first'));
+				capkpi.msgprint(__('Please create chart first'));
 			} else {
 				dialog.show();
 			}
@@ -62,7 +62,7 @@ frappe.ui.form.on('Dashboard Chart', {
 	},
 
 	is_standard: function(frm) {
-		if (frappe.boot.developer_mode && frm.doc.is_standard) {
+		if (capkpi.boot.developer_mode && frm.doc.is_standard) {
 			frm.trigger('render_dynamic_filters_table');
 		} else {
 			frm.set_df_property("dynamic_filters_section", "hidden", 1);
@@ -75,9 +75,9 @@ frappe.ui.form.on('Dashboard Chart', {
 
 	set_heatmap_year_options: function(frm) {
 		if (frm.doc.type == 'Heatmap') {
-			frappe.db.get_doc('System Settings').then(doc => {
+			capkpi.db.get_doc('System Settings').then(doc => {
 				const creation_date = doc.creation;
-				frm.set_df_property('heatmap_year', 'options', frappe.dashboard_utils.get_years_since_creation(creation_date));
+				frm.set_df_property('heatmap_year', 'options', capkpi.dashboard_utils.get_years_since_creation(creation_date));
 			});
 		}
 	},
@@ -136,10 +136,10 @@ frappe.ui.form.on('Dashboard Chart', {
 				frm.trigger('show_filters');
 				frm.trigger('set_chart_field_options');
 			} else {
-				frappe.report_utils.get_report_filters(report_name).then(filters => {
+				capkpi.report_utils.get_report_filters(report_name).then(filters => {
 					if (filters) {
 						frm.chart_filters = filters;
-						let filter_values = frappe.report_utils.get_filter_values(filters);
+						let filter_values = capkpi.report_utils.get_filter_values(filters);
 						frm.set_value('filters_json', JSON.stringify(filter_values));
 					}
 					frm.trigger('show_filters');
@@ -157,10 +157,10 @@ frappe.ui.form.on('Dashboard Chart', {
 	set_chart_field_options: function(frm) {
 		let filters = frm.doc.filters_json.length > 2 ? JSON.parse(frm.doc.filters_json) : null;
 		if (frm.doc.dynamic_filters_json && frm.doc.dynamic_filters_json.length > 2) {
-			filters = frappe.dashboard_utils.get_all_filters(frm.doc);
+			filters = capkpi.dashboard_utils.get_all_filters(frm.doc);
 		}
-		frappe.xcall(
-			'frappe.desk.query_report.run',
+		capkpi.xcall(
+			'capkpi.desk.query_report.run',
 			{
 				report_name: frm.doc.report_name,
 				filters: filters,
@@ -174,16 +174,16 @@ frappe.ui.form.on('Dashboard Chart', {
 
 			if (!frm.doc.use_report_chart) {
 				if (data.result.length) {
-					frm.field_options = frappe.report_utils.get_field_options_from_report(data.columns, data);
+					frm.field_options = capkpi.report_utils.get_field_options_from_report(data.columns, data);
 					frm.set_df_property('x_field', 'options', frm.field_options.non_numeric_fields);
 					if (!frm.field_options.numeric_fields.length) {
-						frappe.msgprint(__("Report has no numeric fields, please change the Report Name"));
+						capkpi.msgprint(__("Report has no numeric fields, please change the Report Name"));
 					} else {
-						let y_field_df = frappe.meta.get_docfield('Dashboard Chart Field', 'y_field', frm.doc.name);
+						let y_field_df = capkpi.meta.get_docfield('Dashboard Chart Field', 'y_field', frm.doc.name);
 						y_field_df.options = frm.field_options.numeric_fields;
 					}
 				} else {
-					frappe.msgprint(__('Report has no data, please modify the filters or change the Report Name'));
+					capkpi.msgprint(__('Report has no data, please modify the filters or change the Report Name'));
 				}
 			} else {
 				frm.set_value('use_report_chart', 1);
@@ -226,9 +226,9 @@ frappe.ui.form.on('Dashboard Chart', {
 
 
 		if (doctype) {
-			frappe.model.with_doctype(doctype, () => {
+			capkpi.model.with_doctype(doctype, () => {
 				// get all date and datetime fields
-				frappe.get_meta(doctype).fields.map(df => {
+				capkpi.get_meta(doctype).fields.map(df => {
 					if (['Date', 'Datetime'].includes(df.fieldtype)) {
 						date_fields.push({label: df.label, value: df.fieldname});
 					}
@@ -251,13 +251,13 @@ frappe.ui.form.on('Dashboard Chart', {
 
 	show_filters: function(frm) {
 		frm.chart_filters = [];
-		frappe.dashboard_utils.get_filters_for_chart_type(frm.doc).then(filters => {
+		capkpi.dashboard_utils.get_filters_for_chart_type(frm.doc).then(filters => {
 			if (filters) {
 				frm.chart_filters = filters;
 			}
 			frm.trigger('render_filters_table');
 
-			if (frappe.boot.developer_mode && frm.doc.is_standard) {
+			if (capkpi.boot.developer_mode && frm.doc.is_standard) {
 				frm.trigger('render_dynamic_filters_table');
 			}
 		});
@@ -344,9 +344,9 @@ frappe.ui.form.on('Dashboard Chart', {
 		}
 
 		table.on('click', () => {
-			frm.is_disabled && frappe.throw(__('Cannot edit filters for standard charts'));
+			frm.is_disabled && capkpi.throw(__('Cannot edit filters for standard charts'));
 
-			let dialog = new frappe.ui.Dialog({
+			let dialog = new capkpi.ui.Dialog({
 				title: __('Set Filters'),
 				fields: fields.filter(f => !is_dynamic_filter(f)),
 				primary_action: function() {
@@ -368,10 +368,10 @@ frappe.ui.form.on('Dashboard Chart', {
 				},
 				primary_action_label: "Set"
 			});
-			frappe.dashboards.filters_dialog = dialog;
+			capkpi.dashboards.filters_dialog = dialog;
 
 			if (is_document_type) {
-				frm.filter_group = new frappe.ui.FilterGroup({
+				frm.filter_group = new capkpi.ui.FilterGroup({
 					parent: dialog.get_field('filter_area').$wrapper,
 					doctype: frm.doc.document_type,
 					parent_doctype: frm.doc.parent_document_type,
@@ -385,10 +385,10 @@ frappe.ui.form.on('Dashboard Chart', {
 
 			if (frm.doc.chart_type == 'Report') {
 				//Set query report object so that it can be used while fetching filter values in the report
-				frappe.query_report = new frappe.views.QueryReport({'filters': dialog.fields_list});
-				frappe.query_reports[frm.doc.report_name]
-					&& frappe.query_reports[frm.doc.report_name].onload
-						&& frappe.query_reports[frm.doc.report_name].onload(frappe.query_report);
+				capkpi.query_report = new capkpi.views.QueryReport({'filters': dialog.fields_list});
+				capkpi.query_reports[frm.doc.report_name]
+					&& capkpi.query_reports[frm.doc.report_name].onload
+						&& capkpi.query_reports[frm.doc.report_name].onload(capkpi.query_report);
 			}
 
 			dialog.set_values(filters);
@@ -422,12 +422,12 @@ frappe.ui.form.on('Dashboard Chart', {
 
 		let filters = JSON.parse(frm.doc.filters_json || '[]');
 
-		let fields = frappe.dashboard_utils.get_fields_for_dynamic_filter_dialog(
+		let fields = capkpi.dashboard_utils.get_fields_for_dynamic_filter_dialog(
 			is_document_type, filters, frm.dynamic_filters
 		);
 
 		frm.dynamic_filter_table.on('click', () => {
-			let dialog = new frappe.ui.Dialog({
+			let dialog = new capkpi.ui.Dialog({
 				title: __('Set Dynamic Filters'),
 				fields: fields,
 				primary_action: () => {
@@ -496,12 +496,12 @@ frappe.ui.form.on('Dashboard Chart', {
 	set_parent_document_type: async function(frm) {
 		let document_type = frm.doc.document_type;
 		let doc_is_table = document_type &&
-			(await frappe.db.get_value('DocType', document_type, 'istable')).message.istable;
+			(await capkpi.db.get_value('DocType', document_type, 'istable')).message.istable;
 
 		frm.set_df_property('parent_document_type', 'hidden', !doc_is_table);
 
 		if (document_type && doc_is_table) {
-			let parent = await frappe.db.get_list('DocField', {
+			let parent = await capkpi.db.get_list('DocField', {
 				filters: {
 					'fieldtype': 'Table',
 					'options': document_type

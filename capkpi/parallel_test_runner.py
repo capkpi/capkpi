@@ -115,7 +115,7 @@ class ParallelTestRunner:
 		if self.with_coverage:
 			from coverage import Coverage
 
-			from capkpi.coverage import FRAPPE_EXCLUSIONS, STANDARD_EXCLUSIONS, STANDARD_INCLUSIONS
+			from capkpi.coverage import CAPKPI_EXCLUSIONS, STANDARD_EXCLUSIONS, STANDARD_INCLUSIONS
 			from capkpi.utils import get_bench_path
 
 			# Generate coverage report only for app that is being tested
@@ -123,7 +123,7 @@ class ParallelTestRunner:
 			omit = STANDARD_EXCLUSIONS[:]
 
 			if self.app == "capkpi":
-				omit.extend(FRAPPE_EXCLUSIONS)
+				omit.extend(CAPKPI_EXCLUSIONS)
 
 			self.coverage = Coverage(source=[source_path], omit=omit, include=STANDARD_INCLUSIONS)
 			self.coverage.start()

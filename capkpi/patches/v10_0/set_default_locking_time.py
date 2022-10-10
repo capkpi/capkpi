@@ -3,9 +3,9 @@
 
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 
 def execute():
-	frappe.reload_doc("core", "doctype", "system_settings")
-	frappe.db.set_value("System Settings", None, "allow_login_after_fail", 60)
+	capkpi.reload_doc("core", "doctype", "system_settings")
+	capkpi.db.set_value("System Settings", None, "allow_login_after_fail", 60)

@@ -18,12 +18,12 @@
 				<td style="overflow: auto;">
 					<div>
 						<span class="job-name">
-							{{ frappe.utils.encode_tags(j.job_name) }}
+							{{ capkpi.utils.encode_tags(j.job_name) }}
 						</span>
 					</div>
 					{% if j.exc_info %}
 					<div class="exc_info">
-						<pre>{{ frappe.utils.encode_tags(j.exc_info) }}</pre>
+						<pre>{{ capkpi.utils.encode_tags(j.exc_info) }}</pre>
 					</div>
 					{% endif %}
 				</td>
@@ -34,13 +34,13 @@
 	</table>
 	{% else %}
 	<div class="no-background-jobs">
-		<img src="/assets/frappe/images/ui-states/list-empty-state.svg" alt="Empty State">
+		<img src="/assets/capkpi/images/ui-states/list-empty-state.svg" alt="Empty State">
 		<p class="text-muted">{{ __("No pending or current jobs for this site") }}</p>
 	</div>
 	{% endif %}
 	<div class="footer row">
 		<div class="col-md-6 text-muted text-center text-md-left">{{ __("Last refreshed") }}
-			{{ frappe.datetime.now_datetime(true).toLocaleString() }}</div>
+			{{ capkpi.datetime.now_datetime(true).toLocaleString() }}</div>
 		<div class="col-md-6 text-center text-md-right">
 			<span class="indicator-pill blue" class="mr-2">{{ __("Started") }}</span>
 			<span class="indicator-pill orange" class="mr-2">{{ __("Queued") }}</span>

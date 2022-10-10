@@ -2,12 +2,12 @@ import click
 import requests
 from html2text import html2text
 
-import frappe
+import capkpi
 
 
-def frappecloud_migrator(local_site):
+def capkpicloud_migrator(local_site):
 	print("Retrieving Site Migrator...")
-	remote_site = frappe.conf.frappecloud_url or "frappecloud.com"
+	remote_site = capkpi.conf.capkpicloud_url or "capkpicloud.com"
 	request_url = "https://{}/api/method/press.api.script".format(remote_site)
 	request = requests.get(request_url)
 

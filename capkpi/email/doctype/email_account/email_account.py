@@ -13,15 +13,15 @@ from poplib import error_proto
 
 from dateutil.relativedelta import relativedelta
 
-import frappe
-from frappe import _, safe_encode
-from frappe.core.doctype.communication.email import set_incoming_outgoing_accounts
-from frappe.desk.form import assign_to
-from frappe.email.receive import Email, EmailServer
-from frappe.email.smtp import SMTPServer
-from frappe.email.utils import get_port
-from frappe.model.document import Document
-from frappe.utils import (
+import capkpi
+from capkpi import _, safe_encode
+from capkpi.core.doctype.communication.email import set_incoming_outgoing_accounts
+from capkpi.desk.form import assign_to
+from capkpi.email.receive import Email, EmailServer
+from capkpi.email.smtp import SMTPServer
+from capkpi.email.utils import get_port
+from capkpi.model.document import Document
+from capkpi.utils import (
 	DATE_FORMAT,
 	add_days,
 	cint,
@@ -33,17 +33,17 @@ from frappe.utils import (
 	strip,
 	validate_email_address,
 )
-from frappe.utils.background_jobs import enqueue, get_jobs
-from frappe.utils.html_utils import clean_email_html
-from frappe.utils.jinja import render_template
-from frappe.utils.user import get_system_managers, is_system_user
+from capkpi.utils.background_jobs import enqueue, get_jobs
+from capkpi.utils.html_utils import clean_email_html
+from capkpi.utils.jinja import render_template
+from capkpi.utils.user import get_system_managers, is_system_user
 
 
 class SentEmailInInbox(Exception):
 	pass
 
 
-class InvalidEmailCredentials(frappe.ValidationError):
+class InvalidEmailCredentials(capkpi.ValidationError):
 	pass
 
 
@@ -64,32 +64,32 @@ class EmailAccount(Document):
 
 		if self.login_id_is_different:
 			if not self.login_id:
-				frappe.throw(_("Login Id is required"))
+				capkpi.throw(_("Login Id is required"))
 		else:
 			self.login_id = None
 
-		duplicate_email_account = frappe.get_all(
+		duplicate_email_account = capkpi.get_all(
 			"Email Account", filters={"email_id": self.email_id, "name": ("!=", self.name)}
 		)
 		if duplicate_email_account:
-			frappe.throw(
+			capkpi.throw(
 				_("Email ID must be unique, Email Account already exists for {0}").format(
-					frappe.bold(self.email_id)
+					capkpi.bold(self.email_id)
 				)
 			)
 
-		if frappe.local.flags.in_patch or frappe.local.flags.in_test:
+		if capkpi.local.flags.in_patch or capkpi.local.flags.in_test:
 			return
 
 		# if self.enable_incoming and not self.append_to:
-		# 	frappe.throw(_("Append To is mandatory for incoming mails"))
+		# 	capkpi.throw(_("Append To is mandatory for incoming mails"))
 
 		self.use_starttls = cint(self.use_imap and self.use_starttls and not self.use_ssl)
 
 		if (
 			not self.awaiting_password
-			and not frappe.local.flags.in_install
-			and not frappe.local.flags.in_patch
+			and not capkpi.local.flags.in_install
+			and not capkpi.local.flags.in_patch
 		):
 			if self.password or self.smtp_server in ("127.0.0.1", "localhost"):
 				if self.enable_incoming:
@@ -100,18 +100,18 @@ class EmailAccount(Document):
 					self.check_smtp()
 			else:
 				if self.enable_incoming or (self.enable_outgoing and not self.no_smtp_authentication):
-					frappe.throw(_("Password is required or select Awaiting Password"))
+					capkpi.throw(_("Password is required or select Awaiting Password"))
 
 		if self.notify_if_unreplied:
 			if not self.send_notification_to:
-				frappe.throw(_("{0} is mandatory").format(self.meta.get_label("send_notification_to")))
+				capkpi.throw(_("{0} is mandatory").format(self.meta.get_label("send_notification_to")))
 			for e in self.get_unreplied_notification_emails():
 				validate_email_address(e, True)
 
 		if self.enable_incoming and self.append_to:
 			valid_doctypes = [d[0] for d in get_append_to()]
 			if self.append_to not in valid_doctypes:
-				frappe.throw(_("Append To can be one of {0}").format(comma_or(valid_doctypes)))
+				capkpi.throw(_("Append To can be one of {0}").format(comma_or(valid_doctypes)))
 
 	def before_save(self):
 		messages = []
@@ -120,20 +120,20 @@ class EmailAccount(Document):
 			self.default_incoming = False
 			messages.append(
 				_("{} has been disabled. It can only be enabled if {} is checked.").format(
-					frappe.bold(_("Default Incoming")), frappe.bold(_("Enable Incoming"))
+					capkpi.bold(_("Default Incoming")), capkpi.bold(_("Enable Incoming"))
 				)
 			)
 		if not self.enable_outgoing and self.default_outgoing:
 			self.default_outgoing = False
 			messages.append(
 				_("{} has been disabled. It can only be enabled if {} is checked.").format(
-					frappe.bold(_("Default Outgoing")), frappe.bold(_("Enable Outgoing"))
+					capkpi.bold(_("Default Outgoing")), capkpi.bold(_("Enable Outgoing"))
 				)
 			)
 		if messages:
 			if len(messages) == 1:
 				(as_list, messages) = (0, messages[0])
-			frappe.msgprint(messages, as_list=as_list, indicator="orange", title=_("Defaults Updated"))
+			capkpi.msgprint(messages, as_list=as_list, indicator="orange", title=_("Defaults Updated"))
 
 	def on_update(self):
 		"""Check there is only one default of each type."""
@@ -152,15 +152,15 @@ class EmailAccount(Document):
 			if not self.get(field):
 				continue
 
-			for email_account in frappe.get_all("Email Account", filters={field: 1}):
+			for email_account in capkpi.get_all("Email Account", filters={field: 1}):
 				if email_account.name == self.name:
 					continue
 
-				email_account = frappe.get_doc("Email Account", email_account.name)
+				email_account = capkpi.get_doc("Email Account", email_account.name)
 				email_account.set(field, 0)
 				email_account.save()
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def get_domain(self, email_id):
 		"""look-up the domain and then full"""
 		try:
@@ -178,7 +178,7 @@ class EmailAccount(Document):
 				"append_emails_to_sent_folder",
 				"use_ssl_for_outgoing",
 			]
-			return frappe.db.get_value("Email Domain", domain[1], fields, as_dict=True)
+			return capkpi.db.get_value("Email Domain", domain[1], fields, as_dict=True)
 		except Exception:
 			pass
 
@@ -186,7 +186,7 @@ class EmailAccount(Document):
 		"""Checks SMTP settings."""
 		if self.enable_outgoing:
 			if not self.smtp_server:
-				frappe.throw(_("{0} is required").format("SMTP Server"))
+				capkpi.throw(_("{0} is required").format("SMTP Server"))
 
 			server = SMTPServer(
 				login=getattr(self, "login_id", None) or self.email_id,
@@ -202,10 +202,10 @@ class EmailAccount(Document):
 
 	def get_incoming_server(self, in_receive=False, email_sync_rule="UNSEEN"):
 		"""Returns logged in POP3/IMAP connection object."""
-		if frappe.cache().get_value("workers:no-internet") == True:
+		if capkpi.cache().get_value("workers:no-internet") == True:
 			return None
 
-		args = frappe._dict(
+		args = capkpi._dict(
 			{
 				"email_account": self.name,
 				"host": self.email_server,
@@ -224,9 +224,9 @@ class EmailAccount(Document):
 			args.password = self.get_password()
 
 		if not args.get("host"):
-			frappe.throw(_("{0} is required").format("Email Server"))
+			capkpi.throw(_("{0} is required").format("Email Server"))
 
-		email_server = EmailServer(frappe._dict(args))
+		email_server = EmailServer(capkpi._dict(args))
 		self.check_email_server_connection(email_server, in_receive)
 
 		if not in_receive and self.use_imap:
@@ -265,25 +265,25 @@ class EmailAccount(Document):
 			elif not in_receive and any(map(lambda t: t in message, auth_error_codes)):
 				self.throw_invalid_credentials_exception()
 			else:
-				frappe.throw(cstr(e))
+				capkpi.throw(cstr(e))
 
 		except socket.error:
 			if in_receive:
 				# timeout while connecting, see receive.py connect method
-				description = frappe.message_log.pop() if frappe.message_log else "Socket Error"
+				description = capkpi.message_log.pop() if capkpi.message_log else "Socket Error"
 				if test_internet():
 					self.db_set("no_failed", self.no_failed + 1)
 					if self.no_failed > 2:
 						self.handle_incoming_connect_error(description=description)
 				else:
-					frappe.cache().set_value("workers:no-internet", True)
+					capkpi.cache().set_value("workers:no-internet", True)
 				return None
 			else:
 				raise
 
 	@classmethod
 	def throw_invalid_credentials_exception(cls):
-		frappe.throw(
+		capkpi.throw(
 			_("Incorrect email or password. Please check your login credentials."),
 			exc=InvalidEmailCredentials,
 			title=_("Invalid Credentials"),
@@ -307,18 +307,18 @@ class EmailAccount(Document):
 							}
 						)
 					except assign_to.DuplicateToDoError:
-						frappe.message_log.pop()
+						capkpi.message_log.pop()
 						pass
 			else:
 				self.set_failed_attempts_count(self.get_failed_attempts_count() + 1)
 		else:
-			frappe.cache().set_value("workers:no-internet", True)
+			capkpi.cache().set_value("workers:no-internet", True)
 
 	def set_failed_attempts_count(self, value):
-		frappe.cache().set("{0}:email-account-failed-attempts".format(self.name), value)
+		capkpi.cache().set("{0}:email-account-failed-attempts".format(self.name), value)
 
 	def get_failed_attempts_count(self):
-		return cint(frappe.cache().get("{0}:email-account-failed-attempts".format(self.name)))
+		return cint(capkpi.cache().get("{0}:email-account-failed-attempts".format(self.name)))
 
 	def receive(self, test_mails=None):
 		"""Called by scheduler to receive emails from this EMail account using POP3/IMAP."""
@@ -336,7 +336,7 @@ class EmailAccount(Document):
 			uid_reindexed = False
 			email_server = None
 
-			if frappe.local.flags.in_test:
+			if capkpi.local.flags.in_test:
 				incoming_mails = test_mails or []
 			else:
 				email_sync_rule = self.build_email_sync_rule()
@@ -344,7 +344,7 @@ class EmailAccount(Document):
 				try:
 					email_server = self.get_incoming_server(in_receive=True, email_sync_rule=email_sync_rule)
 				except Exception:
-					frappe.log_error(title=_("Error while connecting to email account {0}").format(self.name))
+					capkpi.log_error(title=_("Error while connecting to email account {0}").format(self.name))
 
 				if not email_server:
 					return
@@ -371,17 +371,17 @@ class EmailAccount(Document):
 					communication = self.insert_communication(msg, args=args)
 
 				except SentEmailInInbox:
-					frappe.db.rollback()
+					capkpi.db.rollback()
 
 				except Exception:
-					frappe.db.rollback()
-					frappe.log_error("email_account.receive")
+					capkpi.db.rollback()
+					capkpi.log_error("email_account.receive")
 					if self.use_imap:
-						self.handle_bad_emails(email_server, uid, msg, frappe.get_traceback())
-					exceptions.append(frappe.get_traceback())
+						self.handle_bad_emails(email_server, uid, msg, capkpi.get_traceback())
+					exceptions.append(capkpi.get_traceback())
 
 				else:
-					frappe.db.commit()
+					capkpi.db.commit()
 					if communication and self.flags.notify:
 
 						# If email already exists in the system
@@ -395,13 +395,13 @@ class EmailAccount(Document):
 						communication.notify(attachments=attachments, fetched_from_email_account=True)
 
 			# notify if user is linked to account
-			if len(incoming_mails) > 0 and not frappe.local.flags.in_test:
-				frappe.publish_realtime(
+			if len(incoming_mails) > 0 and not capkpi.local.flags.in_test:
+				capkpi.publish_realtime(
 					"new_email", {"account": self.email_account_name, "number": len(incoming_mails)}
 				)
 
 			if exceptions:
-				raise Exception(frappe.as_json(exceptions))
+				raise Exception(capkpi.as_json(exceptions))
 
 	def handle_bad_emails(self, email_server, uid, raw, reason):
 		if email_server and cint(email_server.settings.use_imap):
@@ -414,7 +414,7 @@ class EmailAccount(Document):
 			except Exception:
 				message_id = "can't be parsed"
 
-			unhandled_email = frappe.get_doc(
+			unhandled_email = capkpi.get_doc(
 				{
 					"raw": raw,
 					"uid": uid,
@@ -425,7 +425,7 @@ class EmailAccount(Document):
 				}
 			)
 			unhandled_email.insert(ignore_permissions=True)
-			frappe.db.commit()
+			capkpi.db.commit()
 
 	def insert_communication(self, msg, args=None):
 		if isinstance(msg, list):
@@ -446,13 +446,13 @@ class EmailAccount(Document):
 			# gmail shows sent emails in inbox
 			# and we don't want emails sent by us to be pulled back into the system again
 			# dont count emails sent by the system get those
-			if frappe.flags.in_test:
+			if capkpi.flags.in_test:
 				print("WARN: Cannot pull email. Sender sames as recipient inbox")
 			raise SentEmailInInbox
 
 		if email.message_id:
 			# https://stackoverflow.com/a/18367248
-			names = frappe.db.sql(
+			names = capkpi.db.sql(
 				"""SELECT DISTINCT `name`, `creation` FROM `tabCommunication`
 				WHERE `message_id`='{message_id}'
 				ORDER BY `creation` DESC LIMIT 1""".format(
@@ -464,22 +464,22 @@ class EmailAccount(Document):
 			if names:
 				name = names[0].get("name")
 				# email is already available update communication uid instead
-				frappe.db.set_value(
+				capkpi.db.set_value(
 					"Communication",
 					name,
 					"uid",
-					frappe.safe_decode(uid),
+					capkpi.safe_decode(uid),
 					update_modified=False,
 				)
 
 				self.flags.notify = False
 
-				return frappe.get_doc("Communication", name)
+				return capkpi.get_doc("Communication", name)
 
 		if email.content_type == "text/html":
 			email.content = clean_email_html(email.content)
 
-		communication = frappe.get_doc(
+		communication = capkpi.get_doc(
 			{
 				"doctype": "Communication",
 				"subject": email.subject,
@@ -503,7 +503,7 @@ class EmailAccount(Document):
 		self.set_thread(communication, email)
 		if communication.seen:
 			# get email account user and set communication as seen
-			users = frappe.get_all("User Email", filters={"email_account": self.name}, fields=["parent"])
+			users = capkpi.get_all("User Email", filters={"email_account": self.name}, fields=["parent"])
 			users = list(set([user.get("parent") for user in users]))
 			communication._seen = json.dumps(users)
 
@@ -566,7 +566,7 @@ class EmailAccount(Document):
 	def set_sender_field_and_subject_field(self):
 		"""Identify the sender and subject fields from the `append_to` DocType"""
 		# set subject_field and sender_field
-		meta = frappe.get_meta(self.append_to)
+		meta = capkpi.get_meta(self.append_to)
 		self.subject_field = None
 		self.sender_field = None
 
@@ -588,13 +588,13 @@ class EmailAccount(Document):
 					# example "Re: Your email (#OPP-2020-2334343)"
 					parent_id = email.subject.rsplit("#", 1)[-1].strip(" ()")
 					if parent_id:
-						parent = frappe.db.get_all(self.append_to, filters=dict(name=parent_id), fields="name")
+						parent = capkpi.db.get_all(self.append_to, filters=dict(name=parent_id), fields="name")
 
 				if not parent:
 					# try and match by subject and sender
 					# if sent by same sender with same subject,
 					# append it to old coversation
-					subject = frappe.as_unicode(
+					subject = capkpi.as_unicode(
 						strip(
 							re.sub(
 								r"(^\s*(fw|fwd|wg)[^:]*:|\s*(re|aw)[^:]*:\s*)*", "", email.subject, 0, flags=re.IGNORECASE
@@ -602,7 +602,7 @@ class EmailAccount(Document):
 						)
 					)
 
-					parent = frappe.db.get_all(
+					parent = capkpi.db.get_all(
 						self.append_to,
 						filters={
 							self.sender_field: email.from_email,
@@ -617,7 +617,7 @@ class EmailAccount(Document):
 					# match only subject field
 					# when the from_email is of a user in the system
 					# and subject is atleast 10 chars long
-					parent = frappe.db.get_all(
+					parent = capkpi.db.get_all(
 						self.append_to,
 						filters={
 							self.subject_field: ("like", "%{0}%".format(subject)),
@@ -628,7 +628,7 @@ class EmailAccount(Document):
 					)
 
 			if parent:
-				parent = frappe._dict(doctype=self.append_to, name=parent[0].name)
+				parent = capkpi._dict(doctype=self.append_to, name=parent[0].name)
 				return parent
 
 	def create_new_parent(self, communication, email):
@@ -636,13 +636,13 @@ class EmailAccount(Document):
 
 		# no parent found, but must be tagged
 		# insert parent type doc
-		parent = frappe.new_doc(self.append_to)
+		parent = capkpi.new_doc(self.append_to)
 
 		if self.subject_field:
-			parent.set(self.subject_field, frappe.as_unicode(email.subject)[:140])
+			parent.set(self.subject_field, capkpi.as_unicode(email.subject)[:140])
 
 		if self.sender_field:
-			parent.set(self.sender_field, frappe.as_unicode(email.from_email))
+			parent.set(self.sender_field, capkpi.as_unicode(email.from_email))
 
 		if parent.meta.has_field("email_account"):
 			parent.email_account = self.name
@@ -651,9 +651,9 @@ class EmailAccount(Document):
 
 		try:
 			parent.insert(ignore_permissions=True)
-		except frappe.DuplicateEntryError:
+		except capkpi.DuplicateEntryError:
 			# try and find matching parent
-			parent_name = frappe.db.get_value(self.append_to, {self.sender_field: email.from_email})
+			parent_name = capkpi.db.get_value(self.append_to, {self.sender_field: email.from_email})
 			if parent_name:
 				parent.name = parent_name
 			else:
@@ -673,9 +673,9 @@ class EmailAccount(Document):
 		in_reply_to = get_string_between("<", in_reply_to, ">")
 
 		if in_reply_to:
-			if "@{0}".format(frappe.local.site) in in_reply_to:
+			if "@{0}".format(capkpi.local.site) in in_reply_to:
 				# reply to a communication sent from the system
-				email_queue = frappe.db.get_value(
+				email_queue = capkpi.db.get_value(
 					"Email Queue",
 					dict(message_id=in_reply_to),
 					["communication", "reference_doctype", "reference_name"],
@@ -688,8 +688,8 @@ class EmailAccount(Document):
 					reference, domain = in_reply_to.split("@", 1)
 					parent_doctype, parent_name = "Communication", reference
 
-				if frappe.db.exists(parent_doctype, parent_name):
-					parent = frappe._dict(doctype=parent_doctype, name=parent_name)
+				if capkpi.db.exists(parent_doctype, parent_name):
+					parent = capkpi._dict(doctype=parent_doctype, name=parent_name)
 
 					# set in_reply_to of current communication
 					if parent_doctype == "Communication":
@@ -697,16 +697,16 @@ class EmailAccount(Document):
 
 						if parent.reference_name:
 							# the true parent is the communication parent
-							parent = frappe.get_doc(parent.reference_doctype, parent.reference_name)
+							parent = capkpi.get_doc(parent.reference_doctype, parent.reference_name)
 			else:
-				comm = frappe.db.get_value(
+				comm = capkpi.db.get_value(
 					"Communication",
 					dict(message_id=in_reply_to, creation=[">=", add_days(get_datetime(), -30)]),
 					["reference_doctype", "reference_name"],
 					as_dict=1,
 				)
 				if comm and comm.reference_doctype and comm.reference_name:
-					parent = frappe._dict(doctype=comm.reference_doctype, name=comm.reference_name)
+					parent = capkpi._dict(doctype=comm.reference_doctype, name=comm.reference_name)
 
 		return parent
 
@@ -720,13 +720,13 @@ class EmailAccount(Document):
 			else:
 				unsubscribe_message = ""
 
-			frappe.sendmail(
+			capkpi.sendmail(
 				recipients=[email.from_email],
 				sender=self.email_id,
 				reply_to=communication.incoming_email_account,
 				subject=_("Re: ") + communication.subject,
 				content=render_template(self.auto_reply_message or "", communication.as_dict())
-				or frappe.get_template("templates/emails/auto_reply.html").render(communication.as_dict()),
+				or capkpi.get_template("templates/emails/auto_reply.html").render(communication.as_dict()),
 				reference_doctype=communication.reference_doctype,
 				reference_name=communication.reference_name,
 				in_reply_to=email.mail.get("Message-Id"),  # send back the Message-Id as In-Reply-To
@@ -741,11 +741,11 @@ class EmailAccount(Document):
 
 	def on_trash(self):
 		"""Clear communications where email account is linked"""
-		frappe.db.sql("update `tabCommunication` set email_account='' where email_account=%s", self.name)
+		capkpi.db.sql("update `tabCommunication` set email_account='' where email_account=%s", self.name)
 		remove_user_email_inbox(email_account=self.name)
 
 	def after_rename(self, old, new, merge=False):
-		frappe.db.set_value("Email Account", new, "email_account_name", new)
+		capkpi.db.set_value("Email Account", new, "email_account_name", new)
 
 	def build_email_sync_rule(self):
 		if not self.use_imap:
@@ -764,11 +764,11 @@ class EmailAccount(Document):
 		if not self.use_imap:
 			return
 
-		flags = frappe.db.sql(
+		flags = capkpi.db.sql(
 			"""select name, communication, uid, action from
 			`tabEmail Flag Queue` where is_completed=0 and email_account={email_account}
 			""".format(
-				email_account=frappe.db.escape(self.name)
+				email_account=capkpi.db.escape(self.name)
 			),
 			as_dict=True,
 		)
@@ -794,7 +794,7 @@ class EmailAccount(Document):
 			self.set_communication_seen_status(docnames, seen=0)
 
 			docnames = ",".join(["'%s'" % flag.get("name") for flag in flags])
-			frappe.db.sql(
+			capkpi.db.sql(
 				""" update `tabEmail Flag Queue` set is_completed=1
 				where name in ({docnames})""".format(
 					docnames=docnames
@@ -806,7 +806,7 @@ class EmailAccount(Document):
 		if not docnames:
 			return
 
-		frappe.db.sql(
+		capkpi.db.sql(
 			""" update `tabCommunication` set seen={seen}
 			where name in ({docnames})""".format(
 				docnames=docnames, seen=seen
@@ -816,12 +816,12 @@ class EmailAccount(Document):
 	def check_automatic_linking_email_account(self):
 		if self.enable_automatic_linking:
 			if not self.enable_incoming:
-				frappe.throw(_("Automatic Linking can be activated only if Incoming is enabled."))
+				capkpi.throw(_("Automatic Linking can be activated only if Incoming is enabled."))
 
-			if frappe.db.exists(
+			if capkpi.db.exists(
 				"Email Account", {"enable_automatic_linking": 1, "name": ("!=", self.name)}
 			):
-				frappe.throw(_("Automatic Linking can be activated only for one Email Account."))
+				capkpi.throw(_("Automatic Linking can be activated only for one Email Account."))
 
 	def append_email_to_sent_folder(self, message):
 		if not (self.enable_incoming and self.use_imap):
@@ -834,7 +834,7 @@ class EmailAccount(Document):
 		try:
 			email_server = self.get_incoming_server(in_receive=True)
 		except Exception:
-			frappe.log_error(title=_("Error while connecting to email account {0}").format(self.name))
+			capkpi.log_error(title=_("Error while connecting to email account {0}").format(self.name))
 
 		if not email_server:
 			return
@@ -846,10 +846,10 @@ class EmailAccount(Document):
 				message = safe_encode(message)
 				email_server.imap.append("Sent", "\\Seen", imaplib.Time2Internaldate(time.time()), message)
 			except Exception:
-				frappe.log_error()
+				capkpi.log_error()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_append_to(
 	doctype=None, txt=None, searchfield=None, start=None, page_len=None, filters=None
 ):
@@ -858,11 +858,11 @@ def get_append_to(
 
 	# Set Email Append To DocTypes via DocType
 	filters = {"istable": 0, "issingle": 0, "email_append_to": 1}
-	for dt in frappe.get_all("DocType", filters=filters, fields=["name", "email_append_to"]):
+	for dt in capkpi.get_all("DocType", filters=filters, fields=["name", "email_append_to"]):
 		email_append_to_list.append(dt.name)
 
 	# Set Email Append To DocTypes set via Customize Form
-	for dt in frappe.get_list(
+	for dt in capkpi.get_list(
 		"Property Setter", filters={"property": "email_append_to", "value": 1}, fields=["doc_type"]
 	):
 		email_append_to_list.append(dt.doc_type)
@@ -892,14 +892,14 @@ def notify_unreplied():
 	"""Sends email notifications if there are unreplied Communications
 	and `notify_if_unreplied` is set as true."""
 
-	for email_account in frappe.get_all(
+	for email_account in capkpi.get_all(
 		"Email Account", "name", filters={"enable_incoming": 1, "notify_if_unreplied": 1}
 	):
-		email_account = frappe.get_doc("Email Account", email_account.name)
+		email_account = capkpi.get_doc("Email Account", email_account.name)
 		if email_account.append_to:
 
 			# get open communications younger than x mins, for given doctype
-			for comm in frappe.get_all(
+			for comm in capkpi.get_all(
 				"Communication",
 				"name",
 				filters=[
@@ -921,11 +921,11 @@ def notify_unreplied():
 					},
 				],
 			):
-				comm = frappe.get_doc("Communication", comm.name)
+				comm = capkpi.get_doc("Communication", comm.name)
 
-				if frappe.db.get_value(comm.reference_doctype, comm.reference_name, "status") == "Open":
+				if capkpi.db.get_value(comm.reference_doctype, comm.reference_name, "status") == "Open":
 					# if status is still open
-					frappe.sendmail(
+					capkpi.sendmail(
 						recipients=email_account.get_unreplied_notification_emails(),
 						content=comm.content,
 						subject=comm.subject,
@@ -939,13 +939,13 @@ def notify_unreplied():
 
 def pull(now=False):
 	"""Will be called via scheduler, pull emails from all enabled Email accounts."""
-	if frappe.cache().get_value("workers:no-internet") == True:
+	if capkpi.cache().get_value("workers:no-internet") == True:
 		if test_internet():
-			frappe.cache().set_value("workers:no-internet", False)
+			capkpi.cache().set_value("workers:no-internet", False)
 		else:
 			return
-	queued_jobs = get_jobs(site=frappe.local.site, key="job_name")[frappe.local.site]
-	for email_account in frappe.get_list(
+	queued_jobs = get_jobs(site=capkpi.local.site, key="job_name")[capkpi.local.site]
+	for email_account in capkpi.get_list(
 		"Email Account", filters={"enable_incoming": 1, "awaiting_password": 0}
 	):
 		if now:
@@ -967,7 +967,7 @@ def pull(now=False):
 
 def pull_from_email_account(email_account):
 	"""Runs within a worker process"""
-	email_account = frappe.get_doc("Email Account", email_account)
+	email_account = capkpi.get_doc("Email Account", email_account)
 	email_account.receive()
 
 	# mark Email Flag Queue mail as read
@@ -978,7 +978,7 @@ def get_max_email_uid(email_account):
 	# get maximum uid of emails
 	max_uid = 1
 
-	result = frappe.db.get_all(
+	result = capkpi.db.get_all(
 		"Communication",
 		filters={
 			"communication_medium": "Email",
@@ -997,10 +997,10 @@ def get_max_email_uid(email_account):
 
 def setup_user_email_inbox(email_account, awaiting_password, email_id, enable_outgoing):
 	"""setup email inbox for user"""
-	from frappe.core.doctype.user.user import ask_pass_update
+	from capkpi.core.doctype.user.user import ask_pass_update
 
 	def add_user_email(user):
-		user = frappe.get_doc("User", user)
+		user = capkpi.get_doc("User", user)
 		row = user.append("user_emails", {})
 
 		row.email_id = email_id
@@ -1014,7 +1014,7 @@ def setup_user_email_inbox(email_account, awaiting_password, email_id, enable_ou
 	if not all([email_account, email_id]):
 		return
 
-	user_names = frappe.db.get_values("User", {"email": email_id}, as_dict=True)
+	user_names = capkpi.db.get_values("User", {"email": email_id}, as_dict=True)
 	if not user_names:
 		return
 
@@ -1023,7 +1023,7 @@ def setup_user_email_inbox(email_account, awaiting_password, email_id, enable_ou
 
 		# check if inbox is alreay configured
 		user_inbox = (
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"User Email", {"email_account": email_account, "parent": user_name}, ["name"]
 			)
 			or None
@@ -1036,7 +1036,7 @@ def setup_user_email_inbox(email_account, awaiting_password, email_id, enable_ou
 			update_user_email_settings = True
 
 	if update_user_email_settings:
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""UPDATE `tabUser Email` SET awaiting_password = %(awaiting_password)s,
 			enable_outgoing = %(enable_outgoing)s WHERE email_account = %(email_account)s""",
 			{
@@ -1046,8 +1046,8 @@ def setup_user_email_inbox(email_account, awaiting_password, email_id, enable_ou
 			},
 		)
 	else:
-		users = " and ".join([frappe.bold(user.get("name")) for user in user_names])
-		frappe.msgprint(_("Enabled email inbox for user {0}").format(users))
+		users = " and ".join([capkpi.bold(user.get("name")) for user in user_names])
+		capkpi.msgprint(_("Enabled email inbox for user {0}").format(users))
 	ask_pass_update()
 
 
@@ -1056,28 +1056,28 @@ def remove_user_email_inbox(email_account):
 	if not email_account:
 		return
 
-	users = frappe.get_all(
+	users = capkpi.get_all(
 		"User Email", filters={"email_account": email_account}, fields=["parent as name"]
 	)
 
 	for user in users:
-		doc = frappe.get_doc("User", user.get("name"))
+		doc = capkpi.get_doc("User", user.get("name"))
 		to_remove = [row for row in doc.user_emails if row.email_account == email_account]
 		[doc.remove(row) for row in to_remove]
 
 		doc.save(ignore_permissions=True)
 
 
-@frappe.whitelist(allow_guest=False)
+@capkpi.whitelist(allow_guest=False)
 def set_email_password(email_account, user, password):
-	account = frappe.get_doc("Email Account", email_account)
+	account = capkpi.get_doc("Email Account", email_account)
 	if account.awaiting_password:
 		account.awaiting_password = 0
 		account.password = password
 		try:
 			account.save(ignore_permissions=True)
 		except Exception:
-			frappe.db.rollback()
+			capkpi.db.rollback()
 			return False
 
 	return True

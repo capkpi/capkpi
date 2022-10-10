@@ -9,15 +9,15 @@ from datetime import timedelta
 
 from six import iteritems, string_types
 
-import frappe
-import frappe.desk.reportview
-from frappe import _
-from frappe.core.utils import ljust_list
-from frappe.model.utils import render_include
-from frappe.modules import get_module_path, scrub
-from frappe.permissions import get_role_permissions
-from frappe.translate import send_translations
-from frappe.utils import (
+import capkpi
+import capkpi.desk.reportview
+from capkpi import _
+from capkpi.core.utils import ljust_list
+from capkpi.model.utils import render_include
+from capkpi.modules import get_module_path, scrub
+from capkpi.permissions import get_role_permissions
+from capkpi.translate import send_translations
+from capkpi.utils import (
 	cint,
 	cstr,
 	flt,
@@ -29,13 +29,13 @@ from frappe.utils import (
 
 
 def get_report_doc(report_name):
-	doc = frappe.get_doc("Report", report_name)
+	doc = capkpi.get_doc("Report", report_name)
 	doc.custom_columns = []
 
 	if doc.report_type == "Custom Report":
 		custom_report_doc = doc
 		reference_report = custom_report_doc.reference_report
-		doc = frappe.get_doc("Report", reference_report)
+		doc = capkpi.get_doc("Report", reference_report)
 		doc.custom_report = report_name
 		if custom_report_doc.json:
 			data = json.loads(custom_report_doc.json)
@@ -44,19 +44,19 @@ def get_report_doc(report_name):
 		doc.is_custom_report = True
 
 	if not doc.is_permitted():
-		frappe.throw(
+		capkpi.throw(
 			_("You don't have access to Report: {0}").format(report_name),
-			frappe.PermissionError,
+			capkpi.PermissionError,
 		)
 
-	if not frappe.has_permission(doc.ref_doctype, "report"):
-		frappe.throw(
+	if not capkpi.has_permission(doc.ref_doctype, "report"):
+		capkpi.throw(
 			_("You don't have permission to get a report on: {0}").format(doc.ref_doctype),
-			frappe.PermissionError,
+			capkpi.PermissionError,
 		)
 
 	if doc.disabled:
-		frappe.throw(_("Report {0} is disabled").format(report_name))
+		capkpi.throw(_("Report {0} is disabled").format(report_name))
 
 	return doc
 
@@ -77,11 +77,11 @@ def get_report_result(report, filters):
 	return res
 
 
-@frappe.read_only()
+@capkpi.read_only()
 def generate_report_result(
 	report, filters=None, user=None, custom_columns=None, is_tree=False, parent_field=None
 ):
-	user = user or frappe.session.user
+	user = user or capkpi.session.user
 	filters = filters or []
 
 	if filters and isinstance(filters, string_types):
@@ -127,7 +127,7 @@ def generate_report_result(
 		"report_summary": report_summary,
 		"skip_total_row": skip_total_row or 0,
 		"status": None,
-		"execution_time": frappe.cache().hget("report_execution_time", report.name) or 0,
+		"execution_time": capkpi.cache().hget("report_execution_time", report.name) or 0,
 	}
 
 
@@ -147,13 +147,13 @@ def normalize_result(result, columns):
 	return data
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def background_enqueue_run(report_name, filters=None, user=None):
 	"""run reports in background"""
 	if not user:
-		user = frappe.session.user
+		user = capkpi.session.user
 	report = get_report_doc(report_name)
-	track_instance = frappe.get_doc(
+	track_instance = capkpi.get_doc(
 		{
 			"doctype": "Prepared Report",
 			"report_name": report_name,
@@ -167,7 +167,7 @@ def background_enqueue_run(report_name, filters=None, user=None):
 		}
 	)
 	track_instance.insert(ignore_permissions=True)
-	frappe.db.commit()
+	capkpi.db.commit()
 	track_instance.enqueue_report()
 
 	return {
@@ -176,12 +176,12 @@ def background_enqueue_run(report_name, filters=None, user=None):
 	}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_script(report_name):
 	report = get_report_doc(report_name)
-	module = report.module or frappe.db.get_value("DocType", report.ref_doctype, "module")
+	module = report.module or capkpi.db.get_value("DocType", report.ref_doctype, "module")
 
-	is_custom_module = frappe.get_cached_value("Module Def", module, "custom")
+	is_custom_module = capkpi.get_cached_value("Module Def", module, "custom")
 
 	# custom modules are virtual modules those exists in DB but not in disk.
 	module_path = "" if is_custom_module else get_module_path(module)
@@ -202,21 +202,21 @@ def get_script(report_name):
 		script += f"\n\n//# sourceURL={scrub(report.name)}__custom"
 
 	if not script:
-		script = "frappe.query_reports['%s']={}" % report_name
+		script = "capkpi.query_reports['%s']={}" % report_name
 
 	# load translations
-	if frappe.lang != "en":
-		send_translations(frappe.get_lang_dict("report", report_name))
+	if capkpi.lang != "en":
+		send_translations(capkpi.get_lang_dict("report", report_name))
 
 	return {
 		"script": render_include(script),
 		"html_format": html_format,
-		"execution_time": frappe.cache().hget("report_execution_time", report_name) or 0,
+		"execution_time": capkpi.cache().hget("report_execution_time", report_name) or 0,
 	}
 
 
-@frappe.whitelist()
-@frappe.read_only()
+@capkpi.whitelist()
+@capkpi.read_only()
 def run(
 	report_name,
 	filters=None,
@@ -228,9 +228,9 @@ def run(
 ):
 	report = get_report_doc(report_name)
 	if not user:
-		user = frappe.session.user
-	if not frappe.has_permission(report.ref_doctype, "report"):
-		frappe.msgprint(
+		user = capkpi.session.user
+	if not capkpi.has_permission(report.ref_doctype, "report"):
+		capkpi.msgprint(
 			_("Must have report permission to access this report."),
 			raise_exception=True,
 		)
@@ -281,10 +281,10 @@ def get_prepared_report_result(report, filters, dn="", user=None):
 	doc = None
 	if dn:
 		# Get specified dn
-		doc = frappe.get_doc("Prepared Report", dn)
+		doc = capkpi.get_doc("Prepared Report", dn)
 	else:
 		# Only look for completed prepared reports with given filters.
-		doc_list = frappe.get_all(
+		doc_list = capkpi.get_all(
 			"Prepared Report",
 			filters={
 				"status": "Completed",
@@ -297,17 +297,17 @@ def get_prepared_report_result(report, filters, dn="", user=None):
 
 		if doc_list:
 			# Get latest
-			doc = frappe.get_doc("Prepared Report", doc_list[0])
+			doc = capkpi.get_doc("Prepared Report", doc_list[0])
 
 	if doc:
 		try:
 			# Prepared Report data is stored in a GZip compressed JSON file
-			attached_file_name = frappe.db.get_value(
+			attached_file_name = capkpi.db.get_value(
 				"File",
 				{"attached_to_doctype": doc.doctype, "attached_to_name": doc.name},
 				"name",
 			)
-			attached_file = frappe.get_doc("File", attached_file_name)
+			attached_file = capkpi.get_doc("File", attached_file_name)
 			compressed_content = attached_file.get_content()
 			uncompressed_content = gzip_decompress(compressed_content)
 			data = json.loads(uncompressed_content.decode("utf-8"))
@@ -320,9 +320,9 @@ def get_prepared_report_result(report, filters, dn="", user=None):
 
 				latest_report_data = {"columns": columns, "result": data}
 		except Exception:
-			frappe.log_error(frappe.get_traceback())
-			frappe.delete_doc("Prepared Report", doc.name)
-			frappe.db.commit()
+			capkpi.log_error(capkpi.get_traceback())
+			capkpi.delete_doc("Prepared Report", doc.name)
+			capkpi.db.commit()
 			doc = None
 
 	latest_report_data.update({"prepared_report": True, "doc": doc})
@@ -330,10 +330,10 @@ def get_prepared_report_result(report, filters, dn="", user=None):
 	return latest_report_data
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def export_query():
 	"""export from query reports"""
-	data = frappe._dict(frappe.local.form_dict)
+	data = capkpi._dict(capkpi.local.form_dict)
 	data.pop("cmd", None)
 	data.pop("csrf_token", None)
 
@@ -342,13 +342,13 @@ def export_query():
 
 	if data.get("report_name"):
 		report_name = data["report_name"]
-		frappe.permissions.can_export(
-			frappe.get_cached_value("Report", report_name, "ref_doctype"),
+		capkpi.permissions.can_export(
+			capkpi.get_cached_value("Report", report_name, "ref_doctype"),
 			raise_exception=True,
 		)
 
 	file_format_type = data.get("file_format_type")
-	custom_columns = frappe.parse_json(data.get("custom_columns", "[]"))
+	custom_columns = capkpi.parse_json(data.get("custom_columns", "[]"))
 	include_indentation = data.get("include_indentation")
 	visible_idx = data.get("visible_idx")
 
@@ -357,9 +357,9 @@ def export_query():
 
 	if file_format_type == "Excel":
 		data = run(report_name, filters, custom_columns=custom_columns)
-		data = frappe._dict(data)
+		data = capkpi._dict(data)
 		if not data.columns:
-			frappe.respond_as_web_page(
+			capkpi.respond_as_web_page(
 				_("No data to export"),
 				_("You can try changing the filters of your report."),
 			)
@@ -367,15 +367,15 @@ def export_query():
 
 		columns = get_columns_dict(data.columns)
 
-		from frappe.utils.xlsxutils import make_xlsx
+		from capkpi.utils.xlsxutils import make_xlsx
 
 		data["result"] = handle_duration_fieldtype_values(data.get("result"), data.get("columns"))
 		xlsx_data, column_widths = build_xlsx_data(columns, data, visible_idx, include_indentation)
 		xlsx_file = make_xlsx(xlsx_data, "Query Report", column_widths=column_widths)
 
-		frappe.response["filename"] = report_name + ".xlsx"
-		frappe.response["filecontent"] = xlsx_file.getvalue()
-		frappe.response["type"] = "binary"
+		capkpi.response["filename"] = report_name + ".xlsx"
+		capkpi.response["filecontent"] = xlsx_file.getvalue()
+		capkpi.response["type"] = "binary"
 
 
 def handle_duration_fieldtype_values(result, columns):
@@ -510,18 +510,18 @@ def add_total_row(result, columns, meta=None, is_tree=False, parent_field=None):
 	return result
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_data_for_custom_field(doctype, fieldname, field=None):
 
-	if not frappe.has_permission(doctype, "read"):
-		frappe.throw(_("Not Permitted"), frappe.PermissionError)
+	if not capkpi.has_permission(doctype, "read"):
+		capkpi.throw(_("Not Permitted"), capkpi.PermissionError)
 
 	if field:
 		custom_field = field + " as " + fieldname
 	else:
 		custom_field = fieldname
 
-	value_map = frappe._dict(frappe.get_all(doctype, fields=["name", custom_field], as_list=1))
+	value_map = capkpi._dict(capkpi.get_all(doctype, fields=["name", custom_field], as_list=1))
 
 	return value_map
 
@@ -539,11 +539,11 @@ def get_data_for_custom_report(columns):
 	return doc_field_value_map
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def save_report(reference_report, report_name, columns):
 	report_doc = get_report_doc(reference_report)
 
-	docname = frappe.db.exists(
+	docname = capkpi.db.exists(
 		"Report",
 		{
 			"report_name": report_name,
@@ -553,16 +553,16 @@ def save_report(reference_report, report_name, columns):
 	)
 
 	if docname:
-		report = frappe.get_doc("Report", docname)
+		report = capkpi.get_doc("Report", docname)
 		existing_jd = json.loads(report.json)
 		existing_jd["columns"] = json.loads(columns)
 		report.update({"json": json.dumps(existing_jd, separators=(",", ":"))})
 		report.save()
-		frappe.msgprint(_("Report updated successfully"))
+		capkpi.msgprint(_("Report updated successfully"))
 
 		return docname
 	else:
-		new_report = frappe.get_doc(
+		new_report = capkpi.get_doc(
 			{
 				"doctype": "Report",
 				"report_name": report_name,
@@ -573,7 +573,7 @@ def save_report(reference_report, report_name, columns):
 				"reference_report": reference_report,
 			}
 		).insert(ignore_permissions=True)
-		frappe.msgprint(_("{0} saved successfully").format(new_report.name))
+		capkpi.msgprint(_("{0} saved successfully").format(new_report.name))
 		return new_report.name
 
 
@@ -581,10 +581,10 @@ def get_filtered_data(ref_doctype, columns, data, user):
 	result = []
 	linked_doctypes = get_linked_doctypes(columns, data)
 	match_filters_per_doctype = get_user_match_filters(linked_doctypes, user=user)
-	shared = frappe.share.get_shared(ref_doctype, user)
+	shared = capkpi.share.get_shared(ref_doctype, user)
 	columns_dict = get_columns_dict(columns)
 
-	role_permissions = get_role_permissions(frappe.get_meta(ref_doctype), user)
+	role_permissions = get_role_permissions(capkpi.get_meta(ref_doctype), user)
 	if_owner = role_permissions.get("if_owner", {}).get("report")
 
 	if match_filters_per_doctype:
@@ -661,7 +661,7 @@ def has_match(
 					if (
 						dt in match_filters
 						and cell_value not in match_filters.get(dt)
-						and frappe.db.exists(dt, cell_value)
+						and capkpi.db.exists(dt, cell_value)
 					):
 						match = False
 						break
@@ -724,7 +724,7 @@ def get_columns_dict(columns):
 	The keys for the dict are both idx and fieldname,
 	so either index or fieldname can be used to search for a column's docfield properties
 	"""
-	columns_dict = frappe._dict()
+	columns_dict = capkpi._dict()
 	for idx, col in enumerate(columns):
 		col_dict = get_column_as_dict(col)
 		columns_dict[idx] = col_dict
@@ -734,7 +734,7 @@ def get_columns_dict(columns):
 
 
 def get_column_as_dict(col):
-	col_dict = frappe._dict()
+	col_dict = capkpi._dict()
 
 	# string
 	if isinstance(col, string_types):
@@ -748,13 +748,13 @@ def get_column_as_dict(col):
 				col_dict["width"] = col[2]
 
 		col_dict["label"] = col[0]
-		col_dict["fieldname"] = frappe.scrub(col[0])
+		col_dict["fieldname"] = capkpi.scrub(col[0])
 
 	# dict
 	else:
 		col_dict.update(col)
 		if "fieldname" not in col_dict:
-			col_dict["fieldname"] = frappe.scrub(col_dict["label"])
+			col_dict["fieldname"] = capkpi.scrub(col_dict["label"])
 
 	return col_dict
 
@@ -763,7 +763,7 @@ def get_user_match_filters(doctypes, user):
 	match_filters = {}
 
 	for dt in doctypes:
-		filter_list = frappe.desk.reportview.build_match_conditions(dt, user, False)
+		filter_list = capkpi.desk.reportview.build_match_conditions(dt, user, False)
 		if filter_list:
 			match_filters[dt] = filter_list
 

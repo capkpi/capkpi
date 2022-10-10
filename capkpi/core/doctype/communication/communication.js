@@ -1,7 +1,7 @@
-frappe.ui.form.on("Communication", {
+capkpi.ui.form.on("Communication", {
 	onload: function(frm) {
 		if(frm.doc.content) {
-			frm.doc.content = frappe.dom.remove_script_and_style(frm.doc.content);
+			frm.doc.content = capkpi.dom.remove_script_and_style(frm.doc.content);
 		}
 		frm.set_query("reference_doctype", function() {
 			return {
@@ -24,7 +24,7 @@ frappe.ui.form.on("Communication", {
 
 		if(frm.doc.reference_doctype && frm.doc.reference_name) {
 			frm.add_custom_button(__(frm.doc.reference_name), function() {
-				frappe.set_route("Form", frm.doc.reference_doctype, frm.doc.reference_name);
+				capkpi.set_route("Form", frm.doc.reference_doctype, frm.doc.reference_name);
 			});
 		} else {
 			// if an unlinked communication, set email field
@@ -100,14 +100,14 @@ frappe.ui.form.on("Communication", {
 	},
 
 	show_relink_dialog: function(frm) {
-		var d = new frappe.ui.Dialog ({
+		var d = new capkpi.ui.Dialog ({
 			title: __("Relink Communication"),
 			fields: [{
 				"fieldtype": "Link",
 				"options": "DocType",
 				"label": __("Reference Doctype"),
 				"fieldname": "reference_doctype",
-				"get_query": function() {return {"query": "frappe.email.get_communication_doctype"}}
+				"get_query": function() {return {"query": "capkpi.email.get_communication_doctype"}}
 			},
 			{
 				"fieldtype": "Dynamic Link",
@@ -121,12 +121,12 @@ frappe.ui.form.on("Communication", {
 		d.set_primary_action(__("Relink"), function () {
 			var values = d.get_values();
 			if (values) {
-				frappe.confirm(
+				capkpi.confirm(
 					__('Are you sure you want to relink this communication to {0}?', [values["reference_name"]]),
 					function () {
 						d.hide();
-						frappe.call({
-							method: "frappe.email.relink",
+						capkpi.call({
+							method: "capkpi.email.relink",
 							args: {
 								"name": frm.doc.name,
 								"reference_doctype": values["reference_doctype"],
@@ -138,7 +138,7 @@ frappe.ui.form.on("Communication", {
 						});
 					},
 					function() {
-						frappe.show_alert({
+						capkpi.show_alert({
 							message: __('Document not Relinked'), 'indicator': 'info'
 						});
 					}
@@ -149,7 +149,7 @@ frappe.ui.form.on("Communication", {
 	},
 
 	show_move_dialog: function(frm) {
-		var d = new frappe.ui.Dialog ({
+		var d = new capkpi.ui.Dialog ({
 			title: __("Move"),
 			fields: [{
 				"fieldtype": "Link",
@@ -169,8 +169,8 @@ frappe.ui.form.on("Communication", {
 			primary_action_label: __("Move"),
 			primary_action(values) {
 				d.hide();
-				frappe.call({
-					method: "frappe.email.inbox.move_email",
+				capkpi.call({
+					method: "capkpi.email.inbox.move_email",
 					args: {
 						communication: frm.doc.name,
 						email_account: values.email_account
@@ -189,8 +189,8 @@ frappe.ui.form.on("Communication", {
 		var action = frm.doc.seen? "Unread": "Read";
 		var flag = "(\\SEEN)";
 
-		return frappe.call({
-			method: "frappe.email.inbox.create_email_flag_queue",
+		return capkpi.call({
+			method: "capkpi.email.inbox.create_email_flag_queue",
 			args: {
 				'names': [frm.doc.name],
 				'action': action,
@@ -206,8 +206,8 @@ frappe.ui.form.on("Communication", {
 	mark_as_closed_open: function(frm) {
 		var status = frm.doc.status == "Open" ? "Closed" : "Open";
 
-		return frappe.call({
-			method: "frappe.email.inbox.mark_as_closed_open",
+		return capkpi.call({
+			method: "capkpi.email.inbox.mark_as_closed_open",
 			args: {
 				communication: frm.doc.name,
 				status: status
@@ -226,7 +226,7 @@ frappe.ui.form.on("Communication", {
 			recipients: frm.doc.sender
 		})
 
-		new frappe.views.CommunicationComposer(args);
+		new capkpi.views.CommunicationComposer(args);
 	},
 
 	reply_all: function(frm) {
@@ -236,7 +236,7 @@ frappe.ui.form.on("Communication", {
 			recipients: frm.doc.sender,
 			cc: frm.doc.cc
 		})
-		new frappe.views.CommunicationComposer(args);
+		new capkpi.views.CommunicationComposer(args);
 	},
 
 	forward_mail: function(frm) {
@@ -246,12 +246,12 @@ frappe.ui.form.on("Communication", {
 			subject: __("Fw: {0}", [frm.doc.subject]),
 		})
 
-		new frappe.views.CommunicationComposer(args);
+		new capkpi.views.CommunicationComposer(args);
 	},
 
 	get_mail_args: function(frm) {
 		var sender_email_id = ""
-		$.each(frappe.boot.email_accounts, function(idx, account) {
+		$.each(capkpi.boot.email_accounts, function(idx, account) {
 			if(account.email_account == frm.doc.email_account) {
 				sender_email_id = account.email_id
 				return
@@ -275,38 +275,38 @@ frappe.ui.form.on("Communication", {
 		var first_name = names[0]
 		var last_name = names.length >= 2? names[names.length - 1]: ""
 
-		frappe.route_options = {
+		capkpi.route_options = {
 			"email_id": frm.doc.sender || "",
 			"first_name": first_name,
 			"last_name": last_name,
 			"mobile_no": frm.doc.phone_no || ""
 		}
-		frappe.new_doc("Contact")
+		capkpi.new_doc("Contact")
 	},
 
 	mark_as_spam: function(frm) {
-		frappe.call({
-			method: "frappe.email.inbox.mark_as_spam",
+		capkpi.call({
+			method: "capkpi.email.inbox.mark_as_spam",
 			args: {
 				communication: frm.doc.name,
 				sender: frm.doc.sender
 			},
 			freeze: true,
 			callback: function(r) {
-				frappe.msgprint(__("Email has been marked as spam"))
+				capkpi.msgprint(__("Email has been marked as spam"))
 			}
 		})
 	},
 
 	move_to_trash: function(frm) {
-		frappe.call({
-			method: "frappe.email.inbox.mark_as_trash",
+		capkpi.call({
+			method: "capkpi.email.inbox.mark_as_trash",
 			args: {
 				communication: frm.doc.name
 			},
 			freeze: true,
 			callback: function(r) {
-				frappe.msgprint(__("Email has been moved to trash"))
+				capkpi.msgprint(__("Email has been moved to trash"))
 			}
 		})
 	}

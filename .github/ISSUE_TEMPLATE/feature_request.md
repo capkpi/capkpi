@@ -8,8 +8,8 @@ labels: feature-request
 Welcome to the CapKPI Framework issue tracker! Before creating an issue, please heed the following:
 
 1. This tracker should only be used to report bugs and request features / enhancements to CapKPI
-    - For questions and general support, refer to https://stackoverflow.com/questions/tagged/frappe
-    - For documentation issues, use https://frappeframework.com/docs/user/en or the developer cheetsheet https://frappeframework.com/docs/user/en/bench/resources/bench-commands-cheatsheet
+    - For questions and general support, refer to https://stackoverflow.com/questions/tagged/capkpi
+    - For documentation issues, use https://capkpiframework.com/docs/user/en or the developer cheetsheet https://capkpiframework.com/docs/user/en/bench/resources/bench-commands-cheatsheet
 2. Use the search function before creating a new issue. Duplicates will be closed and directed to
    the original discussion.
 3. When making a feature request, make sure to be as verbose as possible. The better you convey your message, the     greater the drive to make it happen.

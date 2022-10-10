@@ -11,18 +11,18 @@
 // 	}
 // })
 
-frappe.ui.form.on('DocType', {
+capkpi.ui.form.on('DocType', {
 	refresh: function(frm) {
 		frm.set_query('role', 'permissions', function(doc) {
-			if (doc.custom && frappe.session.user != 'Administrator') {
+			if (doc.custom && capkpi.session.user != 'Administrator') {
 				return {
-					query: "frappe.core.doctype.role.role.role_query",
+					query: "capkpi.core.doctype.role.role.role_query",
 					filters: [['Role', 'name', '!=', 'All']]
 				};
 			}
 		});
 
-		if(frappe.session.user !== "Administrator" || !frappe.boot.developer_mode) {
+		if(capkpi.session.user !== "Administrator" || !capkpi.boot.developer_mode) {
 			if(frm.is_new()) {
 				frm.set_value("custom", 1);
 			}
@@ -34,21 +34,21 @@ frappe.ui.form.on('DocType', {
 		if (!frm.is_new() && !frm.doc.istable) {
 			if (frm.doc.issingle) {
 				frm.add_custom_button(__('Go to {0}', [__(frm.doc.name)]), () => {
-					window.open(`/app/${frappe.router.slug(frm.doc.name)}`);
+					window.open(`/app/${capkpi.router.slug(frm.doc.name)}`);
 				});
 			} else {
 				frm.add_custom_button(__('Go to {0} List', [__(frm.doc.name)]), () => {
-					window.open(`/app/${frappe.router.slug(frm.doc.name)}`);
+					window.open(`/app/${capkpi.router.slug(frm.doc.name)}`);
 				});
 			}
 		}
 
 		const customize_form_link = "<a href='/app/customize-form'>Customize Form</a>";
-		if(!frappe.boot.developer_mode && !frm.doc.custom) {
+		if(!capkpi.boot.developer_mode && !frm.doc.custom) {
 			// make the document read-only
 			frm.set_read_only();
 			frm.dashboard.add_comment(__("DocTypes can not be modified, please use {0} instead", [customize_form_link]), "blue", true);
-		} else if (frappe.boot.developer_mode) {
+		} else if (capkpi.boot.developer_mode) {
 			let msg = __("This site is running in developer mode. Any change made here will be updated in code.");
 			msg += "<br>";
 			msg += __("If you just want to customize for your site, use {0} instead.", [customize_form_link]);

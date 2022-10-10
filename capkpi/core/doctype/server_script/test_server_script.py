@@ -7,8 +7,8 @@ import unittest
 
 import requests
 
-import frappe
-from frappe.utils import get_site_url
+import capkpi
+from capkpi.utils import get_site_url
 
 scripts = [
 	dict(
@@ -28,7 +28,7 @@ if "test" in doc.description:
 		reference_doctype="ToDo",
 		script="""
 if "validate" in doc.description:
-	raise frappe.ValidationError
+	raise capkpi.ValidationError
 """,
 	),
 	dict(
@@ -37,7 +37,7 @@ if "validate" in doc.description:
 		api_method="test_server_script",
 		allow_guest=1,
 		script="""
-frappe.response['message'] = 'hello'
+capkpi.response['message'] = 'hello'
 """,
 	),
 	dict(
@@ -46,7 +46,7 @@ frappe.response['message'] = 'hello'
 		api_method="test_return_value",
 		allow_guest=1,
 		script="""
-frappe.flags = 'hello'
+capkpi.flags = 'hello'
 """,
 	),
 	dict(
@@ -63,7 +63,7 @@ conditions = '1 = 1'
 		doctype_event="Before Insert",
 		reference_doctype="Note",
 		script="""
-frappe.method_that_doesnt_exist("do some magic")
+capkpi.method_that_doesnt_exist("do some magic")
 """,
 	),
 	dict(
@@ -73,7 +73,7 @@ frappe.method_that_doesnt_exist("do some magic")
 		reference_doctype="ToDo",
 		disabled=1,
 		script="""
-frappe.db.commit()
+capkpi.db.commit()
 """,
 	),
 ]
@@ -82,81 +82,81 @@ frappe.db.commit()
 class TestServerScript(unittest.TestCase):
 	@classmethod
 	def setUpClass(cls):
-		frappe.db.commit()
-		frappe.db.sql("truncate `tabServer Script`")
-		frappe.get_doc("User", "Administrator").add_roles("Script Manager")
+		capkpi.db.commit()
+		capkpi.db.sql("truncate `tabServer Script`")
+		capkpi.get_doc("User", "Administrator").add_roles("Script Manager")
 		for script in scripts:
-			script_doc = frappe.get_doc(doctype="Server Script")
+			script_doc = capkpi.get_doc(doctype="Server Script")
 			script_doc.update(script)
 			script_doc.insert()
 
-		frappe.db.commit()
+		capkpi.db.commit()
 
 	@classmethod
 	def tearDownClass(cls):
-		frappe.db.commit()
-		frappe.db.sql("truncate `tabServer Script`")
-		frappe.cache().delete_value("server_script_map")
+		capkpi.db.commit()
+		capkpi.db.sql("truncate `tabServer Script`")
+		capkpi.cache().delete_value("server_script_map")
 
 	def setUp(self):
-		frappe.cache().delete_value("server_script_map")
+		capkpi.cache().delete_value("server_script_map")
 
 	def test_doctype_event(self):
-		todo = frappe.get_doc(dict(doctype="ToDo", description="hello")).insert()
+		todo = capkpi.get_doc(dict(doctype="ToDo", description="hello")).insert()
 		self.assertEqual(todo.status, "Open")
 
-		todo = frappe.get_doc(dict(doctype="ToDo", description="test todo")).insert()
+		todo = capkpi.get_doc(dict(doctype="ToDo", description="test todo")).insert()
 		self.assertEqual(todo.status, "Closed")
 
 		self.assertRaises(
-			frappe.ValidationError, frappe.get_doc(dict(doctype="ToDo", description="validate me")).insert
+			capkpi.ValidationError, capkpi.get_doc(dict(doctype="ToDo", description="validate me")).insert
 		)
 
 	def test_api(self):
-		response = requests.post(get_site_url(frappe.local.site) + "/api/method/test_server_script")
+		response = requests.post(get_site_url(capkpi.local.site) + "/api/method/test_server_script")
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual("hello", response.json()["message"])
 
 	def test_api_return(self):
-		self.assertEqual(frappe.get_doc("Server Script", "test_return_value").execute_method(), "hello")
+		self.assertEqual(capkpi.get_doc("Server Script", "test_return_value").execute_method(), "hello")
 
 	def test_permission_query(self):
-		self.assertTrue("where (1 = 1)" in frappe.db.get_list("ToDo", return_query=1))
-		self.assertTrue(isinstance(frappe.db.get_list("ToDo"), list))
+		self.assertTrue("where (1 = 1)" in capkpi.db.get_list("ToDo", return_query=1))
+		self.assertTrue(isinstance(capkpi.db.get_list("ToDo"), list))
 
 	def test_attribute_error(self):
 		"""Raise AttributeError if method not found in Namespace"""
-		note = frappe.get_doc({"doctype": "Note", "title": "Test Note: Server Script"})
+		note = capkpi.get_doc({"doctype": "Note", "title": "Test Note: Server Script"})
 		self.assertRaises(AttributeError, note.insert)
 
 	def test_syntax_validation(self):
 		server_script = scripts[0]
 		server_script["script"] = "js || code.?"
 
-		with self.assertRaises(frappe.ValidationError) as se:
-			frappe.get_doc(doctype="Server Script", **server_script).insert()
+		with self.assertRaises(capkpi.ValidationError) as se:
+			capkpi.get_doc(doctype="Server Script", **server_script).insert()
 
 		self.assertTrue(
 			"invalid python code" in str(se.exception).lower(), msg="Python code validation not working"
 		)
 
 	def test_commit_in_doctype_event(self):
-		server_script = frappe.get_doc("Server Script", "test_todo_commit")
+		server_script = capkpi.get_doc("Server Script", "test_todo_commit")
 		server_script.disabled = 0
 		server_script.save()
 
 		self.assertRaises(
-			AttributeError, frappe.get_doc(dict(doctype="ToDo", description="test me")).insert
+			AttributeError, capkpi.get_doc(dict(doctype="ToDo", description="test me")).insert
 		)
 
 		server_script.disabled = 1
 		server_script.save()
 
 	def test_restricted_qb(self):
-		todo = frappe.get_doc(doctype="ToDo", description="QbScriptTestNote")
+		todo = capkpi.get_doc(doctype="ToDo", description="QbScriptTestNote")
 		todo.insert()
 
-		script = frappe.get_doc(
+		script = capkpi.get_doc(
 			doctype="Server Script",
 			name="test_qb_restrictions",
 			script_type="API",
@@ -164,7 +164,7 @@ class TestServerScript(unittest.TestCase):
 			allow_guest=1,
 			# whitelisted update
 			script=f"""
-frappe.db.set_value("ToDo", "{todo.name}", "description", "safe")
+capkpi.db.set_value("ToDo", "{todo.name}", "description", "safe")
 """,
 		)
 		script.insert()
@@ -175,18 +175,18 @@ frappe.db.set_value("ToDo", "{todo.name}", "description", "safe")
 
 		# unsafe update
 		script.script = f"""
-todo = frappe.qb.DocType("ToDo")
-frappe.qb.update(todo).set(todo.description, "unsafe").where(todo.name == "{todo.name}").run()
+todo = capkpi.qb.DocType("ToDo")
+capkpi.qb.update(todo).set(todo.description, "unsafe").where(todo.name == "{todo.name}").run()
 """
 		script.save()
-		self.assertRaises(frappe.PermissionError, script.execute_method)
+		self.assertRaises(capkpi.PermissionError, script.execute_method)
 		todo.reload()
 		self.assertEqual(todo.description, "safe")
 
 		# safe select
 		script.script = f"""
-todo = frappe.qb.DocType("ToDo")
-frappe.qb.from_(todo).select(todo.name).where(todo.name == "{todo.name}").run()
+todo = capkpi.qb.DocType("ToDo")
+capkpi.qb.from_(todo).select(todo.name).where(todo.name == "{todo.name}").run()
 """
 		script.save()
 		script.execute_method()

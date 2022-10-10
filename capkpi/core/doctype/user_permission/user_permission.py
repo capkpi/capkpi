@@ -6,13 +6,13 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe import _
-from frappe.core.utils import find
-from frappe.desk.form.linked_with import get_linked_doctypes
-from frappe.model.document import Document
-from frappe.permissions import get_valid_perms, update_permission_property
-from frappe.utils import cstr
+import capkpi
+from capkpi import _
+from capkpi.core.utils import find
+from capkpi.desk.form.linked_with import get_linked_doctypes
+from capkpi.model.document import Document
+from capkpi.permissions import get_valid_perms, update_permission_property
+from capkpi.utils import cstr
 
 
 class UserPermission(Document):
@@ -21,17 +21,17 @@ class UserPermission(Document):
 		self.validate_default_permission()
 
 	def on_update(self):
-		frappe.cache().hdel("user_permissions", self.user)
-		frappe.publish_realtime("update_user_permissions")
+		capkpi.cache().hdel("user_permissions", self.user)
+		capkpi.publish_realtime("update_user_permissions")
 
 	def on_trash(self):  # pylint: disable=no-self-use
-		frappe.cache().hdel("user_permissions", self.user)
-		frappe.publish_realtime("update_user_permissions")
+		capkpi.cache().hdel("user_permissions", self.user)
+		capkpi.publish_realtime("update_user_permissions")
 
 	def validate_user_permission(self):
 		"""checks for duplicate user permission records"""
 
-		duplicate_exists = frappe.db.get_all(
+		duplicate_exists = capkpi.db.get_all(
 			self.doctype,
 			filters={
 				"allow": self.allow,
@@ -44,13 +44,13 @@ class UserPermission(Document):
 			limit=1,
 		)
 		if duplicate_exists:
-			frappe.throw(_("User permission already exists"), frappe.DuplicateEntryError)
+			capkpi.throw(_("User permission already exists"), capkpi.DuplicateEntryError)
 
 	def validate_default_permission(self):
 		"""validate user permission overlap for default value of a particular doctype"""
 		overlap_exists = []
 		if self.is_default:
-			overlap_exists = frappe.get_all(
+			overlap_exists = capkpi.get_all(
 				self.doctype,
 				filters={"allow": self.allow, "user": self.user, "is_default": 1, "name": ["!=", self.name]},
 				or_filters={
@@ -60,25 +60,25 @@ class UserPermission(Document):
 				limit=1,
 			)
 		if overlap_exists:
-			ref_link = frappe.get_desk_link(self.doctype, overlap_exists[0].name)
-			frappe.throw(_("{0} has already assigned default value for {1}.").format(ref_link, self.allow))
+			ref_link = capkpi.get_desk_link(self.doctype, overlap_exists[0].name)
+			capkpi.throw(_("{0} has already assigned default value for {1}.").format(ref_link, self.allow))
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_user_permissions(user=None):
 	"""Get all users permissions for the user as a dict of doctype"""
 	# if this is called from client-side,
 	# user can access only his/her user permissions
-	if frappe.request and frappe.local.form_dict.cmd == "get_user_permissions":
-		user = frappe.session.user
+	if capkpi.request and capkpi.local.form_dict.cmd == "get_user_permissions":
+		user = capkpi.session.user
 
 	if not user:
-		user = frappe.session.user
+		user = capkpi.session.user
 
 	if not user or user in ("Administrator", "Guest"):
 		return {}
 
-	cached_user_permissions = frappe.cache().hget("user_permissions", user)
+	cached_user_permissions = capkpi.cache().hget("user_permissions", user)
 
 	if cached_user_permissions is not None:
 		return cached_user_permissions
@@ -93,30 +93,30 @@ def get_user_permissions(user=None):
 			out[perm.allow] = []
 
 		out[perm.allow].append(
-			frappe._dict(
+			capkpi._dict(
 				{"doc": doc_name, "applicable_for": perm.get("applicable_for"), "is_default": is_default}
 			)
 		)
 
 	try:
-		for perm in frappe.get_all(
+		for perm in capkpi.get_all(
 			"User Permission",
 			fields=["allow", "for_value", "applicable_for", "is_default", "hide_descendants"],
 			filters=dict(user=user),
 		):
 
-			meta = frappe.get_meta(perm.allow)
+			meta = capkpi.get_meta(perm.allow)
 			add_doc_to_perm(perm, perm.for_value, perm.is_default)
 
 			if meta.is_nested_set() and not perm.hide_descendants:
-				decendants = frappe.db.get_descendants(perm.allow, perm.for_value)
+				decendants = capkpi.db.get_descendants(perm.allow, perm.for_value)
 				for doc in decendants:
 					add_doc_to_perm(perm, doc, False)
 
-		out = frappe._dict(out)
-		frappe.cache().hset("user_permissions", user, out)
-	except frappe.db.SQLError as e:
-		if frappe.db.is_table_missing(e):
+		out = capkpi._dict(out)
+		capkpi.cache().hset("user_permissions", user, out)
+	except capkpi.db.SQLError as e:
+		if capkpi.db.is_table_missing(e):
 			# called from patch
 			pass
 
@@ -136,8 +136,8 @@ def user_permission_exists(user, allow, for_value, applicable_for=None):
 	return has_same_user_permission
 
 
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
+@capkpi.whitelist()
+@capkpi.validate_and_sanitize_search_inputs
 def get_applicable_for_doctype_list(doctype, txt, searchfield, start, page_len, filters):
 	linked_doctypes_map = get_linked_doctypes(doctype, True)
 
@@ -172,11 +172,11 @@ def get_permitted_documents(doctype):
 	return [d.get("doc") for d in user_perm_list if d.get("doc")]
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def check_applicable_doc_perm(user, doctype, docname):
-	frappe.only_for("System Manager")
+	capkpi.only_for("System Manager")
 	applicable = []
-	doc_exists = frappe.get_all(
+	doc_exists = capkpi.get_all(
 		"User Permission",
 		fields=["name"],
 		filters={
@@ -190,7 +190,7 @@ def check_applicable_doc_perm(user, doctype, docname):
 	if doc_exists:
 		applicable = get_linked_doctypes(doctype).keys()
 	else:
-		data = frappe.get_all(
+		data = capkpi.get_all(
 			"User Permission",
 			fields=["applicable_for"],
 			filters={
@@ -204,29 +204,29 @@ def check_applicable_doc_perm(user, doctype, docname):
 	return applicable
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def clear_user_permissions(user, for_doctype):
-	frappe.only_for("System Manager")
-	total = frappe.db.count("User Permission", filters=dict(user=user, allow=for_doctype))
+	capkpi.only_for("System Manager")
+	total = capkpi.db.count("User Permission", filters=dict(user=user, allow=for_doctype))
 	if total:
-		frappe.db.sql(
+		capkpi.db.sql(
 			"DELETE FROM `tabUser Permission` WHERE `user`=%s AND `allow`=%s", (user, for_doctype)
 		)
-		frappe.clear_cache()
+		capkpi.clear_cache()
 	return total
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def add_user_permissions(data):
 	"""Add and update the user permissions"""
-	frappe.only_for("System Manager")
-	if isinstance(data, frappe.string_types):
+	capkpi.only_for("System Manager")
+	if isinstance(data, capkpi.string_types):
 		data = json.loads(data)
-	data = frappe._dict(data)
+	data = capkpi._dict(data)
 
 	# get all doctypes on whom this permission is applied
 	perm_applied_docs = check_applicable_doc_perm(data.user, data.doctype, data.docname)
-	exists = frappe.db.exists(
+	exists = capkpi.db.exists(
 		"User Permission",
 		{
 			"user": data.user,
@@ -272,7 +272,7 @@ def add_user_permissions(data):
 def insert_user_perm(
 	user, doctype, docname, is_default=0, hide_descendants=0, apply_to_all=None, applicable=None
 ):
-	user_perm = frappe.new_doc("User Permission")
+	user_perm = capkpi.new_doc("User Permission")
 	user_perm.user = user
 	user_perm.allow = doctype
 	user_perm.for_value = docname
@@ -288,7 +288,7 @@ def insert_user_perm(
 
 def remove_applicable(perm_applied_docs, user, doctype, docname):
 	for applicable_for in perm_applied_docs:
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""DELETE FROM `tabUser Permission`
 			WHERE `user`=%s
 			AND `applicable_for`=%s
@@ -300,7 +300,7 @@ def remove_applicable(perm_applied_docs, user, doctype, docname):
 
 
 def remove_apply_to_all(user, doctype, docname):
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""DELETE from `tabUser Permission`
 		WHERE `user`=%s
 		AND `apply_to_all_doctypes`=1
@@ -314,7 +314,7 @@ def remove_apply_to_all(user, doctype, docname):
 def update_applicable(already_applied, to_apply, user, doctype, docname):
 	for applied in already_applied:
 		if applied not in to_apply:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""DELETE FROM `tabUser Permission`
 				WHERE `user`=%s
 				AND `applicable_for`=%s

@@ -9,17 +9,17 @@ from urllib.parse import parse_qs, urlparse
 import dropbox
 from rq.timeouts import JobTimeoutException
 
-import frappe
-from frappe import _
-from frappe.integrations.offsite_backup_utils import (
+import capkpi
+from capkpi import _
+from capkpi.integrations.offsite_backup_utils import (
 	get_chunk_site,
 	get_latest_backup_file,
 	send_email,
 	validate_file_size,
 )
-from frappe.integrations.utils import make_post_request
-from frappe.model.document import Document
-from frappe.utils import (
+from capkpi.integrations.utils import make_post_request
+from capkpi.model.document import Document
+from capkpi.utils import (
 	cint,
 	encode,
 	get_backups_path,
@@ -27,31 +27,31 @@ from frappe.utils import (
 	get_request_site_address,
 	get_url,
 )
-from frappe.utils.background_jobs import enqueue
-from frappe.utils.backups import new_backup
+from capkpi.utils.background_jobs import enqueue
+from capkpi.utils.backups import new_backup
 
 ignore_list = [".DS_Store"]
 
 
 class DropboxSettings(Document):
 	def onload(self):
-		if not self.app_access_key and frappe.conf.dropbox_access_key:
+		if not self.app_access_key and capkpi.conf.dropbox_access_key:
 			self.set_onload("dropbox_setup_via_site_config", 1)
 
 	def validate(self):
 		if self.enabled and self.limit_no_of_backups and self.no_of_backups < 1:
-			frappe.throw(_("Number of DB backups cannot be less than 1"))
+			capkpi.throw(_("Number of DB backups cannot be less than 1"))
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def take_backup():
 	"""Enqueue longjob for taking backup to dropbox"""
 	enqueue(
-		"frappe.integrations.doctype.dropbox_settings.dropbox_settings.take_backup_to_dropbox",
+		"capkpi.integrations.doctype.dropbox_settings.dropbox_settings.take_backup_to_dropbox",
 		queue="long",
 		timeout=1500,
 	)
-	frappe.msgprint(_("Queued for backup. It may take a few minutes to an hour."))
+	capkpi.msgprint(_("Queued for backup. It may take a few minutes to an hour."))
 
 
 def take_backups_daily():
@@ -63,21 +63,21 @@ def take_backups_weekly():
 
 
 def take_backups_if(freq):
-	if frappe.db.get_value("Dropbox Settings", None, "backup_frequency") == freq:
+	if capkpi.db.get_value("Dropbox Settings", None, "backup_frequency") == freq:
 		take_backup_to_dropbox()
 
 
 def take_backup_to_dropbox(retry_count=0, upload_db_backup=True):
 	did_not_upload, error_log = [], []
 	try:
-		if cint(frappe.db.get_value("Dropbox Settings", None, "enabled")):
+		if cint(capkpi.db.get_value("Dropbox Settings", None, "enabled")):
 			validate_file_size()
 
 			did_not_upload, error_log = backup_to_dropbox(upload_db_backup)
 			if did_not_upload:
 				raise Exception
 
-			if cint(frappe.db.get_value("Dropbox Settings", None, "send_email_for_successful_backup")):
+			if cint(capkpi.db.get_value("Dropbox Settings", None, "send_email_for_successful_backup")):
 				send_email(True, "Dropbox", "Dropbox Settings", "send_notifications_to")
 	except JobTimeoutException:
 		if retry_count < 2:
@@ -86,24 +86,24 @@ def take_backup_to_dropbox(retry_count=0, upload_db_backup=True):
 				"upload_db_backup": False,  # considering till worker timeout db backup is uploaded
 			}
 			enqueue(
-				"frappe.integrations.doctype.dropbox_settings.dropbox_settings.take_backup_to_dropbox",
+				"capkpi.integrations.doctype.dropbox_settings.dropbox_settings.take_backup_to_dropbox",
 				queue="long",
 				timeout=1500,
 				**args
 			)
 	except Exception:
 		if isinstance(error_log, str):
-			error_message = error_log + "\n" + frappe.get_traceback()
+			error_message = error_log + "\n" + capkpi.get_traceback()
 		else:
 			file_and_error = [" - ".join(f) for f in zip(did_not_upload, error_log)]
-			error_message = "\n".join(file_and_error) + "\n" + frappe.get_traceback()
+			error_message = "\n".join(file_and_error) + "\n" + capkpi.get_traceback()
 
 		send_email(False, "Dropbox", "Dropbox Settings", "send_notifications_to", error_message)
 
 
 def backup_to_dropbox(upload_db_backup=True):
-	if not frappe.db:
-		frappe.connect()
+	if not capkpi.db:
+		capkpi.connect()
 
 	# upload database
 	dropbox_settings = get_dropbox_settings()
@@ -125,7 +125,7 @@ def backup_to_dropbox(upload_db_backup=True):
 	)
 
 	if upload_db_backup:
-		if frappe.flags.create_new_backup:
+		if capkpi.flags.create_new_backup:
 			backup = new_backup(ignore_files=True)
 			filename = os.path.join(get_backups_path(), os.path.basename(backup.backup_path_db))
 			site_config = os.path.join(get_backups_path(), os.path.basename(backup.backup_path_conf))
@@ -161,11 +161,11 @@ def upload_from_folder(
 	if is_fresh_upload():
 		response = get_uploaded_files_meta(dropbox_folder, dropbox_client)
 	else:
-		response = frappe._dict({"entries": []})
+		response = capkpi._dict({"entries": []})
 
 	path = str(path)
 
-	for f in frappe.get_all(
+	for f in capkpi.get_all(
 		"File",
 		filters={"is_folder": 0, "is_private": is_private, "uploaded_to_dropbox": 0},
 		fields=["file_url", "name", "file_name"],
@@ -189,7 +189,7 @@ def upload_from_folder(
 					update_file_dropbox_status(f.name)
 					break
 			except Exception:
-				error_log.append(frappe.get_traceback())
+				error_log.append(capkpi.get_traceback())
 
 		if not found:
 			try:
@@ -197,7 +197,7 @@ def upload_from_folder(
 				update_file_dropbox_status(f.name)
 			except Exception:
 				did_not_upload.append(filepath)
-				error_log.append(frappe.get_traceback())
+				error_log.append(capkpi.get_traceback())
 
 
 def upload_file_to_dropbox(filename, folder, dropbox_client):
@@ -235,8 +235,8 @@ def upload_file_to_dropbox(filename, folder, dropbox_client):
 	except dropbox.exceptions.ApiError as e:
 		if isinstance(e.error, dropbox.files.UploadError):
 			error = "File Path: {path}\n".format(path=path)
-			error += frappe.get_traceback()
-			frappe.log_error(error)
+			error += capkpi.get_traceback()
+			capkpi.log_error(error)
 		else:
 			raise
 
@@ -253,11 +253,11 @@ def create_folder_if_not_exists(folder, dropbox_client):
 
 
 def update_file_dropbox_status(file_name):
-	frappe.db.set_value("File", file_name, "uploaded_to_dropbox", 1, update_modified=False)
+	capkpi.db.set_value("File", file_name, "uploaded_to_dropbox", 1, update_modified=False)
 
 
 def is_fresh_upload():
-	file_name = frappe.db.get_value("File", {"uploaded_to_dropbox": 1}, "name")
+	file_name = capkpi.db.get_value("File", {"uploaded_to_dropbox": 1}, "name")
 	return not file_name
 
 
@@ -267,20 +267,20 @@ def get_uploaded_files_meta(dropbox_folder, dropbox_client):
 	except dropbox.exceptions.ApiError as e:
 		# folder not found
 		if isinstance(e.error, dropbox.files.ListFolderError):
-			return frappe._dict({"entries": []})
+			return capkpi._dict({"entries": []})
 		else:
 			raise
 
 
 def get_dropbox_settings(redirect_uri=False):
-	if not frappe.conf.dropbox_broker_site:
-		frappe.conf.dropbox_broker_site = "https://dropbox.capkpi.com"
-	settings = frappe.get_doc("Dropbox Settings")
+	if not capkpi.conf.dropbox_broker_site:
+		capkpi.conf.dropbox_broker_site = "https://dropbox.capkpi.com"
+	settings = capkpi.get_doc("Dropbox Settings")
 	app_details = {
-		"app_key": settings.app_access_key or frappe.conf.dropbox_access_key,
+		"app_key": settings.app_access_key or capkpi.conf.dropbox_access_key,
 		"app_secret": settings.get_password(fieldname="app_secret_key", raise_exception=False)
 		if settings.app_secret_key
-		else frappe.conf.dropbox_secret_key,
+		else capkpi.conf.dropbox_secret_key,
 		"access_token": settings.get_password("dropbox_access_token", raise_exception=False)
 		if settings.dropbox_access_token
 		else "",
@@ -294,9 +294,9 @@ def get_dropbox_settings(redirect_uri=False):
 		app_details.update(
 			{
 				"redirect_uri": get_request_site_address(True)
-				+ "/api/method/frappe.integrations.doctype.dropbox_settings.dropbox_settings.dropbox_auth_finish"
+				+ "/api/method/capkpi.integrations.doctype.dropbox_settings.dropbox_settings.dropbox_auth_finish"
 				if settings.app_secret_key
-				else frappe.conf.dropbox_broker_site
+				else capkpi.conf.dropbox_broker_site
 				+ "/api/method/dropbox_erp_broker.www.setup_dropbox.generate_dropbox_access_token",
 			}
 		)
@@ -322,12 +322,12 @@ def delete_older_backups(dropbox_client, folder_path, to_keep):
 		dropbox_client.files_delete(os.path.join(folder_path, f.name))
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_redirect_url():
-	if not frappe.conf.dropbox_broker_site:
-		frappe.conf.dropbox_broker_site = "https://dropbox.capkpi.com"
+	if not capkpi.conf.dropbox_broker_site:
+		capkpi.conf.dropbox_broker_site = "https://dropbox.capkpi.com"
 	url = "{0}/api/method/dropbox_erp_broker.www.setup_dropbox.get_authotize_url".format(
-		frappe.conf.dropbox_broker_site
+		capkpi.conf.dropbox_broker_site
 	)
 
 	try:
@@ -336,15 +336,15 @@ def get_redirect_url():
 			return response["message"]
 
 	except Exception:
-		frappe.log_error()
-		frappe.throw(
+		capkpi.log_error()
+		capkpi.throw(
 			_(
 				"Something went wrong while generating dropbox access token. Please check error log for more details."
 			)
 		)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_dropbox_authorize_url():
 	app_details = get_dropbox_settings(redirect_uri=True)
 	dropbox_oauth_flow = dropbox.DropboxOAuth2Flow(
@@ -360,10 +360,10 @@ def get_dropbox_authorize_url():
 	return {"auth_url": auth_url, "args": parse_qs(urlparse(auth_url).query)}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def dropbox_auth_finish(return_access_token=False):
 	app_details = get_dropbox_settings(redirect_uri=True)
-	callback = frappe.form_dict
+	callback = capkpi.form_dict
 	close = '<p class="text-muted">' + _("Please close this window") + "</p>"
 
 	dropbox_oauth_flow = dropbox.DropboxOAuth2Flow(
@@ -381,21 +381,21 @@ def dropbox_auth_finish(return_access_token=False):
 
 		set_dropbox_access_token(token.access_token)
 	else:
-		frappe.respond_as_web_page(
+		capkpi.respond_as_web_page(
 			_("Dropbox Setup"),
 			_("Illegal Access Token. Please try again") + close,
 			indicator_color="red",
-			http_status_code=frappe.AuthenticationError.http_status_code,
+			http_status_code=capkpi.AuthenticationError.http_status_code,
 		)
 
-	frappe.respond_as_web_page(
+	capkpi.respond_as_web_page(
 		_("Dropbox Setup"), _("Dropbox access is approved!") + close, indicator_color="green"
 	)
 
 
 def set_dropbox_access_token(access_token):
-	frappe.db.set_value("Dropbox Settings", None, "dropbox_access_token", access_token)
-	frappe.db.commit()
+	capkpi.db.set_value("Dropbox Settings", None, "dropbox_access_token", access_token)
+	capkpi.db.commit()
 
 
 def generate_oauth2_access_token_from_oauth1_token(dropbox_settings=None):

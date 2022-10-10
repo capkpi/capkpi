@@ -1,33 +1,33 @@
-frappe.pages['print'].on_page_load = function(wrapper) {
-	frappe.ui.make_app_page({
+capkpi.pages['print'].on_page_load = function(wrapper) {
+	capkpi.ui.make_app_page({
 		parent: wrapper,
 	});
 
-	let print_view = new frappe.ui.form.PrintView(wrapper);
+	let print_view = new capkpi.ui.form.PrintView(wrapper);
 
 	$(wrapper).bind('show', () => {
-		const route = frappe.get_route();
+		const route = capkpi.get_route();
 		const doctype = route[1];
 		const docname = route.slice(2).join("/");
-		if (!frappe.route_options || !frappe.route_options.frm) {
-			frappe.model.with_doc(doctype, docname, () => {
+		if (!capkpi.route_options || !capkpi.route_options.frm) {
+			capkpi.model.with_doc(doctype, docname, () => {
 				let frm = { doctype: doctype, docname: docname };
-				frm.doc = frappe.get_doc(doctype, docname);
-				frappe.model.with_doctype(doctype, () => {
-					frm.meta = frappe.get_meta(route[1]);
+				frm.doc = capkpi.get_doc(doctype, docname);
+				capkpi.model.with_doctype(doctype, () => {
+					frm.meta = capkpi.get_meta(route[1]);
 					print_view.show(frm);
 				});
 			});
 		} else {
-			print_view.frm = frappe.route_options.frm.doctype ?
-				frappe.route_options.frm : frappe.route_options.frm.frm;
-			frappe.route_options.frm = null;
+			print_view.frm = capkpi.route_options.frm.doctype ?
+				capkpi.route_options.frm : capkpi.route_options.frm.frm;
+			capkpi.route_options.frm = null;
 			print_view.show(print_view.frm);
 		}
 	});
 };
 
-frappe.ui.form.PrintView = class {
+capkpi.ui.form.PrintView = class {
 	constructor(wrapper) {
 		this.wrapper = $(wrapper);
 		this.page = wrapper.page;
@@ -37,7 +37,7 @@ frappe.ui.form.PrintView = class {
 	make() {
 		this.print_wrapper = this.page.main.empty().html(
 			`<div class="print-preview-wrapper"><div class="print-preview">
-				${frappe.render_template('print_skeleton_loading')}
+				${capkpi.render_template('print_skeleton_loading')}
 				<iframe class="print-format-container" width="100%" height="0" frameBorder="0" scrolling="no">
 				</iframe>
 			</div>
@@ -45,7 +45,7 @@ frappe.ui.form.PrintView = class {
 		</div>`
 		);
 
-		this.print_settings = frappe.model.get_doc(
+		this.print_settings = capkpi.model.get_doc(
 			':Print Settings',
 			'Print Settings'
 		);
@@ -73,7 +73,7 @@ frappe.ui.form.PrintView = class {
 
 		this.page.add_button(
 			__('PDF'),
-			() => this.render_page('/api/method/frappe.utils.print_format.download_pdf?'),
+			() => this.render_page('/api/method/capkpi.utils.print_format.download_pdf?'),
 			{ icon: 'small-file' }
 		);
 
@@ -143,7 +143,7 @@ frappe.ui.form.PrintView = class {
 			df.input_class = 'btn btn-default btn-sm text-left';
 		}
 
-		let field = frappe.ui.form.make_control({
+		let field = capkpi.ui.form.make_control({
 			df: df,
 			parent: is_dynamic ? this.sidebar_dynamic_section : this.sidebar,
 			render_input: 1,
@@ -168,7 +168,7 @@ frappe.ui.form.PrintView = class {
 		this.page.clear_menu();
 
 		this.page.add_menu_item(__('Print Settings'), () => {
-			frappe.set_route('Form', 'Print Settings');
+			capkpi.set_route('Form', 'Print Settings');
 		});
 
 		if (this.print_settings.enable_raw_printing == '1') {
@@ -177,7 +177,7 @@ frappe.ui.form.PrintView = class {
 			});
 		}
 
-		if (frappe.model.can_create('Print Format')) {
+		if (capkpi.model.can_create('Print Format')) {
 			this.page.add_menu_item(__('Customize'), () =>
 				this.edit_print_format()
 			);
@@ -204,18 +204,18 @@ frappe.ui.form.PrintView = class {
 		].map((fn) => fn.bind(this));
 
 		this.setup_additional_settings();
-		return frappe.run_serially(tasks);
+		return capkpi.run_serially(tasks);
 	}
 
 	set_breadcrumbs() {
-		frappe.breadcrumbs.add(this.frm.meta.module, this.frm.doctype);
+		capkpi.breadcrumbs.add(this.frm.meta.module, this.frm.doctype);
 	}
 
 	setup_additional_settings() {
 		this.additional_settings = {};
 		this.sidebar_dynamic_section.empty();
-		frappe
-			.xcall('frappe.printing.page.print.print.get_print_settings_to_show', {
+		capkpi
+			.xcall('capkpi.printing.page.print.print.get_print_settings_to_show', {
 				doctype: this.frm.doc.doctype,
 				docname: this.frm.doc.name
 			})
@@ -245,15 +245,15 @@ frappe.ui.form.PrintView = class {
 			print_format.name && print_format.custom_format;
 
 		if (is_standard_but_editable) {
-			frappe.set_route('Form', 'Print Format', print_format.name);
+			capkpi.set_route('Form', 'Print Format', print_format.name);
 			return;
 		}
 		if (is_custom_format) {
-			frappe.set_route('print-format-builder', print_format.name);
+			capkpi.set_route('print-format-builder', print_format.name);
 			return;
 		}
 		// start a new print format
-		frappe.prompt(
+		capkpi.prompt(
 			[
 				{
 					label: __('New Print Format Name'),
@@ -269,13 +269,13 @@ frappe.ui.form.PrintView = class {
 				},
 			],
 			(data) => {
-				frappe.route_options = {
+				capkpi.route_options = {
 					make_new: true,
 					doctype: this.frm.doctype,
 					name: data.print_format_name,
 					based_on: data.based_on,
 				};
-				frappe.set_route('print-format-builder');
+				capkpi.set_route('print-format-builder');
 				this.print_sel.val(data.print_format_name);
 			},
 			__('New Custom Print Format'),
@@ -306,7 +306,7 @@ frappe.ui.form.PrintView = class {
 				this.print_sel.val(e.print_format);
 			}
 			// start a new print format
-			frappe.prompt(
+			capkpi.prompt(
 				[
 					{
 						label: __('New Print Format Name'),
@@ -322,13 +322,13 @@ frappe.ui.form.PrintView = class {
 					},
 				],
 				(data) => {
-					frappe.route_options = {
+					capkpi.route_options = {
 						make_new: true,
 						doctype: this.frm.doctype,
 						name: data.print_format_name,
 						based_on: data.based_on,
 					};
-					frappe.set_route('print-format-builder');
+					capkpi.set_route('print-format-builder');
 				},
 				__('New Custom Print Format'),
 				__('Start')
@@ -338,7 +338,7 @@ frappe.ui.form.PrintView = class {
 
 	setup_keyboard_shortcuts() {
 		this.wrapper.find('.print-toolbar a.btn-default').each((i, el) => {
-			frappe.ui.keys.get_shortcut_group(this.frm.page).add($(el));
+			capkpi.ui.keys.get_shortcut_group(this.frm.page).add($(el));
 		});
 	}
 
@@ -347,7 +347,7 @@ frappe.ui.form.PrintView = class {
 		let default_letterhead;
 		let doc_letterhead = this.frm.doc.letter_head;
 
-		return frappe.db
+		return capkpi.db
 			.get_list('Letter Head', {
 				filters: {'disabled': 0},
 				fields: ['name', 'is_default'],
@@ -371,7 +371,7 @@ frappe.ui.form.PrintView = class {
 	}
 
 	get_language_options() {
-		return frappe.get_languages();
+		return capkpi.get_languages();
 	}
 
 	set_default_print_language() {
@@ -379,7 +379,7 @@ frappe.ui.form.PrintView = class {
 		this.lang_code =
 			print_format.default_print_language ||
 			this.frm.doc.language ||
-			frappe.boot.lang;
+			capkpi.boot.lang;
 		this.language_sel.val(this.lang_code);
 	}
 
@@ -402,7 +402,7 @@ frappe.ui.form.PrintView = class {
 			const print_height = $print_format.get(0).offsetHeight;
 			const $message = this.wrapper.find('.page-break-message');
 
-			const print_height_inches = frappe.dom.pixel_to_inches(print_height);
+			const print_height_inches = capkpi.dom.pixel_to_inches(print_height);
 			// if contents are large enough, indicate that it will get printed on multiple pages
 			// Maximum height for an A4 document is 11.69 inches
 			if (print_height_inches > 11.69) {
@@ -415,9 +415,9 @@ frappe.ui.form.PrintView = class {
 
 	setup_print_format_dom(out, $print_format) {
 		this.print_wrapper.find('.print-format-skeleton').remove();
-		let base_url = frappe.urllib.get_base_url();
-		let print_css_url = `${base_url}/assets/${frappe.utils.is_rtl(this.lang_code) ? 'css-rtl' : 'css'}/printview.css`;
-		this.$print_format_body.find('html').attr('dir', frappe.utils.is_rtl(this.lang_code) ? 'rtl': 'ltr');
+		let base_url = capkpi.urllib.get_base_url();
+		let print_css_url = `${base_url}/assets/${capkpi.utils.is_rtl(this.lang_code) ? 'css-rtl' : 'css'}/printview.css`;
+		this.$print_format_body.find('html').attr('dir', capkpi.utils.is_rtl(this.lang_code) ? 'rtl': 'ltr');
 		this.$print_format_body.find('html').attr('lang', this.lang_code);
 		this.$print_format_body.find('head').html(
 			`<style type="text/css">${out.style}</style>
@@ -457,10 +457,10 @@ frappe.ui.form.PrintView = class {
 	}
 
 	go_to_form_view() {
-		frappe.route_options = {
+		capkpi.route_options = {
 			frm: this,
 		};
-		frappe.set_route('Form', this.frm.doctype, this.frm.docname);
+		capkpi.set_route('Form', this.frm.doctype, this.frm.docname);
 	}
 
 	show_footer() {
@@ -491,7 +491,7 @@ frappe.ui.form.PrintView = class {
 			// printer is already mapped in localstorage (applies for both raw and pdf )
 			if (me.is_raw_printing()) {
 				me.get_raw_commands(function(out) {
-					frappe.ui.form
+					capkpi.ui.form
 						.qz_connect()
 						.then(function() {
 							let printer_map = me.get_mapped_printer()[0];
@@ -499,13 +499,13 @@ frappe.ui.form.PrintView = class {
 							let config = qz.configs.create(printer_map.printer);
 							return qz.print(config, data);
 						})
-						.then(frappe.ui.form.qz_success)
+						.then(capkpi.ui.form.qz_success)
 						.catch((err) => {
-							frappe.ui.form.qz_fail(err);
+							capkpi.ui.form.qz_fail(err);
 						});
 				});
 			} else {
-				frappe.show_alert(
+				capkpi.show_alert(
 					{
 						message: __('PDF printing via "Raw Print" is not supported.'),
 						subtitle: __(
@@ -519,7 +519,7 @@ frappe.ui.form.PrintView = class {
 			}
 		} else if (me.is_raw_printing()) {
 			// printer not mapped in localstorage and the current print format is raw printing
-			frappe.show_alert(
+			capkpi.show_alert(
 				{
 					message: __('Printer mapping not set.'),
 					subtitle: __(
@@ -538,8 +538,8 @@ frappe.ui.form.PrintView = class {
 	print_by_server() {
 		let me = this;
 		if (localStorage.getItem('network_printer')) {
-			frappe.call({
-				method: 'frappe.utils.print_format.print_by_server',
+			capkpi.call({
+				method: 'capkpi.utils.print_format.print_by_server',
 				args: {
 					doctype: me.frm.doc.doctype,
 					name: me.frm.doc.name,
@@ -553,11 +553,11 @@ frappe.ui.form.PrintView = class {
 		}
 	}
 	network_printer_setting_dialog(callback) {
-		frappe.call({
-			method: 'frappe.printing.doctype.network_printer_settings.network_printer_settings.get_network_printer_settings',
+		capkpi.call({
+			method: 'capkpi.printing.doctype.network_printer_settings.network_printer_settings.get_network_printer_settings',
 			callback: function(r) {
 				if (r.message) {
-					let d = new frappe.ui.Dialog({
+					let d = new capkpi.ui.Dialog({
 						title: __('Select Network Printer'),
 						fields: [
 							{
@@ -584,7 +584,7 @@ frappe.ui.form.PrintView = class {
 	}
 	render_page(method, printit = false) {
 		let w = window.open(
-			frappe.urllib.get_full_url(
+			capkpi.urllib.get_full_url(
 				method +
 					'doctype=' +
 					encodeURIComponent(this.frm.doc.doctype) +
@@ -603,7 +603,7 @@ frappe.ui.form.PrintView = class {
 			)
 		);
 		if (!w) {
-			frappe.msgprint(__('Please enable pop-ups'));
+			capkpi.msgprint(__('Please enable pop-ups'));
 			return;
 		}
 	}
@@ -619,8 +619,8 @@ frappe.ui.form.PrintView = class {
 		if (this._req) {
 			this._req.abort();
 		}
-		this._req = frappe.call({
-			method: 'frappe.www.printview.get_html_and_style',
+		this._req = capkpi.call({
+			method: 'capkpi.www.printview.get_html_and_style',
 			args: {
 				doc: this.frm.doc,
 				print_format: this.selected_format(),
@@ -649,8 +649,8 @@ frappe.ui.form.PrintView = class {
 
 	get_raw_commands(callback) {
 		// fetches rendered raw commands from the server for the current print format.
-		frappe.call({
-			method: 'frappe.www.printview.get_rendered_raw_commands',
+		capkpi.call({
+			method: 'capkpi.www.printview.get_rendered_raw_commands',
 			args: {
 				doc: this.frm.doc,
 				print_format: this.selected_format(),
@@ -689,7 +689,7 @@ frappe.ui.form.PrintView = class {
 	}
 
 	refresh_print_options() {
-		this.print_formats = frappe.meta.get_print_formats(this.frm.doctype);
+		this.print_formats = capkpi.meta.get_print_formats(this.frm.doctype);
 		const print_format_select_val = this.print_sel.val();
 		this.print_sel.empty().add_options([
 			this.get_default_option_for_select(__('Select Print Format')),
@@ -727,7 +727,7 @@ frappe.ui.form.PrintView = class {
 	}
 
 	set_style(style) {
-		frappe.dom.set_style(style || frappe.boot.print_css, 'print-style');
+		capkpi.dom.set_style(style || capkpi.boot.print_css, 'print-style');
 	}
 
 	printer_setting_dialog() {
@@ -735,9 +735,9 @@ frappe.ui.form.PrintView = class {
 		this.print_format_printer_map = this.get_print_format_printer_map();
 		this.data = this.print_format_printer_map[this.frm.doctype] || [];
 		this.printer_list = [];
-		frappe.ui.form.qz_get_printer_list().then((data) => {
+		capkpi.ui.form.qz_get_printer_list().then((data) => {
 			this.printer_list = data;
-			const dialog = new frappe.ui.Dialog({
+			const dialog = new capkpi.ui.Dialog({
 				title: __('Printer Settings'),
 				fields: [
 					{
@@ -782,7 +782,7 @@ frappe.ui.form.PrintView = class {
 							(item, idx) => print_format_list.indexOf(item) != idx
 						);
 						if (has_duplicate)
-							frappe.throw(
+							capkpi.throw(
 								__(
 									'Cannot have multiple printers mapped to a single print format.'
 								)
@@ -801,7 +801,7 @@ frappe.ui.form.PrintView = class {
 			});
 			dialog.show();
 			if (!(this.printer_list && this.printer_list.length)) {
-				frappe.throw(__('No Printer is Available.'));
+				capkpi.throw(__('No Printer is Available.'));
 			}
 		});
 	}

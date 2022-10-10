@@ -8,10 +8,10 @@ from distutils.spawn import find_executable
 
 import click
 
-import frappe
-from frappe.commands import get_site, pass_context
-from frappe.exceptions import SiteNotSpecifiedError
-from frappe.utils import cint, get_bench_path, update_progress_bar
+import capkpi
+from capkpi.commands import get_site, pass_context
+from capkpi.exceptions import SiteNotSpecifiedError
+from capkpi.utils import cint, get_bench_path, update_progress_bar
 
 
 @click.command("build")
@@ -37,16 +37,16 @@ from frappe.utils import cint, get_bench_path, update_progress_bar
 )
 def build(app=None, hard_link=False, make_copy=False, restore=False, verbose=False, force=False):
 	"Minify + concatenate JS and CSS files, build translations"
-	frappe.init("")
+	capkpi.init("")
 	# don't minify in developer_mode for faster builds
-	no_compress = frappe.local.conf.developer_mode or False
+	no_compress = capkpi.local.conf.developer_mode or False
 
 	# dont try downloading assets if force used, app specified or running via CI
 	if not (force or app or os.environ.get("CI")):
-		# skip building frappe if assets exist remotely
-		skip_frappe = frappe.build.download_frappe_assets(verbose=verbose)
+		# skip building capkpi if assets exist remotely
+		skip_capkpi = capkpi.build.download_capkpi_assets(verbose=verbose)
 	else:
-		skip_frappe = False
+		skip_capkpi = False
 
 	if make_copy or restore:
 		hard_link = make_copy or restore
@@ -55,8 +55,8 @@ def build(app=None, hard_link=False, make_copy=False, restore=False, verbose=Fal
 			fg="yellow",
 		)
 
-	frappe.build.bundle(
-		skip_frappe=skip_frappe,
+	capkpi.build.bundle(
+		skip_capkpi=skip_capkpi,
 		no_compress=no_compress,
 		hard_link=hard_link,
 		verbose=verbose,
@@ -67,28 +67,28 @@ def build(app=None, hard_link=False, make_copy=False, restore=False, verbose=Fal
 @click.command("watch")
 def watch():
 	"Watch and concatenate JS and CSS files as and when they change"
-	import frappe.build
+	import capkpi.build
 
-	frappe.init("")
-	frappe.build.watch(True)
+	capkpi.init("")
+	capkpi.build.watch(True)
 
 
 @click.command("clear-cache")
 @pass_context
 def clear_cache(context):
 	"Clear cache, doctype cache and defaults"
-	import frappe.sessions
-	import frappe.website.render
-	from frappe.desk.notifications import clear_notifications
+	import capkpi.sessions
+	import capkpi.website.render
+	from capkpi.desk.notifications import clear_notifications
 
 	for site in context.sites:
 		try:
-			frappe.connect(site)
-			frappe.clear_cache()
+			capkpi.connect(site)
+			capkpi.clear_cache()
 			clear_notifications()
-			frappe.website.render.clear_cache()
+			capkpi.website.render.clear_cache()
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -97,15 +97,15 @@ def clear_cache(context):
 @pass_context
 def clear_website_cache(context):
 	"Clear website cache"
-	import frappe.website.render
+	import capkpi.website.render
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
-			frappe.website.render.clear_cache()
+			capkpi.init(site=site)
+			capkpi.connect()
+			capkpi.website.render.clear_cache()
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -115,16 +115,16 @@ def clear_website_cache(context):
 @pass_context
 def destroy_all_sessions(context, reason=None):
 	"Clear sessions of all users (logs them out)"
-	import frappe.sessions
+	import capkpi.sessions
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
-			frappe.sessions.clear_all_sessions(reason)
-			frappe.db.commit()
+			capkpi.init(site=site)
+			capkpi.connect()
+			capkpi.sessions.clear_all_sessions(reason)
+			capkpi.db.commit()
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -141,7 +141,7 @@ def show_config(context, format):
 	sites_config = {}
 	sites_path = os.getcwd()
 
-	from frappe.utils.commands import render_table
+	from capkpi.utils.commands import render_table
 
 	def transform_config(config, prefix=None):
 		prefix = f"{prefix}." if prefix else ""
@@ -157,14 +157,14 @@ def show_config(context, format):
 		return site_config
 
 	for site in context.sites:
-		frappe.init(site)
+		capkpi.init(site)
 
 		if len(context.sites) != 1 and format == "text":
 			if context.sites.index(site) != 0:
 				click.echo()
 			click.secho(f"Site {site}", fg="yellow")
 
-		configuration = frappe.get_site_config(sites_path=sites_path, site_path=site)
+		configuration = capkpi.get_site_config(sites_path=sites_path, site_path=site)
 
 		if format == "text":
 			data = transform_config(configuration)
@@ -174,30 +174,30 @@ def show_config(context, format):
 		if format == "json":
 			sites_config[site] = configuration
 
-		frappe.destroy()
+		capkpi.destroy()
 
 	if format == "json":
-		click.echo(frappe.as_json(sites_config))
+		click.echo(capkpi.as_json(sites_config))
 
 
 @click.command("reset-perms")
 @pass_context
 def reset_perms(context):
 	"Reset permissions for all doctypes"
-	from frappe.permissions import reset_perms
+	from capkpi.permissions import reset_perms
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
-			for d in frappe.db.sql_list(
+			capkpi.init(site=site)
+			capkpi.connect()
+			for d in capkpi.db.sql_list(
 				"""select name from `tabDocType`
 				where istable=0 and custom=0"""
 			):
-				frappe.clear_cache(doctype=d)
+				capkpi.clear_cache(doctype=d)
 				reset_perms(d)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -213,8 +213,8 @@ def execute(context, method, args=None, kwargs=None, profile=False):
 	for site in context.sites:
 		ret = ""
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 
 			if args:
 				try:
@@ -236,9 +236,9 @@ def execute(context, method, args=None, kwargs=None, profile=False):
 				pr.enable()
 
 			try:
-				ret = frappe.get_attr(method)(*args, **kwargs)
+				ret = capkpi.get_attr(method)(*args, **kwargs)
 			except Exception:
-				ret = frappe.safe_eval(
+				ret = capkpi.safe_eval(
 					method + "(*args, **kwargs)", eval_globals=globals(), eval_locals=locals()
 				)
 
@@ -252,12 +252,12 @@ def execute(context, method, args=None, kwargs=None, profile=False):
 				pstats.Stats(pr, stream=s).sort_stats("cumulative").print_stats(0.5)
 				print(s.getvalue())
 
-			if frappe.db:
-				frappe.db.commit()
+			if capkpi.db:
+				capkpi.db.commit()
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 		if ret:
-			from frappe.utils.response import json_handler
+			from capkpi.utils.response import json_handler
 
 			print(json.dumps(ret, default=json_handler))
 
@@ -273,14 +273,14 @@ def add_to_email_queue(context, email_path):
 	site = get_site(context)
 
 	if os.path.isdir(email_path):
-		with frappe.init_site(site):
-			frappe.connect()
+		with capkpi.init_site(site):
+			capkpi.connect()
 			for email in os.listdir(email_path):
 				with open(os.path.join(email_path, email)) as email_data:
 					kwargs = json.load(email_data)
 					kwargs["delayed"] = True
-					frappe.sendmail(**kwargs)
-					frappe.db.commit()
+					capkpi.sendmail(**kwargs)
+					capkpi.db.commit()
 
 
 @click.command("export-doc")
@@ -289,15 +289,15 @@ def add_to_email_queue(context, email_path):
 @pass_context
 def export_doc(context, doctype, docname):
 	"Export a single document to csv"
-	import frappe.modules
+	import capkpi.modules
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
-			frappe.modules.export_doc(doctype, docname)
+			capkpi.init(site=site)
+			capkpi.connect()
+			capkpi.modules.export_doc(doctype, docname)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -309,15 +309,15 @@ def export_doc(context, doctype, docname):
 @pass_context
 def export_json(context, doctype, path, name=None):
 	"Export doclist as json to the given path, use '-' as name for Singles."
-	from frappe.core.doctype.data_import.data_import import export_json
+	from capkpi.core.doctype.data_import.data_import import export_json
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 			export_json(doctype, path, name=name)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -328,15 +328,15 @@ def export_json(context, doctype, path, name=None):
 @pass_context
 def export_csv(context, doctype, path):
 	"Export data import template with data for DocType"
-	from frappe.core.doctype.data_import.data_import import export_csv
+	from capkpi.core.doctype.data_import.data_import import export_csv
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 			export_csv(doctype, path)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -346,15 +346,15 @@ def export_csv(context, doctype, path):
 @pass_context
 def export_fixtures(context, app=None):
 	"Export fixtures"
-	from frappe.utils.fixtures import export_fixtures
+	from capkpi.utils.fixtures import export_fixtures
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 			export_fixtures(app=app)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -364,7 +364,7 @@ def export_fixtures(context, app=None):
 @pass_context
 def import_doc(context, path, force=False):
 	"Import (insert/update) doclist. If the argument is a directory, all files ending with .json are imported"
-	from frappe.core.doctype.data_import.data_import import import_doc
+	from capkpi.core.doctype.data_import.data_import import import_doc
 
 	if not os.path.exists(path):
 		path = os.path.join("..", path)
@@ -374,11 +374,11 @@ def import_doc(context, path, force=False):
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 			import_doc(path)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -408,8 +408,8 @@ def import_csv(
 	no_email=True,
 ):
 	"Import CSV using data import"
-	from frappe.core.doctype.data_import_legacy import importer
-	from frappe.utils.csvutils import read_csv_content
+	from capkpi.core.doctype.data_import_legacy import importer
+	from capkpi.utils.csvutils import read_csv_content
 
 	site = get_site(context)
 
@@ -422,8 +422,8 @@ def import_csv(
 	with open(path, "r") as csvfile:
 		content = read_csv_content(csvfile.read())
 
-	frappe.init(site=site)
-	frappe.connect()
+	capkpi.init(site=site)
+	capkpi.connect()
 
 	try:
 		importer.upload(
@@ -434,11 +434,11 @@ def import_csv(
 			overwrite=not only_insert,
 			via_console=True,
 		)
-		frappe.db.commit()
+		capkpi.db.commit()
 	except Exception:
-		print(frappe.get_traceback())
+		print(capkpi.get_traceback())
 
-	frappe.destroy()
+	capkpi.destroy()
 
 
 @click.command("data-import")
@@ -462,14 +462,14 @@ def data_import(
 	context, file_path, doctype, import_type=None, submit_after_import=False, mute_emails=True
 ):
 	"Import documents in bulk from CSV or XLSX using data import"
-	from frappe.core.doctype.data_import.data_import import import_file
+	from capkpi.core.doctype.data_import.data_import import import_file
 
 	site = get_site(context)
 
-	frappe.init(site=site)
-	frappe.connect()
+	capkpi.init(site=site)
+	capkpi.connect()
 	import_file(doctype, file_path, import_type, submit_after_import, console=True)
-	frappe.destroy()
+	capkpi.destroy()
 
 
 @click.command("bulk-rename")
@@ -478,20 +478,20 @@ def data_import(
 @pass_context
 def bulk_rename(context, doctype, path):
 	"Rename multiple records via CSV file"
-	from frappe.model.rename_doc import bulk_rename
-	from frappe.utils.csvutils import read_csv_content
+	from capkpi.model.rename_doc import bulk_rename
+	from capkpi.utils.csvutils import read_csv_content
 
 	site = get_site(context)
 
 	with open(path, "r") as csvfile:
 		rows = read_csv_content(csvfile.read())
 
-	frappe.init(site=site)
-	frappe.connect()
+	capkpi.init(site=site)
+	capkpi.connect()
 
 	bulk_rename(doctype, rows, via_console=True)
 
-	frappe.destroy()
+	capkpi.destroy()
 
 
 @click.command("mariadb")
@@ -505,7 +505,7 @@ def mariadb(context):
 	site = get_site(context)
 	if not site:
 		raise SiteNotSpecifiedError
-	frappe.init(site=site)
+	capkpi.init(site=site)
 
 	# This is assuming you're within the bench instance.
 	mysql = find_executable("mysql")
@@ -514,11 +514,11 @@ def mariadb(context):
 		[
 			mysql,
 			"-u",
-			frappe.conf.db_name,
-			"-p" + frappe.conf.db_password,
-			frappe.conf.db_name,
+			capkpi.conf.db_name,
+			"-p" + capkpi.conf.db_password,
+			capkpi.conf.db_name,
 			"-h",
-			frappe.conf.db_host or "localhost",
+			capkpi.conf.db_host or "localhost",
 			"--pager=less -SFX",
 			"--safe-updates",
 			"-A",
@@ -533,10 +533,10 @@ def postgres(context):
 	Enter into postgres console for a given site.
 	"""
 	site = get_site(context)
-	frappe.init(site=site)
+	capkpi.init(site=site)
 	# This is assuming you're within the bench instance.
 	psql = find_executable("psql")
-	subprocess.run([psql, "-d", frappe.conf.db_name])
+	subprocess.run([psql, "-d", capkpi.conf.db_name])
 
 
 @click.command("jupyter")
@@ -551,10 +551,10 @@ def jupyter(context):
 		subprocess.check_output([sys.executable, "-m", "pip", "install", "jupyter"])
 
 	site = get_site(context)
-	frappe.init(site=site)
+	capkpi.init(site=site)
 
-	jupyter_notebooks_path = os.path.abspath(frappe.get_site_path("jupyter_notebooks"))
-	sites_path = os.path.abspath(frappe.get_site_path(".."))
+	jupyter_notebooks_path = os.path.abspath(capkpi.get_site_path("jupyter_notebooks"))
+	sites_path = os.path.abspath(capkpi.get_site_path(".."))
 
 	try:
 		os.stat(jupyter_notebooks_path)
@@ -565,13 +565,13 @@ def jupyter(context):
 	print(
 		"""
 Starting Jupyter notebook
-Run the following in your first cell to connect notebook to frappe
+Run the following in your first cell to connect notebook to capkpi
 ```
-import frappe
-frappe.init(site='{site}', sites_path='{sites_path}')
-frappe.connect()
-frappe.local.lang = frappe.db.get_default('lang')
-frappe.db.connect()
+import capkpi
+capkpi.init(site='{site}', sites_path='{sites_path}')
+capkpi.connect()
+capkpi.local.lang = capkpi.db.get_default('lang')
+capkpi.db.connect()
 ```
 	""".format(
 			site=site, sites_path=sites_path
@@ -594,13 +594,13 @@ def console(context):
 	import warnings
 
 	site = get_site(context)
-	frappe.init(site=site)
-	frappe.connect()
-	frappe.local.lang = frappe.db.get_default("lang")
+	capkpi.init(site=site)
+	capkpi.connect()
+	capkpi.local.lang = capkpi.db.get_default("lang")
 
 	import IPython
 
-	all_apps = frappe.get_installed_apps()
+	all_apps = capkpi.get_installed_apps()
 	failed_to_import = []
 
 	for app in all_apps:
@@ -658,13 +658,13 @@ def run_tests(
 ):
 
 	"Run tests"
-	import frappe.test_runner
+	import capkpi.test_runner
 
 	tests = test
 
 	site = get_site(context)
 
-	allow_tests = frappe.get_conf(site).allow_tests
+	allow_tests = capkpi.get_conf(site).allow_tests
 
 	if not (allow_tests or os.environ.get("CI")):
 		click.secho("Testing is disabled for the site!", bold=True)
@@ -672,24 +672,24 @@ def run_tests(
 		click.secho("bench --site {0} set-config allow_tests true".format(site), fg="green")
 		return
 
-	frappe.init(site=site)
+	capkpi.init(site=site)
 
-	frappe.flags.skip_before_tests = skip_before_tests
-	frappe.flags.skip_test_records = skip_test_records
+	capkpi.flags.skip_before_tests = skip_before_tests
+	capkpi.flags.skip_test_records = skip_test_records
 
 	if coverage:
 		from coverage import Coverage
 
-		from frappe.coverage import FRAPPE_EXCLUSIONS, STANDARD_EXCLUSIONS, STANDARD_INCLUSIONS
+		from capkpi.coverage import CAPKPI_EXCLUSIONS, STANDARD_EXCLUSIONS, STANDARD_INCLUSIONS
 
 		# Generate coverage report only for app that is being tested
-		source_path = os.path.join(get_bench_path(), "apps", app or "frappe")
+		source_path = os.path.join(get_bench_path(), "apps", app or "capkpi")
 		omit = STANDARD_EXCLUSIONS[:]
 
-		if not app or app == "frappe":
-			omit.extend(FRAPPE_EXCLUSIONS)
+		if not app or app == "capkpi":
+			omit.extend(CAPKPI_EXCLUSIONS)
 
-		ret = frappe.test_runner.main(
+		ret = capkpi.test_runner.main(
 			app,
 			module,
 			doctype,
@@ -707,7 +707,7 @@ def run_tests(
 		cov = Coverage(source=[source_path], omit=omit, include=STANDARD_INCLUSIONS)
 		cov.start()
 
-	ret = frappe.test_runner.main(
+	ret = capkpi.test_runner.main(
 		app,
 		module,
 		doctype,
@@ -733,7 +733,7 @@ def run_tests(
 
 
 @click.command("run-parallel-tests")
-@click.option("--app", help="For App", default="frappe")
+@click.option("--app", help="For App", default="capkpi")
 @click.option("--build-number", help="Build number", default=1)
 @click.option("--total-builds", help="Total number of builds", default=1)
 @click.option("--with-coverage", is_flag=True, help="Build coverage file")
@@ -744,11 +744,11 @@ def run_parallel_tests(
 ):
 	site = get_site(context)
 	if use_orchestrator:
-		from frappe.parallel_test_runner import ParallelTestWithOrchestrator
+		from capkpi.parallel_test_runner import ParallelTestWithOrchestrator
 
 		ParallelTestWithOrchestrator(app, site=site, with_coverage=with_coverage)
 	else:
-		from frappe.parallel_test_runner import ParallelTestRunner
+		from capkpi.parallel_test_runner import ParallelTestRunner
 
 		ParallelTestRunner(
 			app,
@@ -768,9 +768,9 @@ def run_parallel_tests(
 def run_ui_tests(context, app, headless=False, parallel=True, ci_build_id=None):
 	"Run UI tests"
 	site = get_site(context)
-	app_base_path = os.path.abspath(os.path.join(frappe.get_app_path(app), ".."))
-	site_url = frappe.utils.get_site_url(site)
-	admin_password = frappe.get_conf(site).admin_password
+	app_base_path = os.path.abspath(os.path.join(capkpi.get_app_path(app), ".."))
+	site_url = capkpi.utils.get_site_url(site)
+	admin_password = capkpi.get_conf(site).admin_password
 
 	# override baseUrl using env variable
 	site_env = f"CYPRESS_baseUrl={site_url}"
@@ -792,7 +792,7 @@ def run_ui_tests(context, app, headless=False, parallel=True, ci_build_id=None):
 	):
 		# install cypress
 		click.secho("Installing Cypress...", fg="yellow")
-		frappe.commands.popen(
+		capkpi.commands.popen(
 			"yarn add cypress@^6 cypress-file-upload@^5 @4tw/cypress-drag-drop@^2 @testing-library/cypress@^8 --no-lockfile"
 		)
 
@@ -810,7 +810,7 @@ def run_ui_tests(context, app, headless=False, parallel=True, ci_build_id=None):
 		formatted_command += f" --ci-build-id {ci_build_id}"
 
 	click.secho("Running Cypress...", fg="yellow")
-	frappe.commands.popen(formatted_command, cwd=app_base_path, raise_err=True)
+	capkpi.commands.popen(formatted_command, cwd=app_base_path, raise_err=True)
 
 
 @click.command("serve")
@@ -823,14 +823,14 @@ def serve(
 	context, port=None, profile=False, no_reload=False, no_threading=False, sites_path=".", site=None
 ):
 	"Start development web server"
-	import frappe.app
+	import capkpi.app
 
 	if not context.sites:
 		site = None
 	else:
 		site = context.sites[0]
 
-	frappe.app.serve(
+	capkpi.app.serve(
 		port=port,
 		profile=profile,
 		no_reload=no_reload,
@@ -846,32 +846,32 @@ def serve(
 @pass_context
 def request(context, args=None, path=None):
 	"Run a request as an admin"
-	import frappe.api
-	import frappe.handler
+	import capkpi.api
+	import capkpi.handler
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 			if args:
 				if "?" in args:
-					frappe.local.form_dict = frappe._dict([a.split("=") for a in args.split("?")[-1].split("&")])
+					capkpi.local.form_dict = capkpi._dict([a.split("=") for a in args.split("?")[-1].split("&")])
 				else:
-					frappe.local.form_dict = frappe._dict()
+					capkpi.local.form_dict = capkpi._dict()
 
 				if args.startswith("/api/method"):
-					frappe.local.form_dict.cmd = args.split("?")[0].split("/")[-1]
+					capkpi.local.form_dict.cmd = args.split("?")[0].split("/")[-1]
 			elif path:
 				with open(os.path.join("..", path), "r") as f:
 					args = json.loads(f.read())
 
-				frappe.local.form_dict = frappe._dict(args)
+				capkpi.local.form_dict = capkpi._dict(args)
 
-			frappe.handler.execute_cmd(frappe.form_dict.cmd)
+			capkpi.handler.execute_cmd(capkpi.form_dict.cmd)
 
-			print(frappe.response)
+			print(capkpi.response)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -881,7 +881,7 @@ def request(context, args=None, path=None):
 @click.argument("app_name")
 def make_app(destination, app_name):
 	"Creates a boilerplate app"
-	from frappe.utils.boilerplate import make_boilerplate
+	from capkpi.utils.boilerplate import make_boilerplate
 
 	make_boilerplate(destination, app_name)
 
@@ -897,10 +897,10 @@ def make_app(destination, app_name):
 @pass_context
 def set_config(context, key, value, global_=False, parse=False, as_dict=False):
 	"Insert/Update a value in site_config.json"
-	from frappe.installer import update_site_config
+	from capkpi.installer import update_site_config
 
 	if as_dict:
-		from frappe.utils.commands import warn
+		from capkpi.utils.commands import warn
 
 		warn(
 			"--as-dict will be deprecated in v14. Use --parse instead", category=PendingDeprecationWarning
@@ -918,9 +918,9 @@ def set_config(context, key, value, global_=False, parse=False, as_dict=False):
 		update_site_config(key, value, validate=False, site_config_path=common_site_config_path)
 	else:
 		for site in context.sites:
-			frappe.init(site=site)
+			capkpi.init(site=site)
 			update_site_config(key, value, validate=False)
-			frappe.destroy()
+			capkpi.destroy()
 
 
 @click.command("version")
@@ -937,20 +937,20 @@ def get_version(output):
 	from git import Repo
 	from git.exc import InvalidGitRepositoryError
 
-	from frappe.utils.change_log import get_app_branch
-	from frappe.utils.commands import render_table
+	from capkpi.utils.change_log import get_app_branch
+	from capkpi.utils.commands import render_table
 
-	frappe.init("")
+	capkpi.init("")
 	data = []
 
-	for app in sorted(frappe.get_all_apps()):
-		module = frappe.get_module(app)
-		app_hooks = frappe.get_module(app + ".hooks")
+	for app in sorted(capkpi.get_all_apps()):
+		module = capkpi.get_module(app)
+		app_hooks = capkpi.get_module(app + ".hooks")
 
-		app_info = frappe._dict()
+		app_info = capkpi._dict()
 
 		try:
-			app_info.commit = Repo(frappe.get_app_path(app, "..")).head.object.hexsha[:7]
+			app_info.commit = Repo(capkpi.get_app_path(app, "..")).head.object.hexsha[:7]
 		except InvalidGitRepositoryError:
 			app_info.commit = ""
 
@@ -981,7 +981,7 @@ def get_version(output):
 @pass_context
 def rebuild_global_search(context, static_pages=False):
 	"""Setup help table in the current site (called after migrate)"""
-	from frappe.utils.global_search import (
+	from capkpi.utils.global_search import (
 		add_route_to_global_search,
 		get_doctypes_with_global_search,
 		get_routes_to_index,
@@ -991,14 +991,14 @@ def rebuild_global_search(context, static_pages=False):
 
 	for site in context.sites:
 		try:
-			frappe.init(site)
-			frappe.connect()
+			capkpi.init(site)
+			capkpi.connect()
 
 			if static_pages:
 				routes = get_routes_to_index()
 				for i, route in enumerate(routes):
 					add_route_to_global_search(route)
-					frappe.local.request = None
+					capkpi.local.request = None
 					update_progress_bar("Rebuilding Global Search", i, len(routes))
 				sync_global_search()
 			else:
@@ -1008,7 +1008,7 @@ def rebuild_global_search(context, static_pages=False):
 					update_progress_bar("Rebuilding Global Search", i, len(doctypes))
 
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 

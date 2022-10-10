@@ -9,9 +9,9 @@ import sys
 
 import _socket
 
-import frappe
-from frappe import _
-from frappe.utils import cint, cstr, parse_addr
+import capkpi
+from capkpi import _
+from capkpi.utils import cint, cstr, parse_addr
 
 
 def send(email, append_to=None, retry=1):
@@ -26,10 +26,10 @@ def send(email, append_to=None, retry=1):
 
 			smtpserver.sess.sendmail(email.sender, email.recipients + (email.cc or []), email_body)
 		except smtplib.SMTPSenderRefused:
-			frappe.throw(_("Invalid login or password"), title="Email Failed")
+			capkpi.throw(_("Invalid login or password"), title="Email Failed")
 			raise
 		except smtplib.SMTPRecipientsRefused:
-			frappe.msgprint(_("Invalid recipient address"), title="Email Failed")
+			capkpi.msgprint(_("Invalid recipient address"), title="Email Failed")
 			raise
 		except (smtplib.SMTPServerDisconnected, smtplib.SMTPAuthenticationError):
 			if not retry:
@@ -52,13 +52,13 @@ def get_outgoing_email_account(raise_exception_not_set=True, append_to=None, sen
 	if sender:
 		sender_email_id = parse_addr(sender)[1]
 
-	if not getattr(frappe.local, "outgoing_email_account", None):
-		frappe.local.outgoing_email_account = {}
+	if not getattr(capkpi.local, "outgoing_email_account", None):
+		capkpi.local.outgoing_email_account = {}
 
 	if not (
-		frappe.local.outgoing_email_account.get(append_to)
-		or frappe.local.outgoing_email_account.get(sender_email_id)
-		or frappe.local.outgoing_email_account.get("default")
+		capkpi.local.outgoing_email_account.get(append_to)
+		or capkpi.local.outgoing_email_account.get(sender_email_id)
+		or capkpi.local.outgoing_email_account.get("default")
 	):
 		email_account = None
 
@@ -68,7 +68,7 @@ def get_outgoing_email_account(raise_exception_not_set=True, append_to=None, sen
 
 		if not email_account and append_to:
 			# append_to is only valid when enable_incoming is checked
-			email_accounts = frappe.db.get_values(
+			email_accounts = capkpi.db.get_values(
 				"Email Account",
 				{
 					"enable_outgoing": 1,
@@ -100,11 +100,11 @@ def get_outgoing_email_account(raise_exception_not_set=True, append_to=None, sen
 		if (
 			not email_account
 			and raise_exception_not_set
-			and cint(frappe.db.get_single_value("System Settings", "setup_complete"))
+			and cint(capkpi.db.get_single_value("System Settings", "setup_complete"))
 		):
-			frappe.throw(
+			capkpi.throw(
 				_("Please setup default Email Account from Setup > Email > Email Account"),
-				frappe.OutgoingEmailError,
+				capkpi.OutgoingEmailError,
 			)
 
 		if email_account:
@@ -120,12 +120,12 @@ def get_outgoing_email_account(raise_exception_not_set=True, append_to=None, sen
 				(email_account.name, email_account.get("email_id"))
 			)
 
-		frappe.local.outgoing_email_account[append_to or sender_email_id or "default"] = email_account
+		capkpi.local.outgoing_email_account[append_to or sender_email_id or "default"] = email_account
 
 	return (
-		frappe.local.outgoing_email_account.get(append_to)
-		or frappe.local.outgoing_email_account.get(sender_email_id)
-		or frappe.local.outgoing_email_account.get("default")
+		capkpi.local.outgoing_email_account.get(append_to)
+		or capkpi.local.outgoing_email_account.get(sender_email_id)
+		or capkpi.local.outgoing_email_account.get("default")
 	)
 
 
@@ -147,45 +147,45 @@ def get_default_outgoing_email_account(raise_exception_not_set=True):
 	if email_account:
 		email_account.password = email_account.get_password(raise_exception=False)
 
-	if not email_account and frappe.conf.get("mail_server"):
+	if not email_account and capkpi.conf.get("mail_server"):
 		# from site_config.json
-		email_account = frappe.new_doc("Email Account")
+		email_account = capkpi.new_doc("Email Account")
 		email_account.update(
 			{
-				"smtp_server": frappe.conf.get("mail_server"),
-				"smtp_port": frappe.conf.get("mail_port"),
+				"smtp_server": capkpi.conf.get("mail_server"),
+				"smtp_port": capkpi.conf.get("mail_port"),
 				# legacy: use_ssl was used in site_config instead of use_tls, but meant the same thing
-				"use_tls": cint(frappe.conf.get("use_tls") or 0) or cint(frappe.conf.get("use_ssl") or 0),
-				"login_id": frappe.conf.get("mail_login"),
-				"email_id": frappe.conf.get("auto_email_id")
-				or frappe.conf.get("mail_login")
+				"use_tls": cint(capkpi.conf.get("use_tls") or 0) or cint(capkpi.conf.get("use_ssl") or 0),
+				"login_id": capkpi.conf.get("mail_login"),
+				"email_id": capkpi.conf.get("auto_email_id")
+				or capkpi.conf.get("mail_login")
 				or "notifications@example.com",
-				"password": frappe.conf.get("mail_password"),
-				"always_use_account_email_id_as_sender": frappe.conf.get(
+				"password": capkpi.conf.get("mail_password"),
+				"always_use_account_email_id_as_sender": capkpi.conf.get(
 					"always_use_account_email_id_as_sender", 0
 				),
-				"always_use_account_name_as_sender_name": frappe.conf.get(
+				"always_use_account_name_as_sender_name": capkpi.conf.get(
 					"always_use_account_name_as_sender_name", 0
 				),
 			}
 		)
 		email_account.from_site_config = True
-		email_account.name = frappe.conf.get("email_sender_name") or "CapKPI"
+		email_account.name = capkpi.conf.get("email_sender_name") or "CapKPI"
 
 	if not email_account and not raise_exception_not_set:
 		return None
 
-	if frappe.are_emails_muted():
+	if capkpi.are_emails_muted():
 		# create a stub
-		email_account = frappe.new_doc("Email Account")
+		email_account = capkpi.new_doc("Email Account")
 		email_account.update({"email_id": "notifications@example.com"})
 
 	return email_account
 
 
 def _get_email_account(filters):
-	name = frappe.db.get_value("Email Account", filters)
-	return frappe.get_doc("Email Account", name) if name else None
+	name = capkpi.db.get_value("Email Account", filters)
+	return capkpi.get_doc("Email Account", name) if name else None
 
 
 class SMTPServer:
@@ -226,7 +226,7 @@ class SMTPServer:
 			self.login = getattr(self.email_account, "login_id", None) or self.email_account.email_id
 			if not self.email_account.no_smtp_authentication:
 				if self.email_account.ascii_encode_password:
-					self.password = frappe.safe_encode(self.email_account.password, "ascii")
+					self.password = capkpi.safe_encode(self.email_account.password, "ascii")
 				else:
 					self.password = self.email_account.password
 			else:
@@ -254,8 +254,8 @@ class SMTPServer:
 			err_msg = _(
 				"Email Account not setup. Please create a new Email Account from Setup > Email > Email Account"
 			)
-			frappe.msgprint(err_msg)
-			raise frappe.OutgoingEmailError(err_msg)
+			capkpi.msgprint(err_msg)
+			raise capkpi.OutgoingEmailError(err_msg)
 
 		try:
 			if self.use_ssl:
@@ -271,8 +271,8 @@ class SMTPServer:
 
 			if not self._sess:
 				err_msg = _("Could not connect to outgoing email server")
-				frappe.msgprint(err_msg)
-				raise frappe.OutgoingEmailError(err_msg)
+				capkpi.msgprint(err_msg)
+				raise capkpi.OutgoingEmailError(err_msg)
 
 			if self.use_tls:
 				self._sess.ehlo()
@@ -284,24 +284,24 @@ class SMTPServer:
 
 				# check if logged correctly
 				if ret[0] != 235:
-					frappe.msgprint(ret[1])
-					raise frappe.OutgoingEmailError(ret[1])
+					capkpi.msgprint(ret[1])
+					raise capkpi.OutgoingEmailError(ret[1])
 
 			return self._sess
 
 		except smtplib.SMTPAuthenticationError as e:
-			from frappe.email.doctype.email_account.email_account import EmailAccount
+			from capkpi.email.doctype.email_account.email_account import EmailAccount
 
 			EmailAccount.throw_invalid_credentials_exception()
 
 		except _socket.error as e:
 			# Invalid mail server -- due to refusing connection
-			frappe.throw(
+			capkpi.throw(
 				_("Invalid Outgoing Mail Server or Port"),
-				exc=frappe.ValidationError,
+				exc=capkpi.ValidationError,
 				title=_("Incorrect Configuration"),
 			)
 
 		except smtplib.SMTPException:
-			frappe.msgprint(_("Unable to send emails at this time"))
+			capkpi.msgprint(_("Unable to send emails at this time"))
 			raise

@@ -1,11 +1,11 @@
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 
 def execute():
-	frappe.reload_doctype("System Settings")
-	doc = frappe.get_single("System Settings")
+	capkpi.reload_doctype("System Settings")
+	doc = capkpi.get_single("System Settings")
 	doc.enable_chat = 1
 
 	# Changes prescribed by Nabin Hait (nabin@capkpi.com)

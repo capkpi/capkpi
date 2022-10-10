@@ -1,7 +1,7 @@
-import frappe
-from frappe import _
-from frappe.database.schema import DBTable, get_definition
-from frappe.utils import cint, flt
+import capkpi
+from capkpi import _
+from capkpi.database.schema import DBTable, get_definition
+from capkpi.utils import cint, flt
 
 
 class PostgresTable(DBTable):
@@ -15,7 +15,7 @@ class PostgresTable(DBTable):
 
 		# TODO: set docstatus length
 		# create table
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""create table `%s` (
 			name varchar({varchar_len}) not null primary key,
 			creation timestamp(6),
@@ -28,21 +28,21 @@ class PostgresTable(DBTable):
 			parenttype varchar({varchar_len}),
 			idx bigint not null default '0',
 			%s)""".format(
-				varchar_len=frappe.db.VARCHAR_LEN
+				varchar_len=capkpi.db.VARCHAR_LEN
 			)
 			% (self.table_name, add_text)
 		)
 
 		self.create_indexes()
-		frappe.db.commit()
+		capkpi.db.commit()
 
 	def create_indexes(self):
 		create_index_query = ""
 		for key, col in self.columns.items():
 			if (
 				col.set_index
-				and col.fieldtype in frappe.db.type_map
-				and frappe.db.type_map.get(col.fieldtype)[0] not in ("text", "longtext")
+				and col.fieldtype in capkpi.db.type_map
+				and capkpi.db.type_map.get(col.fieldtype)[0] not in ("text", "longtext")
 			):
 				create_index_query += (
 					'CREATE INDEX IF NOT EXISTS "{index_name}" ON `{table_name}`(`{field}`);'.format(
@@ -51,7 +51,7 @@ class PostgresTable(DBTable):
 				)
 		if create_index_query:
 			# nosemgrep
-			frappe.db.sql(create_index_query)
+			capkpi.db.sql(create_index_query)
 
 	def alter(self):
 		for col in self.columns.values():
@@ -94,7 +94,7 @@ class PostgresTable(DBTable):
 				col_default = "NULL"
 
 			else:
-				col_default = "{}".format(frappe.db.escape(col.default))
+				col_default = "{}".format(capkpi.db.escape(col.default))
 
 			query.append("ALTER COLUMN `{}` SET DEFAULT {}".format(col.fieldname, col_default))
 
@@ -131,20 +131,20 @@ class PostgresTable(DBTable):
 			if query:
 				final_alter_query = "ALTER TABLE `{}` {}".format(self.table_name, ", ".join(query))
 				# nosemgrep
-				frappe.db.sql(final_alter_query)
+				capkpi.db.sql(final_alter_query)
 			if create_contraint_query:
 				# nosemgrep
-				frappe.db.sql(create_contraint_query)
+				capkpi.db.sql(create_contraint_query)
 			if drop_contraint_query:
 				# nosemgrep
-				frappe.db.sql(drop_contraint_query)
+				capkpi.db.sql(drop_contraint_query)
 		except Exception as e:
 			# sanitize
-			if frappe.db.is_duplicate_fieldname(e):
-				frappe.throw(str(e))
-			elif frappe.db.is_duplicate_entry(e):
+			if capkpi.db.is_duplicate_fieldname(e):
+				capkpi.throw(str(e))
+			elif capkpi.db.is_duplicate_entry(e):
 				fieldname = str(e).split("'")[-2]
-				frappe.throw(
+				capkpi.throw(
 					_("{0} field cannot be set as unique in {1}, as there are non-unique existing values").format(
 						fieldname, self.table_name
 					)

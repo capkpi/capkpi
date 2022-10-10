@@ -4,9 +4,9 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
 
 
 class NavbarSettings(Document):
@@ -29,18 +29,18 @@ class NavbarSettings(Document):
 			item for item in self.help_dropdown + self.settings_dropdown if item.is_standard
 		]
 
-		if not frappe.flags.in_patch and (len(before_save_items) > len(after_save_items)):
-			frappe.throw(_("Please hide the standard navbar items instead of deleting them"))
+		if not capkpi.flags.in_patch and (len(before_save_items) > len(after_save_items)):
+			capkpi.throw(_("Please hide the standard navbar items instead of deleting them"))
 
 
 def get_app_logo():
-	app_logo = frappe.db.get_single_value("Navbar Settings", "app_logo", cache=True)
+	app_logo = capkpi.db.get_single_value("Navbar Settings", "app_logo", cache=True)
 	if not app_logo:
-		app_logo = frappe.get_hooks("app_logo_url")[-1]
+		app_logo = capkpi.get_hooks("app_logo_url")[-1]
 
 	return app_logo
 
 
 def get_navbar_settings():
-	navbar_settings = frappe.get_single("Navbar Settings")
+	navbar_settings = capkpi.get_single("Navbar Settings")
 	return navbar_settings

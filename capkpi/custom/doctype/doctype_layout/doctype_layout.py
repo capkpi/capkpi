@@ -4,8 +4,8 @@
 
 from __future__ import unicode_literals
 
-from frappe.desk.utils import slug
-from frappe.model.document import Document
+from capkpi.desk.utils import slug
+from capkpi.model.document import Document
 
 
 class DocTypeLayout(Document):

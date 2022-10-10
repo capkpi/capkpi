@@ -5,23 +5,23 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
-import frappe.cache_manager
+import capkpi
+import capkpi.cache_manager
 
 
 class TestMilestoneTracker(unittest.TestCase):
 	def test_milestone(self):
-		frappe.db.sql("delete from `tabMilestone Tracker`")
+		capkpi.db.sql("delete from `tabMilestone Tracker`")
 
-		frappe.cache().delete_key("milestone_tracker_map")
+		capkpi.cache().delete_key("milestone_tracker_map")
 
-		milestone_tracker = frappe.get_doc(
+		milestone_tracker = capkpi.get_doc(
 			dict(doctype="Milestone Tracker", document_type="ToDo", track_field="status")
 		).insert()
 
-		todo = frappe.get_doc(dict(doctype="ToDo", description="test milestone", status="Open")).insert()
+		todo = capkpi.get_doc(dict(doctype="ToDo", description="test milestone", status="Open")).insert()
 
-		milestones = frappe.get_all(
+		milestones = capkpi.get_all(
 			"Milestone",
 			fields=["track_field", "value", "milestone_tracker"],
 			filters=dict(reference_type=todo.doctype, reference_name=todo.name),
@@ -34,7 +34,7 @@ class TestMilestoneTracker(unittest.TestCase):
 		todo.status = "Closed"
 		todo.save()
 
-		milestones = frappe.get_all(
+		milestones = capkpi.get_all(
 			"Milestone",
 			fields=["track_field", "value", "milestone_tracker"],
 			filters=dict(reference_type=todo.doctype, reference_name=todo.name),
@@ -46,5 +46,5 @@ class TestMilestoneTracker(unittest.TestCase):
 		self.assertEqual(milestones[0].value, "Closed")
 
 		# cleanup
-		frappe.db.sql("delete from tabMilestone")
+		capkpi.db.sql("delete from tabMilestone")
 		milestone_tracker.delete()

@@ -4,26 +4,26 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
-from frappe.utils import cint
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
+from capkpi.utils import cint
 
 
 class PrintSettings(Document):
 	def validate(self):
 		if self.pdf_page_size == "Custom" and not (self.pdf_page_height and self.pdf_page_width):
-			frappe.throw(_("Page height and width cannot be zero"))
+			capkpi.throw(_("Page height and width cannot be zero"))
 
 	def on_update(self):
-		frappe.clear_cache()
+		capkpi.clear_cache()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def is_print_server_enabled():
-	if not hasattr(frappe.local, "enable_print_server"):
-		frappe.local.enable_print_server = cint(
-			frappe.db.get_single_value("Print Settings", "enable_print_server")
+	if not hasattr(capkpi.local, "enable_print_server"):
+		capkpi.local.enable_print_server = cint(
+			capkpi.db.get_single_value("Print Settings", "enable_print_server")
 		)
 
-	return frappe.local.enable_print_server
+	return capkpi.local.enable_print_server

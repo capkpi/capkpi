@@ -8,14 +8,14 @@ import json
 
 from six.moves import range
 
-import frappe
+import capkpi
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_data(doctypes, last_modified):
 	data_map = {}
-	for dump_report_map in frappe.get_hooks().dump_report_map:
-		data_map.update(frappe.get_attr(dump_report_map))
+	for dump_report_map in capkpi.get_hooks().dump_report_map:
+		data_map.update(capkpi.get_attr(dump_report_map))
 
 	out = {}
 
@@ -39,7 +39,7 @@ def get_data(doctypes, last_modified):
 			if not args.get("conditions"):
 				args["conditions"] = []
 			args["conditions"].append(modified_table + "modified > '" + last_modified[d] + "'")
-			out[dt]["modified_names"] = frappe.db.sql_list(
+			out[dt]["modified_names"] = capkpi.db.sql_list(
 				"""select %sname from %s
 				where %smodified > %s"""
 				% (modified_table, table, modified_table, "%s"),
@@ -55,7 +55,7 @@ def get_data(doctypes, last_modified):
 
 		out[dt]["data"] = [
 			list(t)
-			for t in frappe.db.sql(
+			for t in capkpi.db.sql(
 				"""select %s from %s %s %s""" % (",".join(args["columns"]), table, conditions, order_by)
 			)
 		]
@@ -65,7 +65,7 @@ def get_data(doctypes, last_modified):
 		if "," in table:
 			modified_table = " ".join(table.split(",")[0].split(" ")[:-1])
 
-		tmp = frappe.db.sql(
+		tmp = capkpi.db.sql(
 			"""select `modified`
 			from %s order by modified desc limit 1"""
 			% modified_table

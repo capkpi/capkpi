@@ -13,16 +13,16 @@ import re
 from datetime import datetime
 from typing import List
 
-import frappe
-import frappe.defaults
-import frappe.permissions
-import frappe.share
-from frappe import _
-from frappe.core.doctype.server_script.server_script_utils import get_server_script_map
-from frappe.model import optional_fields
-from frappe.model.meta import get_table_columns
-from frappe.model.utils.user_settings import get_user_settings, update_user_settings
-from frappe.utils import (
+import capkpi
+import capkpi.defaults
+import capkpi.permissions
+import capkpi.share
+from capkpi import _
+from capkpi.core.doctype.server_script.server_script_utils import get_server_script_map
+from capkpi.model import optional_fields
+from capkpi.model.meta import get_table_columns
+from capkpi.model.utils.user_settings import get_user_settings, update_user_settings
+from capkpi.utils import (
 	add_to_date,
 	cint,
 	cstr,
@@ -52,9 +52,9 @@ class DatabaseQuery(object):
 		self.conditions = []
 		self.or_conditions = []
 		self.fields = None
-		self.user = user or frappe.session.user
+		self.user = user or capkpi.session.user
 		self.ignore_ifnull = False
-		self.flags = frappe._dict()
+		self.flags = capkpi._dict()
 		self.reference_doctype = None
 
 	def execute(
@@ -92,14 +92,14 @@ class DatabaseQuery(object):
 	) -> List:
 		if (
 			not ignore_permissions
-			and not frappe.has_permission(self.doctype, "select", user=user)
-			and not frappe.has_permission(self.doctype, "read", user=user)
+			and not capkpi.has_permission(self.doctype, "select", user=user)
+			and not capkpi.has_permission(self.doctype, "read", user=user)
 		):
 
-			frappe.flags.error_message = _("Insufficient Permission for {0}").format(
-				frappe.bold(self.doctype)
+			capkpi.flags.error_message = _("Insufficient Permission for {0}").format(
+				capkpi.bold(self.doctype)
 			)
-			raise frappe.PermissionError(self.doctype)
+			raise capkpi.PermissionError(self.doctype)
 
 		# filters and fields swappable
 		# its hard to remember what comes first
@@ -147,7 +147,7 @@ class DatabaseQuery(object):
 		self.as_list = as_list
 		self.ignore_ifnull = ignore_ifnull
 		self.flags.ignore_permissions = ignore_permissions
-		self.user = user or frappe.session.user
+		self.user = user or capkpi.session.user
 		self.update = update
 		self.user_settings_fields = copy.deepcopy(self.fields)
 		self.return_query = return_query
@@ -207,7 +207,7 @@ class DatabaseQuery(object):
 		if self.return_query:
 			return query
 		else:
-			return frappe.db.sql(
+			return capkpi.db.sql(
 				query,
 				as_dict=not self.as_list,
 				debug=self.debug,
@@ -222,7 +222,7 @@ class DatabaseQuery(object):
 		self.set_optional_columns()
 		self.build_conditions()
 
-		args = frappe._dict()
+		args = capkpi._dict()
 
 		if self.with_childnames:
 			for t in self.tables:
@@ -337,7 +337,7 @@ class DatabaseQuery(object):
 		]
 
 		def _raise_exception():
-			frappe.throw(_("Use of sub-query or function is restricted"), frappe.DataError)
+			capkpi.throw(_("Use of sub-query or function is restricted"), capkpi.DataError)
 
 		def _is_query(field):
 			if IS_QUERY_PATTERN.match(field):
@@ -368,10 +368,10 @@ class DatabaseQuery(object):
 
 			if self.strict:
 				if STRICT_FIELD_PATTERN.match(field):
-					frappe.throw(_("Illegal SQL Query"))
+					capkpi.throw(_("Illegal SQL Query"))
 
 				if STRICT_UNION_PATTERN.match(field.lower()):
-					frappe.throw(_("Illegal SQL Query"))
+					capkpi.throw(_("Illegal SQL Query"))
 
 	def extract_tables(self):
 		"""extract tables from fields"""
@@ -405,11 +405,11 @@ class DatabaseQuery(object):
 	def append_table(self, table_name):
 		self.tables.append(table_name)
 		doctype = table_name[4:-1]
-		ptype = "select" if frappe.only_has_select_perm(doctype) else "read"
+		ptype = "select" if capkpi.only_has_select_perm(doctype) else "read"
 
-		if (not self.flags.ignore_permissions) and (not frappe.has_permission(doctype, ptype=ptype)):
-			frappe.flags.error_message = _("Insufficient Permission for {0}").format(frappe.bold(doctype))
-			raise frappe.PermissionError(doctype)
+		if (not self.flags.ignore_permissions) and (not capkpi.has_permission(doctype, ptype=ptype)):
+			capkpi.flags.error_message = _("Insufficient Permission for {0}").format(capkpi.bold(doctype))
+			raise capkpi.PermissionError(doctype)
 
 	def set_field_tables(self):
 		"""If there are more than one table, the fieldname must not be ambiguous.
@@ -427,7 +427,7 @@ class DatabaseQuery(object):
 	def get_table_columns(self):
 		try:
 			return get_table_columns(self.doctype)
-		except frappe.db.TableMissingError:
+		except capkpi.db.TableMissingError:
 			if self.ignore_ddl:
 				return None
 			else:
@@ -492,7 +492,7 @@ class DatabaseQuery(object):
 		ifnull(`tabDocType`.`fieldname`, fallback) operator "value"
 		"""
 
-		from frappe.boot import get_additional_filters_from_hooks
+		from capkpi.boot import get_additional_filters_from_hooks
 
 		additional_filters_config = get_additional_filters_from_hooks()
 		f = get_filter(self.doctype, f, additional_filters_config)
@@ -526,28 +526,28 @@ class DatabaseQuery(object):
 
 			ref_doctype = f.doctype
 
-			if frappe.get_meta(f.doctype).get_field(f.fieldname) is not None:
-				ref_doctype = frappe.get_meta(f.doctype).get_field(f.fieldname).options
+			if capkpi.get_meta(f.doctype).get_field(f.fieldname) is not None:
+				ref_doctype = capkpi.get_meta(f.doctype).get_field(f.fieldname).options
 
 			result = []
 
 			lft, rgt = "", ""
 			if f.value:
-				lft, rgt = frappe.db.get_value(ref_doctype, f.value, ["lft", "rgt"])
+				lft, rgt = capkpi.db.get_value(ref_doctype, f.value, ["lft", "rgt"])
 
 			# Get descendants elements of a DocType with a tree structure
 			if f.operator.lower() in ("descendants of", "not descendants of"):
-				result = frappe.get_all(
+				result = capkpi.get_all(
 					ref_doctype, filters={"lft": [">", lft], "rgt": ["<", rgt]}, order_by="`lft` ASC"
 				)
 			else:
 				# Get ancestor elements of a DocType with a tree structure
-				result = frappe.get_all(
+				result = capkpi.get_all(
 					ref_doctype, filters={"lft": ["<", lft], "rgt": [">", rgt]}, order_by="`lft` DESC"
 				)
 
 			fallback = "''"
-			value = [frappe.db.escape((v.name or "").strip(), percent=False) for v in result]
+			value = [capkpi.db.escape((v.name or "").strip(), percent=False) for v in result]
 			if len(value):
 				value = "({0})".format(", ".join(value))
 			else:
@@ -566,17 +566,17 @@ class DatabaseQuery(object):
 				can_be_null = not f.value or any(v is None or v == "" for v in f.value)
 
 			values = f.value or ""
-			if isinstance(values, frappe.string_types):
+			if isinstance(values, capkpi.string_types):
 				values = values.split(",")
 
 			fallback = "''"
-			value = [frappe.db.escape((v or "").strip(), percent=False) for v in values]
+			value = [capkpi.db.escape((v or "").strip(), percent=False) for v in values]
 			if len(value):
 				value = "({0})".format(", ".join(value))
 			else:
 				value = "('')"
 		else:
-			df = frappe.get_meta(f.doctype).get("fields", {"fieldname": f.fieldname})
+			df = capkpi.get_meta(f.doctype).get("fields", {"fieldname": f.fieldname})
 			df = df[0] if df else None
 
 			if df and df.fieldtype in ("Check", "Float", "Int", "Currency", "Percent"):
@@ -614,11 +614,11 @@ class DatabaseQuery(object):
 					column_name = "ifnull({}, {})".format(column_name, fallback)
 
 			elif df and df.fieldtype == "Date":
-				value = frappe.db.format_date(f.value)
+				value = capkpi.db.format_date(f.value)
 				fallback = "'0001-01-01'"
 
 			elif (df and df.fieldtype == "Datetime") or isinstance(f.value, datetime):
-				value = frappe.db.format_datetime(f.value)
+				value = capkpi.db.format_datetime(f.value)
 				fallback = "'0001-01-01 00:00:00'"
 
 			elif df and df.fieldtype == "Time":
@@ -652,7 +652,7 @@ class DatabaseQuery(object):
 
 			# escape value
 			if isinstance(value, string_types) and not f.operator.lower() == "between":
-				value = "{0}".format(frappe.db.escape(value, percent=False))
+				value = "{0}".format(capkpi.db.escape(value, percent=False))
 
 		if (
 			self.ignore_ifnull
@@ -660,7 +660,7 @@ class DatabaseQuery(object):
 			or (f.value and f.operator.lower() in ("=", "like"))
 			or "ifnull(" in column_name.lower()
 		):
-			if f.operator.lower() == "like" and frappe.conf.get("db_type") == "postgres":
+			if f.operator.lower() == "like" and capkpi.conf.get("db_type") == "postgres":
 				f.operator = "ilike"
 			condition = "{column_name} {operator} {value}".format(
 				column_name=column_name, operator=f.operator, value=value
@@ -678,14 +678,14 @@ class DatabaseQuery(object):
 		self.match_conditions = []
 		only_if_shared = False
 		if not self.user:
-			self.user = frappe.session.user
+			self.user = capkpi.session.user
 
 		if not self.tables:
 			self.extract_tables()
 
-		meta = frappe.get_meta(self.doctype)
-		role_permissions = frappe.permissions.get_role_permissions(meta, user=self.user)
-		self.shared = frappe.share.get_shared(self.doctype, self.user)
+		meta = capkpi.get_meta(self.doctype)
+		role_permissions = capkpi.permissions.get_role_permissions(meta, user=self.user)
+		self.shared = capkpi.share.get_shared(self.doctype, self.user)
 
 		if (
 			not meta.istable
@@ -695,7 +695,7 @@ class DatabaseQuery(object):
 		):
 			only_if_shared = True
 			if not self.shared:
-				frappe.throw(_("No permission to read {0}").format(_(self.doctype)), frappe.PermissionError)
+				capkpi.throw(_("No permission to read {0}").format(_(self.doctype)), capkpi.PermissionError)
 			else:
 				self.conditions.append(self.get_share_condition())
 
@@ -703,13 +703,13 @@ class DatabaseQuery(object):
 			# skip user perm check if owner constraint is required
 			if requires_owner_constraint(role_permissions):
 				self.match_conditions.append(
-					f"`tab{self.doctype}`.`owner` = {frappe.db.escape(self.user, percent=False)}"
+					f"`tab{self.doctype}`.`owner` = {capkpi.db.escape(self.user, percent=False)}"
 				)
 
 			# add user permission only if role has read perm
 			elif role_permissions.get("read") or role_permissions.get("select"):
 				# get user permissions
-				user_permissions = frappe.permissions.get_user_permissions(self.user)
+				user_permissions = capkpi.permissions.get_user_permissions(self.user)
 				self.add_user_permissions(user_permissions)
 
 		if as_condition:
@@ -736,10 +736,10 @@ class DatabaseQuery(object):
 	def get_share_condition(self):
 		return """`tab{0}`.name in ({1})""".format(
 			self.doctype, ", ".join(["%s"] * len(self.shared))
-		) % tuple([frappe.db.escape(s, percent=False) for s in self.shared])
+		) % tuple([capkpi.db.escape(s, percent=False) for s in self.shared])
 
 	def add_user_permissions(self, user_permissions):
-		meta = frappe.get_meta(self.doctype)
+		meta = capkpi.get_meta(self.doctype)
 		doctype_link_fields = []
 		doctype_link_fields = meta.get_link_fields()
 
@@ -761,7 +761,7 @@ class DatabaseQuery(object):
 
 			if user_permission_values:
 				docs = []
-				if frappe.get_system_settings("apply_strict_user_permissions"):
+				if capkpi.get_system_settings("apply_strict_user_permissions"):
 					condition = ""
 				else:
 					empty_value_condition = "ifnull(`tab{doctype}`.`{fieldname}`, '')=''".format(
@@ -791,7 +791,7 @@ class DatabaseQuery(object):
 					condition += "`tab{doctype}`.`{fieldname}` in ({values})".format(
 						doctype=self.doctype,
 						fieldname=df.get("fieldname"),
-						values=", ".join([(frappe.db.escape(doc, percent=False)) for doc in docs]),
+						values=", ".join([(capkpi.db.escape(doc, percent=False)) for doc in docs]),
 					)
 
 					match_conditions.append("({condition})".format(condition=condition))
@@ -805,16 +805,16 @@ class DatabaseQuery(object):
 
 	def get_permission_query_conditions(self):
 		conditions = []
-		condition_methods = frappe.get_hooks("permission_query_conditions", {}).get(self.doctype, [])
+		condition_methods = capkpi.get_hooks("permission_query_conditions", {}).get(self.doctype, [])
 		if condition_methods:
 			for method in condition_methods:
-				c = frappe.call(frappe.get_attr(method), self.user)
+				c = capkpi.call(capkpi.get_attr(method), self.user)
 				if c:
 					conditions.append(c)
 
 		permision_script_name = get_server_script_map().get("permission_query", {}).get(self.doctype)
 		if permision_script_name:
-			script = frappe.get_doc("Server Script", permision_script_name)
+			script = capkpi.get_doc("Server Script", permision_script_name)
 			condition = script.get_permission_query_conditions(self.user)
 			if condition:
 				conditions.append(condition)
@@ -822,7 +822,7 @@ class DatabaseQuery(object):
 		return " and ".join(conditions) if conditions else ""
 
 	def set_order_by(self, args):
-		meta = frappe.get_meta(self.doctype)
+		meta = capkpi.get_meta(self.doctype)
 
 		if self.order_by:
 			args.order_by = self.order_by
@@ -873,10 +873,10 @@ class DatabaseQuery(object):
 
 		_lower = parameters.lower()
 		if "select" in _lower and "from" in _lower:
-			frappe.throw(_("Cannot use sub-query in order by"))
+			capkpi.throw(_("Cannot use sub-query in order by"))
 
 		if ORDER_GROUP_PATTERN.match(_lower):
-			frappe.throw(_("Illegal SQL Query"))
+			capkpi.throw(_("Illegal SQL Query"))
 
 		for field in parameters.split(","):
 			if "." in field and field.strip().startswith("`tab"):
@@ -884,7 +884,7 @@ class DatabaseQuery(object):
 				if tbl not in self.tables:
 					if tbl.startswith("`"):
 						tbl = tbl[4:-1]
-					frappe.throw(_("Please select atleast 1 column from {0} to sort/group").format(tbl))
+					capkpi.throw(_("Please select atleast 1 column from {0} to sort/group").format(tbl))
 
 	def add_limit(self):
 		if self.limit_page_length:
@@ -917,15 +917,15 @@ class DatabaseQuery(object):
 def check_parent_permission(parent, child_doctype):
 	if parent:
 		# User may pass fake parent and get the information from the child table
-		if child_doctype and not frappe.db.exists(
+		if child_doctype and not capkpi.db.exists(
 			"DocField", {"parent": parent, "options": child_doctype}
 		):
-			raise frappe.PermissionError
+			raise capkpi.PermissionError
 
-		if frappe.permissions.has_permission(parent):
+		if capkpi.permissions.has_permission(parent):
 			return
 	# Either parent not passed or the user doesn't have permission on parent doctype of child table!
-	raise frappe.PermissionError
+	raise capkpi.PermissionError
 
 
 def get_order_by(doctype, meta):
@@ -972,7 +972,7 @@ def is_parent_only_filter(doctype, filters):
 
 
 def has_any_user_permission_for_doctype(doctype, user, applicable_for):
-	user_permissions = frappe.permissions.get_user_permissions(user=user)
+	user_permissions = capkpi.permissions.get_user_permissions(user=user)
 	doctype_user_permissions = user_permissions.get(doctype, [])
 
 	for permission in doctype_user_permissions:
@@ -987,8 +987,8 @@ def get_between_date_filter(value, df=None):
 	return the formattted date as per the given example
 	[u'2017-11-01', u'2017-11-03'] => '2017-11-01 00:00:00.000000' AND '2017-11-04 00:00:00.000000'
 	"""
-	from_date = frappe.utils.nowdate()
-	to_date = frappe.utils.nowdate()
+	from_date = capkpi.utils.nowdate()
+	to_date = capkpi.utils.nowdate()
 
 	if value and isinstance(value, (list, tuple)):
 		if len(value) >= 1:
@@ -1001,21 +1001,21 @@ def get_between_date_filter(value, df=None):
 
 	if df and df.fieldtype == "Datetime":
 		data = "'%s' AND '%s'" % (
-			frappe.db.format_datetime(from_date),
-			frappe.db.format_datetime(to_date),
+			capkpi.db.format_datetime(from_date),
+			capkpi.db.format_datetime(to_date),
 		)
 	else:
-		data = "'%s' AND '%s'" % (frappe.db.format_date(from_date), frappe.db.format_date(to_date))
+		data = "'%s' AND '%s'" % (capkpi.db.format_date(from_date), capkpi.db.format_date(to_date))
 
 	return data
 
 
 def get_additional_filter_field(additional_filters_config, f, value):
 	additional_filter = additional_filters_config[f.operator.lower()]
-	f = frappe._dict(frappe.get_attr(additional_filter["get_field"])())
+	f = capkpi._dict(capkpi.get_attr(additional_filter["get_field"])())
 	if f.query_value:
 		for option in f.options:
-			option = frappe._dict(option)
+			option = capkpi._dict(option)
 			if option.value == value:
 				f.value = option.query_value
 	return f

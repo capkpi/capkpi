@@ -15,10 +15,10 @@ import chardet
 import six
 from email_reply_parser import EmailReplyParser
 
-import frappe
-from frappe import _, safe_decode, safe_encode
-from frappe.core.doctype.file.file import MaxFileSizeReachedError, get_random_filename
-from frappe.utils import (
+import capkpi
+from capkpi import _, safe_decode, safe_encode
+from capkpi.core.doctype.file.file import MaxFileSizeReachedError, get_random_filename
+from capkpi.utils import (
 	cint,
 	convert_utc_to_user_timezone,
 	cstr,
@@ -34,19 +34,19 @@ from frappe.utils import (
 poplib._MAXLINE = 20480
 
 
-class EmailSizeExceededError(frappe.ValidationError):
+class EmailSizeExceededError(capkpi.ValidationError):
 	pass
 
 
-class EmailTimeoutError(frappe.ValidationError):
+class EmailTimeoutError(capkpi.ValidationError):
 	pass
 
 
-class TotalSizeExceededError(frappe.ValidationError):
+class TotalSizeExceededError(capkpi.ValidationError):
 	pass
 
 
-class LoginLimitExceeded(frappe.ValidationError):
+class LoginLimitExceeded(capkpi.ValidationError):
 	pass
 
 
@@ -58,7 +58,7 @@ class EmailServer:
 
 	def setup(self, args=None):
 		# overrride
-		self.settings = args or frappe._dict()
+		self.settings = args or capkpi._dict()
 
 	def check_mails(self):
 		# overrride
@@ -80,11 +80,11 @@ class EmailServer:
 		try:
 			if cint(self.settings.use_ssl):
 				self.imap = Timed_IMAP4_SSL(
-					self.settings.host, self.settings.incoming_port, timeout=frappe.conf.get("pop_timeout")
+					self.settings.host, self.settings.incoming_port, timeout=capkpi.conf.get("pop_timeout")
 				)
 			else:
 				self.imap = Timed_IMAP4(
-					self.settings.host, self.settings.incoming_port, timeout=frappe.conf.get("pop_timeout")
+					self.settings.host, self.settings.incoming_port, timeout=capkpi.conf.get("pop_timeout")
 				)
 				if self.settings.use_starttls:
 					self.imap.starttls()
@@ -95,7 +95,7 @@ class EmailServer:
 
 		except _socket.error:
 			# Invalid mail server -- due to refusing connection
-			frappe.msgprint(_("Invalid Mail Server. Please rectify and try again."))
+			capkpi.msgprint(_("Invalid Mail Server. Please rectify and try again."))
 			raise
 
 	def connect_pop(self):
@@ -103,11 +103,11 @@ class EmailServer:
 		try:
 			if cint(self.settings.use_ssl):
 				self.pop = Timed_POP3_SSL(
-					self.settings.host, self.settings.incoming_port, timeout=frappe.conf.get("pop_timeout")
+					self.settings.host, self.settings.incoming_port, timeout=capkpi.conf.get("pop_timeout")
 				)
 			else:
 				self.pop = Timed_POP3(
-					self.settings.host, self.settings.incoming_port, timeout=frappe.conf.get("pop_timeout")
+					self.settings.host, self.settings.incoming_port, timeout=capkpi.conf.get("pop_timeout")
 				)
 
 			self.pop.user(self.settings.username)
@@ -118,10 +118,10 @@ class EmailServer:
 
 		except _socket.error:
 			# log performs rollback and logs error in Error Log
-			frappe.log_error("receive.connect_pop")
+			capkpi.log_error("receive.connect_pop")
 
 			# Invalid mail server -- due to refusing connection
-			frappe.msgprint(_("Invalid Mail Server. Please rectify and try again."))
+			capkpi.msgprint(_("Invalid Mail Server. Please rectify and try again."))
 			raise
 
 		except poplib.error_proto as e:
@@ -129,7 +129,7 @@ class EmailServer:
 				return False
 
 			else:
-				frappe.msgprint(_("Invalid User Name or Support Password. Please rectify and try again."))
+				capkpi.msgprint(_("Invalid User Name or Support Password. Please rectify and try again."))
 				raise
 
 	def get_messages(self):
@@ -137,7 +137,7 @@ class EmailServer:
 		if not self.check_mails():
 			return  # nothing to do
 
-		frappe.db.commit()
+		capkpi.db.commit()
 
 		if not self.connect():
 			return
@@ -164,7 +164,7 @@ class EmailServer:
 
 			# size limits
 			self.total_size = 0
-			self.max_email_size = cint(frappe.local.conf.get("max_email_size"))
+			self.max_email_size = cint(capkpi.local.conf.get("max_email_size"))
 			self.max_total_size = 5 * self.max_email_size
 
 			for i, message_meta in enumerate(email_list):
@@ -231,16 +231,16 @@ class EmailServer:
 		current_uid_validity = self.parse_imap_response("UIDVALIDITY", message[0]) or 0
 
 		uidnext = int(self.parse_imap_response("UIDNEXT", message[0]) or "1")
-		frappe.db.set_value("Email Account", self.settings.email_account, "uidnext", uidnext)
+		capkpi.db.set_value("Email Account", self.settings.email_account, "uidnext", uidnext)
 
 		if not uid_validity or uid_validity != current_uid_validity:
 			# uidvalidity changed & all email uids are reindexed by server
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabCommunication` set uid=-1 where communication_medium='Email'
 				and email_account=%s""",
 				(self.settings.email_account,),
 			)
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabEmail Account` set uidvalidity=%s, uidnext=%s where
 				name=%s""",
 				(current_uid_validity, uidnext, self.settings.email_account),
@@ -296,9 +296,9 @@ class EmailServer:
 
 			else:
 				# log performs rollback and logs error in Error Log
-				frappe.log_error("receive.get_messages", self.make_error_msg(msg_num, incoming_mail))
+				capkpi.log_error("receive.get_messages", self.make_error_msg(msg_num, incoming_mail))
 				self.errors = True
-				frappe.db.rollback()
+				capkpi.db.rollback()
 
 				if not cint(self.settings.use_imap):
 					self.pop.dele(msg_num)
@@ -322,7 +322,7 @@ class EmailServer:
 		flags = []
 		for flag in imaplib.ParseFlags(flag_string) or []:
 			pattern = re.compile(r"\w+")
-			match = re.search(pattern, frappe.as_unicode(flag))
+			match = re.search(pattern, capkpi.as_unicode(flag))
 			flags.append(match.group(0))
 
 		if "Seen" in flags:
@@ -458,7 +458,7 @@ class Email:
 		_from_email = self.decode_email(self.mail.get("X-Original-From") or self.mail["From"])
 		_reply_to = self.decode_email(self.mail.get("Reply-To"))
 
-		if _reply_to and not frappe.db.get_value("Email Account", {"email_id": _reply_to}, "email_id"):
+		if _reply_to and not capkpi.db.get_value("Email Account", {"email_id": _reply_to}, "email_id"):
 			self.from_email = extract_email_id(_reply_to)
 		else:
 			self.from_email = extract_email_id(_from_email)
@@ -473,7 +473,7 @@ class Email:
 			return
 		decoded = ""
 		for part, encoding in decode_header(
-			frappe.as_unicode(email).replace('"', " ").replace("'", " ")
+			capkpi.as_unicode(email).replace('"', " ").replace("'", " ")
 		):
 			if encoding:
 				decoded += part.decode(encoding)
@@ -580,7 +580,7 @@ class Email:
 
 		for attachment in self.attachments:
 			try:
-				_file = frappe.get_doc(
+				_file = capkpi.get_doc(
 					{
 						"doctype": "File",
 						"file_name": attachment["fname"],
@@ -599,9 +599,9 @@ class Email:
 			except MaxFileSizeReachedError:
 				# WARNING: bypass max file size exception
 				pass
-			except frappe.FileAlreadyAttachedException:
+			except capkpi.FileAlreadyAttachedException:
 				pass
-			except frappe.DuplicateEntryError:
+			except capkpi.DuplicateEntryError:
 				# same file attached twice??
 				pass
 

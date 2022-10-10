@@ -13,8 +13,8 @@ from os import environ
 import click
 from six import StringIO
 
-import frappe
-import frappe.utils
+import capkpi
+import capkpi.utils
 
 click.disable_unicode_literals_warning = True
 
@@ -28,11 +28,11 @@ def pass_context(f):
 			pr.enable()
 
 		try:
-			ret = f(frappe._dict(ctx.obj), *args, **kwargs)
-		except frappe.exceptions.SiteNotSpecifiedError as e:
+			ret = f(capkpi._dict(ctx.obj), *args, **kwargs)
+		except capkpi.exceptions.SiteNotSpecifiedError as e:
 			click.secho(str(e), fg="yellow")
 			sys.exit(1)
-		except frappe.exceptions.IncorrectSitePath:
+		except capkpi.exceptions.IncorrectSitePath:
 			site = ctx.obj.get("sites", "")[0]
 			click.secho(f"Site {site} does not exist!", fg="yellow")
 			sys.exit(1)
@@ -58,7 +58,7 @@ def get_site(context, raise_err=True):
 		return site
 	except (IndexError, TypeError):
 		if raise_err:
-			raise frappe.SiteNotSpecifiedError
+			raise capkpi.SiteNotSpecifiedError
 		return None
 
 

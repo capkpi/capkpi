@@ -4,9 +4,9 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
 
 
 class OAuthProviderSettings(Document):
@@ -15,9 +15,9 @@ class OAuthProviderSettings(Document):
 
 def get_oauth_settings():
 	"""Returns oauth settings"""
-	out = frappe._dict(
+	out = capkpi._dict(
 		{
-			"skip_authorization": frappe.db.get_value("OAuth Provider Settings", None, "skip_authorization")
+			"skip_authorization": capkpi.db.get_value("OAuth Provider Settings", None, "skip_authorization")
 		}
 	)
 

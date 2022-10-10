@@ -3,7 +3,7 @@
 
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 # select doctypes that are accessed by the user (not read_only) first, so that the
 # the validation message shows the user-facing doctype first.
@@ -34,24 +34,24 @@ def get_dynamic_link_map(for_delete=False):
 
 	Note: Will not map single doctypes
 	"""
-	if getattr(frappe.local, "dynamic_link_map", None) == None or frappe.flags.in_test:
+	if getattr(capkpi.local, "dynamic_link_map", None) == None or capkpi.flags.in_test:
 		# Build from scratch
 		dynamic_link_map = {}
 		for df in get_dynamic_links():
-			meta = frappe.get_meta(df.parent)
+			meta = capkpi.get_meta(df.parent)
 			if meta.issingle:
 				# always check in Single DocTypes
 				dynamic_link_map.setdefault(meta.name, []).append(df)
 			else:
 				try:
-					links = frappe.db.sql_list("""select distinct {options} from `tab{parent}`""".format(**df))
+					links = capkpi.db.sql_list("""select distinct {options} from `tab{parent}`""".format(**df))
 					for doctype in links:
 						dynamic_link_map.setdefault(doctype, []).append(df)
-				except frappe.db.TableMissingError:  # noqa: E722
+				except capkpi.db.TableMissingError:  # noqa: E722
 					pass
 
-		frappe.local.dynamic_link_map = dynamic_link_map
-	return frappe.local.dynamic_link_map
+		capkpi.local.dynamic_link_map = dynamic_link_map
+	return capkpi.local.dynamic_link_map
 
 
 def get_dynamic_links():
@@ -59,5 +59,5 @@ def get_dynamic_links():
 	Uses cache if possible"""
 	df = []
 	for query in dynamic_link_queries:
-		df += frappe.db.sql(query, as_dict=True)
+		df += capkpi.db.sql(query, as_dict=True)
 	return df

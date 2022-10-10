@@ -1,15 +1,15 @@
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 
 def execute():
-	frappe.reload_doc("core", "doctype", "docfield", force=True)
-	frappe.reload_doc("custom", "doctype", "custom_field", force=True)
-	frappe.reload_doc("custom", "doctype", "customize_form_field", force=True)
-	frappe.reload_doc("custom", "doctype", "property_setter", force=True)
+	capkpi.reload_doc("core", "doctype", "docfield", force=True)
+	capkpi.reload_doc("custom", "doctype", "custom_field", force=True)
+	capkpi.reload_doc("custom", "doctype", "customize_form_field", force=True)
+	capkpi.reload_doc("custom", "doctype", "property_setter", force=True)
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""
 		update `tabDocField`
 		set fetch_from = options, options=''
@@ -19,7 +19,7 @@ def execute():
 	"""
 	)
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""
 		update `tabCustom Field`
 		set fetch_from = options, options=''
@@ -29,7 +29,7 @@ def execute():
 	"""
 	)
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""
 		update `tabProperty Setter`
 		set property="fetch_from", name=concat(doc_type, '-', field_name, '-', property)

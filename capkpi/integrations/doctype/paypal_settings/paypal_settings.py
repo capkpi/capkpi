@@ -9,7 +9,7 @@
 
 Example:
 
-	from frappe.integrations.utils import get_payment_gateway_controller
+	from capkpi.integrations.utils import get_payment_gateway_controller
 
 	controller = get_payment_gateway_controller("PayPal")
 	controller().validate_transaction_currency(currency)
@@ -70,13 +70,13 @@ import json
 import pytz
 from six.moves.urllib.parse import urlencode
 
-import frappe
-from frappe import _
-from frappe.integrations.utils import create_payment_gateway, create_request_log, make_post_request
-from frappe.model.document import Document
-from frappe.utils import call_hook_method, cint, get_datetime, get_url
+import capkpi
+from capkpi import _
+from capkpi.integrations.utils import create_payment_gateway, create_request_log, make_post_request
+from capkpi.model.document import Document
+from capkpi.utils import call_hook_method, cint, get_datetime, get_url
 
-api_path = "/api/method/frappe.integrations.doctype.paypal_settings.paypal_settings"
+api_path = "/api/method/capkpi.integrations.doctype.paypal_settings.paypal_settings"
 
 
 class PayPalSettings(Document):
@@ -112,8 +112,8 @@ class PayPalSettings(Document):
 		setattr(self, "use_sandbox", 0)
 
 	def setup_sandbox_env(self, token):
-		data = json.loads(frappe.db.get_value("Integration Request", token, "data"))
-		setattr(self, "use_sandbox", cint(frappe._dict(data).use_sandbox) or 0)
+		data = json.loads(capkpi.db.get_value("Integration Request", token, "data"))
+		setattr(self, "use_sandbox", cint(capkpi._dict(data).use_sandbox) or 0)
 
 	def validate(self):
 		create_payment_gateway("PayPal")
@@ -126,7 +126,7 @@ class PayPalSettings(Document):
 
 	def validate_transaction_currency(self, currency):
 		if currency not in self.supported_currencies:
-			frappe.throw(
+			capkpi.throw(
 				_(
 					"Please select another payment method. PayPal does not support transactions in currency '{0}'"
 				).format(currency)
@@ -144,9 +144,9 @@ class PayPalSettings(Document):
 		if hasattr(self, "use_sandbox") and self.use_sandbox:
 			params.update(
 				{
-					"USER": frappe.conf.sandbox_api_username,
-					"PWD": frappe.conf.sandbox_api_password,
-					"SIGNATURE": frappe.conf.sandbox_signature,
+					"USER": capkpi.conf.sandbox_api_username,
+					"PWD": capkpi.conf.sandbox_api_password,
+					"SIGNATURE": capkpi.conf.sandbox_signature,
 				}
 			)
 
@@ -169,7 +169,7 @@ class PayPalSettings(Document):
 				raise Exception
 
 		except Exception:
-			frappe.throw(_("Invalid payment gateway credentials"))
+			capkpi.throw(_("Invalid payment gateway credentials"))
 
 	def get_payment_url(self, **kwargs):
 		setattr(self, "use_sandbox", cint(kwargs.get("use_sandbox", 0)))
@@ -211,7 +211,7 @@ class PayPalSettings(Document):
 		response = make_post_request(url, data=params.encode("utf-8"))
 
 		if response.get("ACK")[0] != "Success":
-			frappe.throw(_("Looks like something is wrong with this site's Paypal configuration."))
+			capkpi.throw(_("Looks like something is wrong with this site's Paypal configuration."))
 
 		return response
 
@@ -233,11 +233,11 @@ class PayPalSettings(Document):
 
 
 def get_paypal_and_transaction_details(token):
-	doc = frappe.get_doc("PayPal Settings")
+	doc = capkpi.get_doc("PayPal Settings")
 	doc.setup_sandbox_env(token)
 	params, url = doc.get_paypal_params_and_url()
 
-	integration_request = frappe.get_doc("Integration Request", token)
+	integration_request = capkpi.get_doc("Integration Request", token)
 	data = json.loads(integration_request.data)
 
 	return data, params, url
@@ -257,14 +257,14 @@ def setup_redirect(data, redirect_url, custom_redirect_to=None, redirect=True):
 
 	# this is done so that functions called via hooks can update flags.redirect_to
 	if redirect:
-		frappe.local.response["type"] = "redirect"
-		frappe.local.response["location"] = get_url(redirect_url)
+		capkpi.local.response["type"] = "redirect"
+		capkpi.local.response["location"] = get_url(redirect_url)
 
 
-@frappe.whitelist(allow_guest=True, xss_safe=True)
+@capkpi.whitelist(allow_guest=True, xss_safe=True)
 def get_express_checkout_details(token):
 	try:
-		doc = frappe.get_doc("PayPal Settings")
+		doc = capkpi.get_doc("PayPal Settings")
 		doc.setup_sandbox_env(token)
 
 		params, url = doc.get_paypal_params_and_url()
@@ -273,18 +273,18 @@ def get_express_checkout_details(token):
 		response = make_post_request(url, data=params)
 
 		if response.get("ACK")[0] != "Success":
-			frappe.respond_as_web_page(
+			capkpi.respond_as_web_page(
 				_("Something went wrong"),
 				_(
 					"Looks like something went wrong during the transaction. Since we haven't confirmed the payment, Paypal will automatically refund you this amount. If it doesn't, please send us an email and mention the Correlation ID: {0}."
 				).format(response.get("CORRELATIONID", [None])[0]),
 				indicator_color="red",
-				http_status_code=frappe.ValidationError.http_status_code,
+				http_status_code=capkpi.ValidationError.http_status_code,
 			)
 
 			return
 
-		doc = frappe.get_doc("Integration Request", token)
+		doc = capkpi.get_doc("Integration Request", token)
 		update_integration_request_status(
 			token,
 			{"payerid": response.get("PAYERID")[0], "payer_email": response.get("EMAIL")[0]},
@@ -292,14 +292,14 @@ def get_express_checkout_details(token):
 			doc=doc,
 		)
 
-		frappe.local.response["type"] = "redirect"
-		frappe.local.response["location"] = get_redirect_uri(doc, token, response.get("PAYERID")[0])
+		capkpi.local.response["type"] = "redirect"
+		capkpi.local.response["location"] = get_redirect_uri(doc, token, response.get("PAYERID")[0])
 
 	except Exception:
-		frappe.log_error(frappe.get_traceback())
+		capkpi.log_error(capkpi.get_traceback())
 
 
-@frappe.whitelist(allow_guest=True, xss_safe=True)
+@capkpi.whitelist(allow_guest=True, xss_safe=True)
 def confirm_payment(token):
 	try:
 		custom_redirect_to = None
@@ -329,10 +329,10 @@ def confirm_payment(token):
 			)
 
 			if data.get("reference_doctype") and data.get("reference_docname"):
-				custom_redirect_to = frappe.get_doc(
+				custom_redirect_to = capkpi.get_doc(
 					data.get("reference_doctype"), data.get("reference_docname")
 				).run_method("on_payment_authorized", "Completed")
-				frappe.db.commit()
+				capkpi.db.commit()
 
 			redirect_url = "/integrations/payment-success?doctype={0}&docname={1}".format(
 				data.get("reference_doctype"), data.get("reference_docname")
@@ -343,10 +343,10 @@ def confirm_payment(token):
 		setup_redirect(data, redirect_url, custom_redirect_to)
 
 	except Exception:
-		frappe.log_error(frappe.get_traceback())
+		capkpi.log_error(capkpi.get_traceback())
 
 
-@frappe.whitelist(allow_guest=True, xss_safe=True)
+@capkpi.whitelist(allow_guest=True, xss_safe=True)
 def create_recurring_profile(token, payerid):
 	try:
 		custom_redirect_to = None
@@ -379,8 +379,8 @@ def create_recurring_profile(token, payerid):
 
 		status_changed_to = "Completed" if data.get("starting_immediately") or updating else "Verified"
 
-		starts_at = get_datetime(subscription_details.get("start_date")) or frappe.utils.now_datetime()
-		starts_at = starts_at.replace(tzinfo=pytz.timezone(frappe.utils.get_time_zone())).astimezone(
+		starts_at = get_datetime(subscription_details.get("start_date")) or capkpi.utils.now_datetime()
+		starts_at = starts_at.replace(tzinfo=pytz.timezone(capkpi.utils.get_time_zone())).astimezone(
 			pytz.utc
 		)
 
@@ -401,11 +401,11 @@ def create_recurring_profile(token, payerid):
 			if data.get("reference_doctype") and data.get("reference_docname"):
 				data["subscription_id"] = response.get("PROFILEID")[0]
 
-				frappe.flags.data = data
-				custom_redirect_to = frappe.get_doc(
+				capkpi.flags.data = data
+				custom_redirect_to = capkpi.get_doc(
 					data.get("reference_doctype"), data.get("reference_docname")
 				).run_method("on_payment_authorized", status_changed_to)
-				frappe.db.commit()
+				capkpi.db.commit()
 
 			redirect_url = "/integrations/payment-success?doctype={0}&docname={1}".format(
 				data.get("reference_doctype"), data.get("reference_docname")
@@ -416,12 +416,12 @@ def create_recurring_profile(token, payerid):
 		setup_redirect(data, redirect_url, custom_redirect_to)
 
 	except Exception:
-		frappe.log_error(frappe.get_traceback())
+		capkpi.log_error(capkpi.get_traceback())
 
 
 def update_integration_request_status(token, data, status, error=False, doc=None):
 	if not doc:
-		doc = frappe.get_doc("Integration Request", token)
+		doc = capkpi.get_doc("Integration Request", token)
 
 	doc.update_status(data, status)
 
@@ -449,50 +449,50 @@ def manage_recurring_payment_profile_status(profile_id, action, args, url):
 	# thus raise an exception only if the error code is not equal to 11556
 
 	if response.get("ACK")[0] != "Success" and response.get("L_ERRORCODE0", [])[0] != "11556":
-		frappe.throw(_("Failed while amending subscription"))
+		capkpi.throw(_("Failed while amending subscription"))
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def ipn_handler():
 	try:
-		data = frappe.local.form_dict
+		data = capkpi.local.form_dict
 
 		validate_ipn_request(data)
 
 		data.update({"payment_gateway": "PayPal"})
 
-		doc = frappe.get_doc(
+		doc = capkpi.get_doc(
 			{
-				"data": json.dumps(frappe.local.form_dict),
+				"data": json.dumps(capkpi.local.form_dict),
 				"doctype": "Integration Request",
 				"integration_type": "Subscription Notification",
 				"status": "Queued",
 			}
 		).insert(ignore_permissions=True)
-		frappe.db.commit()
+		capkpi.db.commit()
 
-		frappe.enqueue(
-			method="frappe.integrations.doctype.paypal_settings.paypal_settings.handle_subscription_notification",
+		capkpi.enqueue(
+			method="capkpi.integrations.doctype.paypal_settings.paypal_settings.handle_subscription_notification",
 			queue="long",
 			timeout=600,
 			is_async=True,
 			**{"doctype": "Integration Request", "docname": doc.name}
 		)
 
-	except frappe.InvalidStatusError:
+	except capkpi.InvalidStatusError:
 		pass
 	except Exception as e:
-		frappe.log(frappe.log_error(title=e))
+		capkpi.log(capkpi.log_error(title=e))
 
 
 def validate_ipn_request(data):
 	def _throw():
-		frappe.throw(_("In Valid Request"), exc=frappe.InvalidStatusError)
+		capkpi.throw(_("In Valid Request"), exc=capkpi.InvalidStatusError)
 
 	if not data.get("recurring_payment_id"):
 		_throw()
 
-	doc = frappe.get_doc("PayPal Settings")
+	doc = capkpi.get_doc("PayPal Settings")
 	params, url = doc.get_paypal_params_and_url()
 
 	params.update(

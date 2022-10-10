@@ -1,19 +1,19 @@
-import frappe
-from frappe.model.naming import append_number_if_name_exists
-from frappe.utils.dashboard import get_dashboards_with_link
+import capkpi
+from capkpi.model.naming import append_number_if_name_exists
+from capkpi.utils.dashboard import get_dashboards_with_link
 
 
 def execute():
 	if (
-		not frappe.db.table_exists("Dashboard Chart")
-		or not frappe.db.table_exists("Number Card")
-		or not frappe.db.table_exists("Dashboard")
+		not capkpi.db.table_exists("Dashboard Chart")
+		or not capkpi.db.table_exists("Number Card")
+		or not capkpi.db.table_exists("Dashboard")
 	):
 		return
 
-	frappe.reload_doc("desk", "doctype", "dashboard_chart")
-	frappe.reload_doc("desk", "doctype", "number_card")
-	frappe.reload_doc("desk", "doctype", "dashboard")
+	capkpi.reload_doc("desk", "doctype", "dashboard_chart")
+	capkpi.reload_doc("desk", "doctype", "number_card")
+	capkpi.reload_doc("desk", "doctype", "dashboard")
 
 	modified_charts = get_modified_docs("Dashboard Chart")
 	modified_cards = get_modified_docs("Number Card")
@@ -34,7 +34,7 @@ def execute():
 
 
 def get_modified_docs(doctype):
-	return frappe.get_all(
+	return capkpi.get_all(
 		doctype, filters={"owner": "Administrator", "modified_by": ["!=", "Administrator"]}
 	)
 
@@ -42,7 +42,7 @@ def get_modified_docs(doctype):
 def rename_modified_doc(docname, doctype):
 	new_name = docname + " Custom"
 	try:
-		frappe.rename_doc(doctype, docname, new_name)
-	except frappe.ValidationError:
+		capkpi.rename_doc(doctype, docname, new_name)
+	except capkpi.ValidationError:
 		new_name = append_number_if_name_exists(doctype, new_name)
-		frappe.rename_doc(doctype, docname, new_name)
+		capkpi.rename_doc(doctype, docname, new_name)

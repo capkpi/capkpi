@@ -4,8 +4,8 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.model.document import Document
+import capkpi
+from capkpi.model.document import Document
 
 
 class UnhandledEmail(Document):
@@ -13,8 +13,8 @@ class UnhandledEmail(Document):
 
 
 def remove_old_unhandled_emails():
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""DELETE FROM `tabUnhandled Email`
 	WHERE creation < %s""",
-		frappe.utils.add_days(frappe.utils.nowdate(), -30),
+		capkpi.utils.add_days(capkpi.utils.nowdate(), -30),
 	)

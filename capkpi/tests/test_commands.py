@@ -414,7 +414,7 @@ class TestCommands(BaseTestCommands):
 		os.remove(test2_path)
 
 	def test_capkpi_site_env(self):
-		os.putenv("FRAPPE_SITE", capkpi.local.site)
+		os.putenv("CAPKPI_SITE", capkpi.local.site)
 		self.execute("bench execute capkpi.ping")
 		self.assertEquals(self.returncode, 0)
 		self.assertIn("pong", self.stdout)

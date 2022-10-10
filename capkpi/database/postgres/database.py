@@ -7,10 +7,10 @@ from psycopg2.errorcodes import STRING_DATA_RIGHT_TRUNCATION
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from six import string_types
 
-import frappe
-from frappe.database.database import Database
-from frappe.database.postgres.schema import PostgresTable
-from frappe.utils import cstr, get_table_name
+import capkpi
+from capkpi.database.database import Database
+from capkpi.database.postgres.schema import PostgresTable
+from capkpi.utils import cstr, get_table_name
 
 # cast decimals as floats
 DEC2FLOAT = psycopg2.extensions.new_type(
@@ -124,7 +124,7 @@ class PostgresDatabase(Database):
 			where table_catalog='{0}'
 				and table_type = 'BASE TABLE'
 				and table_schema='{1}'""".format(
-					frappe.conf.db_name, frappe.conf.get("db_schema", "public")
+					capkpi.conf.db_name, capkpi.conf.get("db_schema", "public")
 				)
 			)
 		]
@@ -133,7 +133,7 @@ class PostgresDatabase(Database):
 		if not date:
 			return "0001-01-01"
 
-		if not isinstance(date, frappe.string_types):
+		if not isinstance(date, capkpi.string_types):
 			date = date.strftime("%Y-%m-%d")
 
 		return date

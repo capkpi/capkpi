@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
 
-from frappe import _
+from capkpi import _
 
 
 def get_data():

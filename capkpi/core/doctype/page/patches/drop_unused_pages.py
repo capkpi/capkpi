@@ -1,6 +1,6 @@
-import frappe
+import capkpi
 
 
 def execute():
 	for name in ("desktop", "space"):
-		frappe.delete_doc("Page", name)
+		capkpi.delete_doc("Page", name)

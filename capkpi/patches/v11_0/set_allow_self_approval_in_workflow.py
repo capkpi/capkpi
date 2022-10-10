@@ -1,8 +1,8 @@
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 
 def execute():
-	frappe.reload_doc("workflow", "doctype", "workflow_transition")
-	frappe.db.sql("update `tabWorkflow Transition` set allow_self_approval=1")
+	capkpi.reload_doc("workflow", "doctype", "workflow_transition")
+	capkpi.db.sql("update `tabWorkflow Transition` set allow_self_approval=1")

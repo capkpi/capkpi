@@ -1,10 +1,10 @@
 # Copyright (c) 2021, CapKPI Technologies Pvt. Ltd. and Contributors
 # MIT License. See LICENSE
 """
-	frappe.coverage
+	capkpi.coverage
 	~~~~~~~~~~~~~~~~
 
-	Coverage settings for frappe
+	Coverage settings for capkpi
 """
 
 STANDARD_INCLUSIONS = ["*.py"]
@@ -24,12 +24,12 @@ STANDARD_EXCLUSIONS = [
 	"*/patches/*",
 ]
 
-FRAPPE_EXCLUSIONS = [
+CAPKPI_EXCLUSIONS = [
 	"*/tests/*",
 	"*/commands/*",
-	"*/frappe/change_log/*",
-	"*/frappe/exceptions*",
-	"*frappe/setup.py",
+	"*/capkpi/change_log/*",
+	"*/capkpi/exceptions*",
+	"*capkpi/setup.py",
 	"*/doctype/*/*_dashboard.py",
 	"*/patches/*",
 ]

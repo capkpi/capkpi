@@ -81,7 +81,7 @@ class TooManyRequestsError(Exception):
 
 class ImproperDBConfigurationError(Exception):
 	"""
-	Used when frappe detects that database or tables are not properly
+	Used when capkpi detects that database or tables are not properly
 	configured
 	"""
 

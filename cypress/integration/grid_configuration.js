@@ -5,10 +5,10 @@ context('Grid Configuration', () => {
 	});
 	it('Set user wise grid settings', () => {
 		cy.wait(100);
-		cy.get('.frappe-control[data-fieldname="fields"]').as('table');
+		cy.get('.capkpi-control[data-fieldname="fields"]').as('table');
 		cy.get('@table').find('.icon-sm').click();
 		cy.wait(100);
-		cy.get('.frappe-control[data-fieldname="fields_html"]').as('modal');
+		cy.get('.capkpi-control[data-fieldname="fields_html"]').as('modal');
 		cy.get('@modal').find('.add-new-fields').click();
 		cy.wait(100);
 		cy.get('[type="checkbox"][data-unit="read_only"]').check();

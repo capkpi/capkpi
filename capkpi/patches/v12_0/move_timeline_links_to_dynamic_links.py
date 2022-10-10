@@ -1,10 +1,10 @@
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 
 def execute():
-	communications = frappe.db.sql(
+	communications = capkpi.db.sql(
 		"""
 		SELECT
 			`tabCommunication`.name, `tabCommunication`.creation, `tabCommunication`.modified,
@@ -27,9 +27,9 @@ def execute():
 				"""({0}, "{1}", "timeline_links", "Communication", "{2}", "{3}", "{4}", "{5}", "{6}", "{7}")""".format(
 					counter,
 					str(name),
-					frappe.db.escape(communication.name),
-					frappe.db.escape(communication.timeline_doctype),
-					frappe.db.escape(communication.timeline_name),
+					capkpi.db.escape(communication.name),
+					capkpi.db.escape(communication.timeline_doctype),
+					capkpi.db.escape(communication.timeline_name),
 					communication.creation,
 					communication.modified,
 					communication.modified_by,
@@ -42,9 +42,9 @@ def execute():
 				"""({0}, "{1}", "timeline_links", "Communication", "{2}", "{3}", "{4}", "{5}", "{6}", "{7}")""".format(
 					counter,
 					str(name),
-					frappe.db.escape(communication.name),
-					frappe.db.escape(communication.link_doctype),
-					frappe.db.escape(communication.link_name),
+					capkpi.db.escape(communication.name),
+					capkpi.db.escape(communication.link_doctype),
+					capkpi.db.escape(communication.link_name),
 					communication.creation,
 					communication.modified,
 					communication.modified_by,
@@ -52,7 +52,7 @@ def execute():
 			)
 
 		if values and (count % 10000 == 0 or count == len(communications) - 1):
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""
 				INSERT INTO `tabCommunication Link`
 					(`idx`, `name`, `parentfield`, `parenttype`, `parent`, `link_doctype`, `link_name`, `creation`,
@@ -65,4 +65,4 @@ def execute():
 
 			values = []
 
-	frappe.db.add_index("Communication Link", ["link_doctype", "link_name"])
+	capkpi.db.add_index("Communication Link", ["link_doctype", "link_name"])

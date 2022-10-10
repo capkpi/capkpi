@@ -23,9 +23,9 @@ context("Control Float", () => {
 		let data = get_data();
 		data.forEach(x => {
 			cy.window()
-				.its("frappe")
-				.then(frappe => {
-					frappe.boot.sysdefaults.number_format = x.number_format;
+				.its("capkpi")
+				.then(capkpi => {
+					capkpi.boot.sysdefaults.number_format = x.number_format;
 				});
 			x.values.forEach(d => {
 				cy.get_field("float_number", "Float").clear();

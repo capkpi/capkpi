@@ -15,64 +15,64 @@ import six
 from six import iteritems
 
 # imports - module imports
-import frappe
-import frappe.website.render
-from frappe import _
-from frappe.cache_manager import clear_controller_cache, clear_user_cache
-from frappe.custom.doctype.custom_field.custom_field import create_custom_field
-from frappe.custom.doctype.property_setter.property_setter import make_property_setter
-from frappe.database.schema import validate_column_length, validate_column_name
-from frappe.desk.notifications import delete_notification_count_for, get_filters_for
-from frappe.desk.utils import validate_route_conflict
-from frappe.model import (
+import capkpi
+import capkpi.website.render
+from capkpi import _
+from capkpi.cache_manager import clear_controller_cache, clear_user_cache
+from capkpi.custom.doctype.custom_field.custom_field import create_custom_field
+from capkpi.custom.doctype.property_setter.property_setter import make_property_setter
+from capkpi.database.schema import validate_column_length, validate_column_name
+from capkpi.desk.notifications import delete_notification_count_for, get_filters_for
+from capkpi.desk.utils import validate_route_conflict
+from capkpi.model import (
 	data_field_options,
 	data_fieldtypes,
 	default_fields,
 	no_value_fields,
 	table_fields,
 )
-from frappe.model.base_document import get_controller
-from frappe.model.docfield import supports_translation
-from frappe.model.document import Document
-from frappe.model.meta import Meta
-from frappe.modules import get_doc_path, make_boilerplate
-from frappe.modules.import_file import get_file_path
-from frappe.utils import cint, now
+from capkpi.model.base_document import get_controller
+from capkpi.model.docfield import supports_translation
+from capkpi.model.document import Document
+from capkpi.model.meta import Meta
+from capkpi.modules import get_doc_path, make_boilerplate
+from capkpi.modules.import_file import get_file_path
+from capkpi.utils import cint, now
 
 
-class InvalidFieldNameError(frappe.ValidationError):
+class InvalidFieldNameError(capkpi.ValidationError):
 	pass
 
 
-class UniqueFieldnameError(frappe.ValidationError):
+class UniqueFieldnameError(capkpi.ValidationError):
 	pass
 
 
-class IllegalMandatoryError(frappe.ValidationError):
+class IllegalMandatoryError(capkpi.ValidationError):
 	pass
 
 
-class DoctypeLinkError(frappe.ValidationError):
+class DoctypeLinkError(capkpi.ValidationError):
 	pass
 
 
-class WrongOptionsDoctypeLinkError(frappe.ValidationError):
+class WrongOptionsDoctypeLinkError(capkpi.ValidationError):
 	pass
 
 
-class HiddenAndMandatoryWithoutDefaultError(frappe.ValidationError):
+class HiddenAndMandatoryWithoutDefaultError(capkpi.ValidationError):
 	pass
 
 
-class NonUniqueError(frappe.ValidationError):
+class NonUniqueError(capkpi.ValidationError):
 	pass
 
 
-class CannotIndexedError(frappe.ValidationError):
+class CannotIndexedError(capkpi.ValidationError):
 	pass
 
 
-class CannotCreateStandardDoctypeError(frappe.ValidationError):
+class CannotCreateStandardDoctypeError(capkpi.ValidationError):
 	pass
 
 
@@ -116,16 +116,16 @@ class DocType(Document):
 		validate_links_table_fieldnames(self)
 
 		if not self.is_new():
-			self.before_update = frappe.get_doc("DocType", self.name)
+			self.before_update = capkpi.get_doc("DocType", self.name)
 			self.setup_fields_to_fetch()
 			self.validate_field_name_conflicts()
 
 		check_email_append_to(self)
 
 		if self.default_print_format and not self.custom:
-			frappe.throw(_("Standard DocType cannot have default print format, use Customize Form"))
+			capkpi.throw(_("Standard DocType cannot have default print format, use Customize Form"))
 
-		if frappe.conf.get("developer_mode"):
+		if capkpi.conf.get("developer_mode"):
 			self.owner = "Administrator"
 			self.modified_by = "Administrator"
 
@@ -169,7 +169,7 @@ class DocType(Document):
 				conflict_type = "class property"
 
 			if conflict_type:
-				frappe.throw(
+				capkpi.throw(
 					_("Fieldname '{0}' conflicting with a {1} of the name {2} in {3}").format(
 						field_label, conflict_type, field, self.name
 					)
@@ -177,7 +177,7 @@ class DocType(Document):
 
 	def after_insert(self):
 		# clear user cache so that on the next reload this doctype is included in boot
-		clear_user_cache(frappe.session.user)
+		clear_user_cache(capkpi.session.user)
 
 	def set_defaults_for_single_and_table(self):
 		if self.issingle:
@@ -208,33 +208,33 @@ class DocType(Document):
 
 	def check_developer_mode(self):
 		"""Throw exception if not developer mode or via patch"""
-		if frappe.flags.in_patch or frappe.flags.in_test:
+		if capkpi.flags.in_patch or capkpi.flags.in_test:
 			return
 
-		if not frappe.conf.get("developer_mode") and not self.custom:
-			frappe.throw(
+		if not capkpi.conf.get("developer_mode") and not self.custom:
+			capkpi.throw(
 				_("Not in Developer Mode! Set in site_config.json or make 'Custom' DocType."),
 				CannotCreateStandardDoctypeError,
 			)
 
 		if self.is_virtual and self.custom:
-			frappe.throw(
+			capkpi.throw(
 				_("Not allowed to create custom Virtual DocType."), CannotCreateStandardDoctypeError
 			)
 
-		if frappe.conf.get("developer_mode"):
+		if capkpi.conf.get("developer_mode"):
 			self.owner = "Administrator"
 			self.modified_by = "Administrator"
 
 	def setup_fields_to_fetch(self):
 		"""Setup query to update values for newly set fetch values"""
 		try:
-			old_meta = frappe.get_meta(frappe.get_doc("DocType", self.name), cached=False)
+			old_meta = capkpi.get_meta(capkpi.get_doc("DocType", self.name), cached=False)
 			old_fields_to_fetch = [df.fieldname for df in old_meta.get_fields_to_fetch()]
-		except frappe.DoesNotExistError:
+		except capkpi.DoesNotExistError:
 			old_fields_to_fetch = []
 
-		new_meta = frappe.get_meta(self, cached=False)
+		new_meta = capkpi.get_meta(self, cached=False)
 
 		self.flags.update_fields_to_fetch_queries = []
 
@@ -244,7 +244,7 @@ class DocType(Document):
 					link_fieldname, source_fieldname = df.fetch_from.split(".", 1)
 					link_df = new_meta.get_field(link_fieldname)
 
-					if frappe.db.db_type == "postgres":
+					if capkpi.db.db_type == "postgres":
 						update_query = """
 							UPDATE `tab{doctype}`
 							SET `{fieldname}` = source.`{source_fieldname}`
@@ -275,7 +275,7 @@ class DocType(Document):
 		"""Update fetch values based on queries setup"""
 		if self.flags.update_fields_to_fetch_queries and not self.issingle:
 			for query in self.flags.update_fields_to_fetch_queries:
-				frappe.db.sql(query)
+				capkpi.db.sql(query)
 
 	def validate_document_type(self):
 		if self.document_type == "Transaction":
@@ -291,20 +291,20 @@ class DocType(Document):
 		if self.has_web_view:
 			# route field must be present
 			if not "route" in [d.fieldname for d in self.fields]:
-				frappe.throw(_('Field "route" is mandatory for Web Views'), title="Missing Field")
+				capkpi.throw(_('Field "route" is mandatory for Web Views'), title="Missing Field")
 
 			# clear website cache
-			frappe.website.render.clear_cache()
+			capkpi.website.render.clear_cache()
 
 	def change_modified_of_parent(self):
 		"""Change the timestamp of parent DocType if the current one is a child to clear caches."""
-		if frappe.flags.in_import:
+		if capkpi.flags.in_import:
 			return
-		parent_list = frappe.db.get_all(
-			"DocField", "parent", dict(fieldtype=["in", frappe.model.table_fields], options=self.name)
+		parent_list = capkpi.db.get_all(
+			"DocField", "parent", dict(fieldtype=["in", capkpi.model.table_fields], options=self.name)
 		)
 		for p in parent_list:
-			frappe.db.sql("UPDATE `tabDocType` SET modified=%s WHERE `name`=%s", (now(), p.parent))
+			capkpi.db.sql("UPDATE `tabDocType` SET modified=%s WHERE `name`=%s", (now(), p.parent))
 
 	def scrub_field_names(self):
 		"""Sluggify fieldnames if not set from Label."""
@@ -335,7 +335,7 @@ class DocType(Document):
 						d.fieldname = d.fieldtype.lower().replace(" ", "_") + "_" + str(d.idx)
 				else:
 					if d.fieldname in restricted:
-						frappe.throw(_("Fieldname {0} is restricted").format(d.fieldname), InvalidFieldNameError)
+						capkpi.throw(_("Fieldname {0} is restricted").format(d.fieldname), InvalidFieldNameError)
 
 				d.fieldname = re.sub("""['",./%@()<>{}]""", "", d.fieldname)
 
@@ -349,7 +349,7 @@ class DocType(Document):
 	def on_update(self):
 		"""Update database schema, make controller templates if `custom` is not set and clear cache."""
 		try:
-			frappe.db.updatedb(self.name, Meta(self))
+			capkpi.db.updatedb(self.name, Meta(self))
 		except Exception as e:
 			print("\n\nThere was an issue while migrating the DocType: {}\n".format(self.name))
 			raise e
@@ -361,8 +361,8 @@ class DocType(Document):
 
 		allow_doctype_export = (
 			not self.custom
-			and not frappe.flags.in_import
-			and (frappe.conf.developer_mode or frappe.flags.allow_doctype_export)
+			and not capkpi.flags.in_import
+			and (capkpi.conf.developer_mode or capkpi.flags.allow_doctype_export)
 		)
 		if allow_doctype_export:
 			self.export_doc()
@@ -378,14 +378,14 @@ class DocType(Document):
 				self.run_module_method("after_doctype_insert")
 
 		delete_notification_count_for(doctype=self.name)
-		frappe.clear_cache(doctype=self.name)
+		capkpi.clear_cache(doctype=self.name)
 
-		if not frappe.flags.in_install and hasattr(self, "before_update"):
+		if not capkpi.flags.in_install and hasattr(self, "before_update"):
 			self.sync_global_search()
 
 		# clear from local cache
-		if self.name in frappe.local.meta_cache:
-			del frappe.local.meta_cache[self.name]
+		if self.name in capkpi.local.meta_cache:
+			del capkpi.local.meta_cache[self.name]
 
 		clear_linked_doctype_cache()
 
@@ -402,24 +402,24 @@ class DocType(Document):
 			global_search_fields_after_update.append("name")
 
 		if set(global_search_fields_before_update) != set(global_search_fields_after_update):
-			now = (not frappe.request) or frappe.flags.in_test or frappe.flags.in_install
-			frappe.enqueue("frappe.utils.global_search.rebuild_for_doctype", now=now, doctype=self.name)
+			now = (not capkpi.request) or capkpi.flags.in_test or capkpi.flags.in_install
+			capkpi.enqueue("capkpi.utils.global_search.rebuild_for_doctype", now=now, doctype=self.name)
 
 	def set_base_class_for_controller(self):
 		"""Updates the controller class to subclass from `WebsiteGenertor`,
 		if it is a subclass of `Document`"""
-		controller_path = frappe.get_module_path(
-			frappe.scrub(self.module), "doctype", frappe.scrub(self.name), frappe.scrub(self.name) + ".py"
+		controller_path = capkpi.get_module_path(
+			capkpi.scrub(self.module), "doctype", capkpi.scrub(self.name), capkpi.scrub(self.name) + ".py"
 		)
 
 		with open(controller_path, "r") as f:
 			code = f.read()
 
 		class_string = "\nclass {0}(Document)".format(self.name.replace(" ", ""))
-		if "\nfrom frappe.model.document import Document" in code and class_string in code:
+		if "\nfrom capkpi.model.document import Document" in code and class_string in code:
 			code = code.replace(
-				"from frappe.model.document import Document",
-				"from frappe.website.website_generator import WebsiteGenerator",
+				"from capkpi.model.document import Document",
+				"from capkpi.website.website_generator import WebsiteGenerator",
 			)
 			code = code.replace(
 				"class {0}(Document)".format(self.name.replace(" ", "")),
@@ -430,7 +430,7 @@ class DocType(Document):
 			f.write(code)
 
 	def run_module_method(self, method):
-		from frappe.modules import load_doctype_module
+		from capkpi.modules import load_doctype_module
 
 		module = load_doctype_module(self.name, self.module)
 		if hasattr(module, method):
@@ -438,33 +438,33 @@ class DocType(Document):
 
 	def before_rename(self, old, new, merge=False):
 		"""Throw exception if merge. DocTypes cannot be merged."""
-		if not self.custom and frappe.session.user != "Administrator":
-			frappe.throw(_("DocType can only be renamed by Administrator"))
+		if not self.custom and capkpi.session.user != "Administrator":
+			capkpi.throw(_("DocType can only be renamed by Administrator"))
 
 		self.check_developer_mode()
 		self.validate_name(new)
 
 		if merge:
-			frappe.throw(_("DocType can not be merged"))
+			capkpi.throw(_("DocType can not be merged"))
 
 	def after_rename(self, old, new, merge=False):
 		"""Change table name using `RENAME TABLE` if table exists. Or update
 		`doctype` property for Single type."""
 
 		if self.issingle:
-			frappe.db.sql("""update tabSingles set doctype=%s where doctype=%s""", (new, old))
-			frappe.db.sql(
+			capkpi.db.sql("""update tabSingles set doctype=%s where doctype=%s""", (new, old))
+			capkpi.db.sql(
 				"""update tabSingles set value=%s
 				where doctype=%s and field='name' and value = %s""",
 				(new, new, old),
 			)
 		else:
-			frappe.db.rename_table(old, new)
-			frappe.db.commit()
+			capkpi.db.rename_table(old, new)
+			capkpi.db.commit()
 
 		# Do not rename and move files and folders for custom doctype
 		if not self.custom:
-			if not frappe.flags.in_patch:
+			if not capkpi.flags.in_patch:
 				self.rename_files_and_folders(old, new)
 
 			clear_controller_cache(old)
@@ -481,17 +481,17 @@ class DocType(Document):
 
 		# rename files
 		for fname in os.listdir(new_path):
-			if frappe.scrub(old) in fname:
+			if capkpi.scrub(old) in fname:
 				old_file_name = os.path.join(new_path, fname)
-				new_file_name = os.path.join(new_path, fname.replace(frappe.scrub(old), frappe.scrub(new)))
+				new_file_name = os.path.join(new_path, fname.replace(capkpi.scrub(old), capkpi.scrub(new)))
 				shutil.move(old_file_name, new_file_name)
 
 		self.rename_inside_controller(new, old, new_path)
-		frappe.msgprint(_("Renamed files and replaced code in controllers, please check!"))
+		capkpi.msgprint(_("Renamed files and replaced code in controllers, please check!"))
 
 	def rename_inside_controller(self, new, old, new_path):
 		for fname in ("{}.js", "{}.py", "{}_list.js", "{}_calendar.js", "test_{}.py", "test_{}.js"):
-			fname = os.path.join(new_path, fname.format(frappe.scrub(new)))
+			fname = os.path.join(new_path, fname.format(capkpi.scrub(new)))
 			if os.path.exists(fname):
 				with open(fname, "r") as f:
 					code = f.read()
@@ -501,7 +501,7 @@ class DocType(Document):
 
 					elif fname.endswith(".py"):
 						file_content = code.replace(
-							frappe.scrub(old), frappe.scrub(new)
+							capkpi.scrub(old), capkpi.scrub(new)
 						)  # replace str with _ (py imports)
 						file_content = file_content.replace(
 							old.replace(" ", ""), new.replace(" ", "")
@@ -510,8 +510,8 @@ class DocType(Document):
 					f.write(file_content)
 
 		# updating json file with new name
-		doctype_json_path = os.path.join(new_path, "{}.json".format(frappe.scrub(new)))
-		current_data = frappe.get_file_json(doctype_json_path)
+		doctype_json_path = os.path.join(new_path, "{}.json".format(capkpi.scrub(new)))
+		current_data = capkpi.get_file_json(doctype_json_path)
 		current_data["name"] = new
 
 		with open(doctype_json_path, "w") as f:
@@ -531,12 +531,12 @@ class DocType(Document):
 
 		# check if atleast 1 record exists
 		if not (
-			frappe.db.table_exists(self.name)
-			and frappe.db.sql("select name from `tab{}` limit 1".format(self.name))
+			capkpi.db.table_exists(self.name)
+			and capkpi.db.sql("select name from `tab{}` limit 1".format(self.name))
 		):
 			return
 
-		existing_property_setter = frappe.db.get_value(
+		existing_property_setter = capkpi.db.get_value(
 			"Property Setter", {"doc_type": self.name, "property": "options", "field_name": "naming_series"}
 		)
 
@@ -629,13 +629,13 @@ class DocType(Document):
 
 	def export_doc(self):
 		"""Export to standard folder `[module]/doctype/[name]/[name].json`."""
-		from frappe.modules.export_file import export_to_files
+		from capkpi.modules.export_file import export_to_files
 
 		export_to_files(record_list=[["DocType", self.name]], create_init=True)
 
 	def import_doc(self):
 		"""Import from standard folder `[module]/doctype/[name]/[name].json`."""
-		from frappe.modules.import_module import import_from_files
+		from capkpi.modules.import_module import import_from_files
 
 		import_from_files(record_list=[[self.module, "doctype", self.name]])
 
@@ -649,8 +649,8 @@ class DocType(Document):
 			# make_boilerplate("controller_list.js", self.as_dict())
 
 		if self.has_web_view:
-			templates_path = frappe.get_module_path(
-				frappe.scrub(self.module), "doctype", frappe.scrub(self.name), "templates"
+			templates_path = capkpi.get_module_path(
+				capkpi.scrub(self.module), "doctype", capkpi.scrub(self.name), "templates"
 			)
 			if not os.path.exists(templates_path):
 				os.makedirs(templates_path)
@@ -660,7 +660,7 @@ class DocType(Document):
 	def make_amendable(self):
 		"""If is_submittable is set, add amended_from docfields."""
 		if self.is_submittable:
-			if not frappe.db.sql(
+			if not capkpi.db.sql(
 				"""select name from tabDocField
 				where fieldname = 'amended_from' and parent = %s""",
 				self.name,
@@ -681,9 +681,9 @@ class DocType(Document):
 	def make_repeatable(self):
 		"""If allow_auto_repeat is set, add auto_repeat custom field."""
 		if self.allow_auto_repeat:
-			if not frappe.db.exists(
+			if not capkpi.db.exists(
 				"Custom Field", {"fieldname": "auto_repeat", "dt": self.name}
-			) and not frappe.db.exists(
+			) and not capkpi.db.exists(
 				"DocField", {"fieldname": "auto_repeat", "parent": self.name}
 			):
 				insert_after = self.fields[len(self.fields) - 1].fieldname
@@ -705,13 +705,13 @@ class DocType(Document):
 		self.add_nestedset_fields()
 
 		if not self.nsm_parent_field:
-			field_label = frappe.bold(_("Parent Field (Tree)"))
-			frappe.throw(_("{0} is a mandatory field").format(field_label), frappe.MandatoryError)
+			field_label = capkpi.bold(_("Parent Field (Tree)"))
+			capkpi.throw(_("{0} is a mandatory field").format(field_label), capkpi.MandatoryError)
 
 		# check if field is valid
 		fieldnames = [df.fieldname for df in self.fields]
 		if self.nsm_parent_field and self.nsm_parent_field not in fieldnames:
-			frappe.throw(_("Parent Field must be a valid fieldname"), InvalidFieldNameError)
+			capkpi.throw(_("Parent Field must be a valid fieldname"), InvalidFieldNameError)
 
 	def add_nestedset_fields(self):
 		"""If is_tree is set, add parent_field, lft, rgt, is_group fields."""
@@ -750,7 +750,7 @@ class DocType(Document):
 		)
 
 		parent_field_label = "Parent {}".format(self.name)
-		parent_field_name = frappe.scrub(parent_field_label)
+		parent_field_name = capkpi.scrub(parent_field_label)
 		self.append(
 			"fields",
 			{
@@ -764,7 +764,7 @@ class DocType(Document):
 
 	def get_max_idx(self):
 		"""Returns the highest `idx`"""
-		max_idx = frappe.db.sql("""select max(idx) from `tabDocField` where parent = %s""", self.name)
+		max_idx = capkpi.db.sql("""select max(idx) from `tabDocField` where parent = %s""", self.name)
 		return max_idx and max_idx[0][0] or 0
 
 	def validate_name(self, name=None):
@@ -773,27 +773,27 @@ class DocType(Document):
 
 		# a Doctype name is the tablename created in database
 		# `tab<Doctype Name>` the length of tablename is limited to 64 characters
-		max_length = frappe.db.MAX_COLUMN_LENGTH - 3
+		max_length = capkpi.db.MAX_COLUMN_LENGTH - 3
 		if len(name) > max_length:
 			# length(tab + <Doctype Name>) should be equal to 64 characters hence doctype should be 61 characters
-			frappe.throw(
-				_("Doctype name is limited to {0} characters ({1})").format(max_length, name), frappe.NameError
+			capkpi.throw(
+				_("Doctype name is limited to {0} characters ({1})").format(max_length, name), capkpi.NameError
 			)
 
 		flags = {"flags": re.ASCII} if six.PY3 else {}
 
 		# a DocType name should not start or end with an empty space
 		if re.search(r"^[ \t\n\r]+|[ \t\n\r]+$", name, **flags):
-			frappe.throw(_("DocType's name should not start or end with whitespace"), frappe.NameError)
+			capkpi.throw(_("DocType's name should not start or end with whitespace"), capkpi.NameError)
 
 		# a DocType's name should not start with a number or underscore
 		# and should only contain letters, numbers and underscore
 		if not re.match(r"^(?![\W])[^\d_\s][\w ]+$", name, **flags):
-			frappe.throw(
+			capkpi.throw(
 				_(
 					"DocType's name should start with a letter and it can only consist of letters, numbers, spaces and underscores"
 				),
-				frappe.NameError,
+				capkpi.NameError,
 			)
 
 		validate_route_conflict(self.doctype, self.name)
@@ -809,14 +809,14 @@ def validate_series(dt, autoname=None, name=None):
 	if not autoname and dt.get("fields", {"fieldname": "naming_series"}):
 		dt.autoname = "naming_series:"
 	elif dt.autoname == "naming_series:" and not dt.get("fields", {"fieldname": "naming_series"}):
-		frappe.throw(_("Invalid fieldname '{0}' in autoname").format(dt.autoname))
+		capkpi.throw(_("Invalid fieldname '{0}' in autoname").format(dt.autoname))
 
 	# validate field name if autoname field:fieldname is used
 	# Create unique index on autoname field automatically.
 	if autoname and autoname.startswith("field:"):
 		field = autoname.split(":")[1]
 		if not field or field not in [df.fieldname for df in dt.fields]:
-			frappe.throw(_("Invalid fieldname '{0}' in autoname").format(field))
+			capkpi.throw(_("Invalid fieldname '{0}' in autoname").format(field))
 		else:
 			for df in dt.fields:
 				if df.fieldname == field:
@@ -833,7 +833,7 @@ def validate_series(dt, autoname=None, name=None):
 	):
 
 		prefix = autoname.split(".")[0]
-		used_in = frappe.db.sql(
+		used_in = capkpi.db.sql(
 			"""
 			SELECT `name`
 			FROM `tabDocType`
@@ -843,12 +843,12 @@ def validate_series(dt, autoname=None, name=None):
 			(prefix, name),
 		)
 		if used_in:
-			frappe.throw(_("Series {0} already used in {1}").format(prefix, used_in[0][0]))
+			capkpi.throw(_("Series {0} already used in {1}").format(prefix, used_in[0][0]))
 
 
 def validate_links_table_fieldnames(meta):
 	"""Validate fieldnames in Links table"""
-	if not meta.links or frappe.flags.in_patch or frappe.flags.in_fixtures:
+	if not meta.links or capkpi.flags.in_patch or capkpi.flags.in_fixtures:
 		return
 
 	fieldnames = tuple(field.fieldname for field in meta.fields)
@@ -862,24 +862,24 @@ def validate_links_table_fieldnames(meta):
 			message = _("Document Links Row #{0}: Parent DocType is mandatory for internal links").format(
 				index
 			)
-			frappe.throw(message, frappe.ValidationError, _("Parent Missing"))
+			capkpi.throw(message, capkpi.ValidationError, _("Parent Missing"))
 
 		if not link.table_fieldname:
 			message = _("Document Links Row #{0}: Table Fieldname is mandatory for internal links").format(
 				index
 			)
-			frappe.throw(message, frappe.ValidationError, _("Table Fieldname Missing"))
+			capkpi.throw(message, capkpi.ValidationError, _("Table Fieldname Missing"))
 
 		if meta.name == link.parent_doctype:
 			field_exists = link.table_fieldname in fieldnames
 		else:
-			field_exists = frappe.get_meta(link.parent_doctype).has_field(link.table_fieldname)
+			field_exists = capkpi.get_meta(link.parent_doctype).has_field(link.table_fieldname)
 
 		if not field_exists:
 			message = _("Document Links Row #{0}: Could not find field {1} in {2} DocType").format(
-				index, frappe.bold(link.table_fieldname), frappe.bold(meta.name)
+				index, capkpi.bold(link.table_fieldname), capkpi.bold(meta.name)
 			)
-			frappe.throw(message, frappe.ValidationError, _("Invalid Table Fieldname"))
+			capkpi.throw(message, capkpi.ValidationError, _("Invalid Table Fieldname"))
 
 
 def _test_connection_query(doctype, field, idx):
@@ -893,16 +893,16 @@ def _test_connection_query(doctype, field, idx):
 	filters[field] = ""
 
 	try:
-		frappe.get_all(doctype, filters=filters, limit=1, distinct=True, ignore_ifnull=True)
+		capkpi.get_all(doctype, filters=filters, limit=1, distinct=True, ignore_ifnull=True)
 	except Exception as e:
-		frappe.clear_last_message()
+		capkpi.clear_last_message()
 		msg = _("Document Links Row #{0}: Invalid doctype or fieldname.").format(idx)
 		msg += "<br>" + str(e)
-		frappe.throw(msg, InvalidFieldNameError)
+		capkpi.throw(msg, InvalidFieldNameError)
 
 
 def validate_fields_for_doctype(doctype):
-	meta = frappe.get_meta(doctype, cached=False)
+	meta = capkpi.get_meta(doctype, cached=False)
 	validate_links_table_fieldnames(meta)
 	validate_fields(meta)
 
@@ -925,7 +925,7 @@ def validate_fields(meta):
 	13. `unique` check is only valid for Data, Link and Read Only fieldtypes.
 	14. `unique` cannot be checked if there exist non-unique values.
 
-	:param meta: `frappe.model.meta.Meta` object to check."""
+	:param meta: `capkpi.model.meta.Meta` object to check."""
 
 	def check_illegal_characters(fieldname):
 		validate_column_name(fieldname)
@@ -933,9 +933,9 @@ def validate_fields(meta):
 	def check_invalid_fieldnames(docname, fieldname):
 		invalid_fields = ("doctype",)
 		if fieldname in invalid_fields:
-			frappe.throw(
+			capkpi.throw(
 				_("{0}: Fieldname cannot be one of {1}").format(
-					docname, ", ".join([frappe.bold(d) for d in invalid_fields])
+					docname, ", ".join([capkpi.bold(d) for d in invalid_fields])
 				)
 			)
 
@@ -944,7 +944,7 @@ def validate_fields(meta):
 			filter(None, map(lambda df: df.fieldname == fieldname and str(df.idx) or None, fields))
 		)
 		if len(duplicates) > 1:
-			frappe.throw(
+			capkpi.throw(
 				_("{0}: Fieldname {1} appears multiple times in rows {2}").format(
 					docname, fieldname, ", ".join(duplicates)
 				),
@@ -956,21 +956,21 @@ def validate_fields(meta):
 
 	def check_illegal_mandatory(docname, d):
 		if (d.fieldtype in no_value_fields) and d.fieldtype not in table_fields and d.reqd:
-			frappe.throw(
+			capkpi.throw(
 				_("{0}: Field {1} of type {2} cannot be mandatory").format(docname, d.label, d.fieldtype),
 				IllegalMandatoryError,
 			)
 
 	def check_link_table_options(docname, d):
-		if frappe.flags.in_patch:
+		if capkpi.flags.in_patch:
 			return
 
-		if frappe.flags.in_fixtures:
+		if capkpi.flags.in_fixtures:
 			return
 
 		if d.fieldtype in ("Link",) + table_fields:
 			if not d.options:
-				frappe.throw(
+				capkpi.throw(
 					_("{0}: Options required for Link or Table type field {1} in row {2}").format(
 						docname, d.label, d.idx
 					),
@@ -979,16 +979,16 @@ def validate_fields(meta):
 			if d.options == "[Select]" or d.options == d.parent:
 				return
 			if d.options != d.parent:
-				options = frappe.db.get_value("DocType", d.options, "name")
+				options = capkpi.db.get_value("DocType", d.options, "name")
 				if not options:
-					frappe.throw(
+					capkpi.throw(
 						_("{0}: Options must be a valid DocType for field {1} in row {2}").format(
 							docname, d.label, d.idx
 						),
 						WrongOptionsDoctypeLinkError,
 					)
 				elif not (options == d.options):
-					frappe.throw(
+					capkpi.throw(
 						_("{0}: Options {1} must be the same as doctype name {2} for the field {3}").format(
 							docname, d.options, options, d.label
 						),
@@ -1000,7 +1000,7 @@ def validate_fields(meta):
 
 	def check_hidden_and_mandatory(docname, d):
 		if d.hidden and d.reqd and not d.default:
-			frappe.throw(
+			capkpi.throw(
 				_("{0}: Field {1} in row {2} cannot be hidden and mandatory without default").format(
 					docname, d.label, d.idx
 				),
@@ -1009,18 +1009,18 @@ def validate_fields(meta):
 
 	def check_width(d):
 		if d.fieldtype == "Currency" and cint(d.width) < 100:
-			frappe.throw(_("Max width for type Currency is 100px in row {0}").format(d.idx))
+			capkpi.throw(_("Max width for type Currency is 100px in row {0}").format(d.idx))
 
 	def check_in_list_view(is_table, d):
 		if d.in_list_view and (d.fieldtype in not_allowed_in_list_view):
 			property_label = "In Grid View" if is_table else "In List View"
-			frappe.throw(
+			capkpi.throw(
 				_("'{0}' not allowed for type {1} in row {2}").format(property_label, d.fieldtype, d.idx)
 			)
 
 	def check_in_global_search(d):
 		if d.in_global_search and d.fieldtype in no_value_fields:
-			frappe.throw(
+			capkpi.throw(
 				_("'In Global Search' not allowed for type {0} in row {1}").format(d.fieldtype, d.idx)
 			)
 
@@ -1032,7 +1032,7 @@ def validate_fields(meta):
 				or (doctype_pointer[0].fieldtype not in ("Link", "Select"))
 				or (doctype_pointer[0].fieldtype == "Link" and doctype_pointer[0].options != "DocType")
 			):
-				frappe.throw(
+				capkpi.throw(
 					_(
 						"Options 'Dynamic Link' type of field must point to another Link Field with options as 'DocType'"
 					)
@@ -1042,21 +1042,21 @@ def validate_fields(meta):
 		if d.fieldtype == "Check" and not d.default:
 			d.default = "0"
 		if d.fieldtype == "Check" and cint(d.default) not in (0, 1):
-			frappe.throw(
+			capkpi.throw(
 				_("Default for 'Check' type of field {0} must be either '0' or '1'").format(
-					frappe.bold(d.fieldname)
+					capkpi.bold(d.fieldname)
 				)
 			)
 		if d.fieldtype == "Select" and d.default:
 			if not d.options:
-				frappe.throw(
+				capkpi.throw(
 					_("Options for {0} must be set before setting the default value.").format(
-						frappe.bold(d.fieldname)
+						capkpi.bold(d.fieldname)
 					)
 				)
 			elif d.default not in d.options.split("\n"):
-				frappe.throw(
-					_("Default value for {0} must be in the list of options.").format(frappe.bold(d.fieldname))
+				capkpi.throw(
+					_("Default value for {0} must be in the list of options.").format(capkpi.bold(d.fieldname))
 				)
 
 	def check_precision(d):
@@ -1065,7 +1065,7 @@ def validate_fields(meta):
 			and d.precision is not None
 			and not (1 <= cint(d.precision) <= 6)
 		):
-			frappe.throw(_("Precision should be between 1 and 6"))
+			capkpi.throw(_("Precision should be between 1 and 6"))
 
 	def check_unique_and_text(docname, d):
 		if meta.issingle:
@@ -1074,13 +1074,13 @@ def validate_fields(meta):
 
 		if getattr(d, "unique", False):
 			if d.fieldtype not in ("Data", "Link", "Read Only"):
-				frappe.throw(
+				capkpi.throw(
 					_("{0}: Fieldtype {1} for {2} cannot be unique").format(docname, d.fieldtype, d.label),
 					NonUniqueError,
 				)
 
-			if not d.get("__islocal") and frappe.db.has_column(d.parent, d.fieldname):
-				has_non_unique_values = frappe.db.sql(
+			if not d.get("__islocal") and capkpi.db.has_column(d.parent, d.fieldname):
+				has_non_unique_values = capkpi.db.sql(
 					"""select `{fieldname}`, count(*)
 					from `tab{doctype}` where ifnull(`{fieldname}`, '') != ''
 					group by `{fieldname}` having count(*) > 1 limit 1""".format(
@@ -1089,7 +1089,7 @@ def validate_fields(meta):
 				)
 
 				if has_non_unique_values and has_non_unique_values[0][0]:
-					frappe.throw(
+					capkpi.throw(
 						_("{0}: Field '{1}' cannot be set as Unique as it has non-unique values").format(
 							docname, d.label
 						),
@@ -1097,7 +1097,7 @@ def validate_fields(meta):
 					)
 
 		if d.search_index and d.fieldtype in ("Text", "Long Text", "Small Text", "Code", "Text Editor"):
-			frappe.throw(
+			capkpi.throw(
 				_("{0}:Fieldtype {1} for {2} cannot be indexed").format(docname, d.fieldtype, d.label),
 				CannotIndexedError,
 			)
@@ -1107,14 +1107,14 @@ def validate_fields(meta):
 		for i, f in enumerate(fields):
 			if f.fieldtype == "Fold":
 				if fold_exists:
-					frappe.throw(_("There can be only one Fold in a form"))
+					capkpi.throw(_("There can be only one Fold in a form"))
 				fold_exists = True
 				if i < len(fields) - 1:
 					nxt = fields[i + 1]
 					if nxt.fieldtype != "Section Break":
-						frappe.throw(_("Fold must come before a Section Break"))
+						capkpi.throw(_("Fold must come before a Section Break"))
 				else:
-					frappe.throw(_("Fold can not be at the end of the form"))
+					capkpi.throw(_("Fold can not be at the end of the form"))
 
 	def check_search_fields(meta, fields):
 		"""Throw exception if `search_fields` don't contain valid fields."""
@@ -1131,7 +1131,7 @@ def validate_fields(meta):
 		for fieldname in search_fields:
 			fieldname = fieldname.strip()
 			if (fieldtype_mapper.get(fieldname) in no_value_fields) or (fieldname not in fieldname_list):
-				frappe.throw(_("Search field {0} is not valid").format(fieldname))
+				capkpi.throw(_("Search field {0} is not valid").format(fieldname))
 
 	def check_title_field(meta):
 		"""Throw exception if `title_field` isn't a valid fieldname."""
@@ -1139,7 +1139,7 @@ def validate_fields(meta):
 			return
 
 		if meta.title_field not in fieldname_list:
-			frappe.throw(_("Title field must be a valid fieldname"), InvalidFieldNameError)
+			capkpi.throw(_("Title field must be a valid fieldname"), InvalidFieldNameError)
 
 		def _validate_title_field_pattern(pattern):
 			if not pattern:
@@ -1151,7 +1151,7 @@ def validate_fields(meta):
 					continue
 
 				if fieldname not in fieldname_list:
-					frappe.throw(
+					capkpi.throw(
 						_("{{{0}}} is not a valid fieldname pattern. It should be {{field_name}}.").format(
 							fieldname
 						),
@@ -1170,27 +1170,27 @@ def validate_fields(meta):
 
 		df = meta.get("fields", {"fieldname": meta.image_field})
 		if not df:
-			frappe.throw(_("Image field must be a valid fieldname"), InvalidFieldNameError)
+			capkpi.throw(_("Image field must be a valid fieldname"), InvalidFieldNameError)
 		if df[0].fieldtype != "Attach Image":
-			frappe.throw(_("Image field must be of type Attach Image"), InvalidFieldNameError)
+			capkpi.throw(_("Image field must be of type Attach Image"), InvalidFieldNameError)
 
 	def check_is_published_field(meta):
 		if not meta.is_published_field:
 			return
 
 		if meta.is_published_field not in fieldname_list:
-			frappe.throw(_("Is Published Field must be a valid fieldname"), InvalidFieldNameError)
+			capkpi.throw(_("Is Published Field must be a valid fieldname"), InvalidFieldNameError)
 
 	def check_timeline_field(meta):
 		if not meta.timeline_field:
 			return
 
 		if meta.timeline_field not in fieldname_list:
-			frappe.throw(_("Timeline field must be a valid fieldname"), InvalidFieldNameError)
+			capkpi.throw(_("Timeline field must be a valid fieldname"), InvalidFieldNameError)
 
 		df = meta.get("fields", {"fieldname": meta.timeline_field})[0]
 		if df.fieldtype not in ("Link", "Dynamic Link"):
-			frappe.throw(_("Timeline field must be a Link or Dynamic Link"), InvalidFieldNameError)
+			capkpi.throw(_("Timeline field must be a Link or Dynamic Link"), InvalidFieldNameError)
 
 	def check_sort_field(meta):
 		"""Validate that sort_field(s) is a valid field"""
@@ -1201,7 +1201,7 @@ def validate_fields(meta):
 
 			for fieldname in sort_fields:
 				if not fieldname in fieldname_list + list(default_fields):
-					frappe.throw(
+					capkpi.throw(
 						_("Sort field {0} must be a valid fieldname").format(fieldname), InvalidFieldNameError
 					)
 
@@ -1218,7 +1218,7 @@ def validate_fields(meta):
 			if (
 				depends_on and ("=" in depends_on) and re.match(r'[\w\.:_]+\s*={1}\s*[\w\.@\'"]+', depends_on)
 			):
-				frappe.throw(_("Invalid {0} condition").format(frappe.unscrub(field)), frappe.ValidationError)
+				capkpi.throw(_("Invalid {0} condition").format(capkpi.unscrub(field)), capkpi.ValidationError)
 
 	def check_table_multiselect_option(docfield):
 		"""check if the doctype provided in Option has atleast 1 Link field"""
@@ -1226,15 +1226,15 @@ def validate_fields(meta):
 			return
 
 		doctype = docfield.options
-		meta = frappe.get_meta(doctype)
+		meta = capkpi.get_meta(doctype)
 		link_field = [df for df in meta.fields if df.fieldtype == "Link"]
 
 		if not link_field:
-			frappe.throw(
+			capkpi.throw(
 				_(
 					"DocType <b>{0}</b> provided for the field <b>{1}</b> must have atleast one Link field"
 				).format(doctype, docfield.fieldname),
-				frappe.ValidationError,
+				capkpi.ValidationError,
 			)
 
 	def scrub_options_in_select(field):
@@ -1257,7 +1257,7 @@ def validate_fields(meta):
 			docfield.oldfieldtype and docfield.oldfieldtype != "Data"
 		):
 			if docfield.options and (docfield.options not in data_field_options):
-				df_str = frappe.bold(_(docfield.label))
+				df_str = capkpi.bold(_(docfield.label))
 				text_str = (
 					_("{0} is an invalid Data field.").format(df_str)
 					+ "<br>" * 2
@@ -1266,22 +1266,22 @@ def validate_fields(meta):
 				)
 				df_options_str = "<ul><li>" + "</li><li>".join([_(x) for x in data_field_options]) + "</ul>"
 
-				frappe.msgprint(text_str + df_options_str, title="Invalid Data Field", raise_exception=True)
+				capkpi.msgprint(text_str + df_options_str, title="Invalid Data Field", raise_exception=True)
 
 	def check_child_table_option(docfield):
 
-		if frappe.flags.in_fixtures:
+		if capkpi.flags.in_fixtures:
 			return
 		if docfield.fieldtype not in ["Table MultiSelect", "Table"]:
 			return
 
 		doctype = docfield.options
-		meta = frappe.get_meta(doctype)
+		meta = capkpi.get_meta(doctype)
 
 		if not meta.istable:
-			frappe.throw(
+			capkpi.throw(
 				_("Option {0} for field {1} is not a child table").format(
-					frappe.bold(doctype), frappe.bold(docfield.fieldname)
+					capkpi.bold(doctype), capkpi.bold(docfield.fieldname)
 				),
 				title=_("Invalid Option"),
 			)
@@ -1332,7 +1332,7 @@ def validate_fields(meta):
 
 def validate_permissions_for_doctype(doctype, for_remove=False, alert=False):
 	"""Validates if permissions are set correctly."""
-	doctype = frappe.get_doc("DocType", doctype)
+	doctype = capkpi.get_doc("DocType", doctype)
 	validate_permissions(doctype, for_remove, alert=alert)
 
 	# save permissions
@@ -1343,9 +1343,9 @@ def validate_permissions_for_doctype(doctype, for_remove=False, alert=False):
 
 
 def clear_permissions_cache(doctype):
-	frappe.clear_cache(doctype=doctype)
+	capkpi.clear_cache(doctype=doctype)
 	delete_notification_count_for(doctype)
-	for user in frappe.db.sql_list(
+	for user in capkpi.db.sql_list(
 		"""
 		SELECT
 			DISTINCT `tabHas Role`.`parent`
@@ -1358,14 +1358,14 @@ def clear_permissions_cache(doctype):
 		""",
 		doctype,
 	):
-		frappe.clear_cache(user=user)
+		capkpi.clear_cache(user=user)
 
 
 def validate_permissions(doctype, for_remove=False, alert=False):
 	permissions = doctype.get("permissions")
 	# Some DocTypes may not have permissions by default, don't show alert for them
 	if not permissions and alert:
-		frappe.msgprint(_("No Permissions Specified"), alert=True, indicator="orange")
+		capkpi.msgprint(_("No Permissions Specified"), alert=True, indicator="orange")
 	issingle = issubmittable = isimportable = False
 	if doctype:
 		issingle = cint(doctype.issingle)
@@ -1379,7 +1379,7 @@ def validate_permissions(doctype, for_remove=False, alert=False):
 		if (
 			not d.select and not d.read and not d.write and not d.submit and not d.cancel and not d.create
 		):
-			frappe.throw(_("{0}: No basic permissions set").format(get_txt(d)))
+			capkpi.throw(_("{0}: No basic permissions set").format(get_txt(d)))
 
 	def check_double(d):
 		has_similar = False
@@ -1392,7 +1392,7 @@ def validate_permissions(doctype, for_remove=False, alert=False):
 					break
 
 		if has_similar:
-			frappe.throw(
+			capkpi.throw(
 				_("{0}: Only one rule allowed with the same Role, Level and {1}").format(
 					get_txt(d), similar_because_of
 				)
@@ -1407,7 +1407,7 @@ def validate_permissions(doctype, for_remove=False, alert=False):
 					break
 
 			if not has_zero_perm:
-				frappe.throw(
+				capkpi.throw(
 					_("{0}: Permission at level 0 must be set before higher levels are set").format(get_txt(d))
 				)
 
@@ -1417,21 +1417,21 @@ def validate_permissions(doctype, for_remove=False, alert=False):
 
 	def check_permission_dependency(d):
 		if d.cancel and not d.submit:
-			frappe.throw(_("{0}: Cannot set Cancel without Submit").format(get_txt(d)))
+			capkpi.throw(_("{0}: Cannot set Cancel without Submit").format(get_txt(d)))
 
 		if (d.submit or d.cancel or d.amend) and not d.write:
-			frappe.throw(_("{0}: Cannot set Submit, Cancel, Amend without Write").format(get_txt(d)))
+			capkpi.throw(_("{0}: Cannot set Submit, Cancel, Amend without Write").format(get_txt(d)))
 		if d.amend and not d.write:
-			frappe.throw(_("{0}: Cannot set Amend without Cancel").format(get_txt(d)))
+			capkpi.throw(_("{0}: Cannot set Amend without Cancel").format(get_txt(d)))
 		if d.get("import") and not d.create:
-			frappe.throw(_("{0}: Cannot set Import without Create").format(get_txt(d)))
+			capkpi.throw(_("{0}: Cannot set Import without Create").format(get_txt(d)))
 
 	def remove_rights_for_single(d):
 		if not issingle:
 			return
 
 		if d.report:
-			frappe.msgprint(_("Report cannot be set for Single types"))
+			capkpi.msgprint(_("Report cannot be set for Single types"))
 			d.report = 0
 			d.set("import", 0)
 			d.set("export", 0)
@@ -1439,37 +1439,37 @@ def validate_permissions(doctype, for_remove=False, alert=False):
 		for ptype, label in [["set_user_permissions", _("Set User Permissions")]]:
 			if d.get(ptype):
 				d.set(ptype, 0)
-				frappe.msgprint(_("{0} cannot be set for Single types").format(label))
+				capkpi.msgprint(_("{0} cannot be set for Single types").format(label))
 
 	def check_if_submittable(d):
 		if d.submit and not issubmittable:
-			frappe.throw(_("{0}: Cannot set Assign Submit if not Submittable").format(get_txt(d)))
+			capkpi.throw(_("{0}: Cannot set Assign Submit if not Submittable").format(get_txt(d)))
 		elif d.amend and not issubmittable:
-			frappe.throw(_("{0}: Cannot set Assign Amend if not Submittable").format(get_txt(d)))
+			capkpi.throw(_("{0}: Cannot set Assign Amend if not Submittable").format(get_txt(d)))
 
 	def check_if_importable(d):
 		if d.get("import") and not isimportable:
-			frappe.throw(_("{0}: Cannot set import as {1} is not importable").format(get_txt(d), doctype))
+			capkpi.throw(_("{0}: Cannot set import as {1} is not importable").format(get_txt(d), doctype))
 
 	def validate_permission_for_all_role(d):
-		if frappe.session.user == "Administrator":
+		if capkpi.session.user == "Administrator":
 			return
 
 		if doctype.custom:
 			if d.role == "All":
-				frappe.throw(
+				capkpi.throw(
 					_("Row # {0}: Non administrator user can not set the role {1} to the custom doctype").format(
-						d.idx, frappe.bold(_("All"))
+						d.idx, capkpi.bold(_("All"))
 					),
 					title=_("Permissions Error"),
 				)
 
-			roles = [row.name for row in frappe.get_all("Role", filters={"is_custom": 1})]
+			roles = [row.name for row in capkpi.get_all("Role", filters={"is_custom": 1})]
 
 			if d.role in roles:
-				frappe.throw(
+				capkpi.throw(
 					_("Row # {0}: Non administrator user can not set the role {1} to the custom doctype").format(
-						d.idx, frappe.bold(_(d.role))
+						d.idx, capkpi.bold(_(d.role))
 					),
 					title=_("Permissions Error"),
 				)
@@ -1494,13 +1494,13 @@ def make_module_and_roles(doc, perm_fieldname="permissions"):
 		if (
 			hasattr(doc, "restrict_to_domain")
 			and doc.restrict_to_domain
-			and not frappe.db.exists("Domain", doc.restrict_to_domain)
+			and not capkpi.db.exists("Domain", doc.restrict_to_domain)
 		):
-			frappe.get_doc(dict(doctype="Domain", domain=doc.restrict_to_domain)).insert()
+			capkpi.get_doc(dict(doctype="Domain", domain=doc.restrict_to_domain)).insert()
 
-		if "tabModule Def" in frappe.db.get_tables() and not frappe.db.exists("Module Def", doc.module):
-			m = frappe.get_doc({"doctype": "Module Def", "module_name": doc.module})
-			m.app_name = frappe.local.module_app[frappe.scrub(doc.module)]
+		if "tabModule Def" in capkpi.db.get_tables() and not capkpi.db.exists("Module Def", doc.module):
+			m = capkpi.get_doc({"doctype": "Module Def", "module_name": doc.module})
+			m.app_name = capkpi.local.module_app[capkpi.scrub(doc.module)]
 			m.flags.ignore_mandatory = m.flags.ignore_permissions = True
 			m.insert()
 
@@ -1508,14 +1508,14 @@ def make_module_and_roles(doc, perm_fieldname="permissions"):
 		roles = [p.role for p in doc.get("permissions") or []] + default_roles
 
 		for role in list(set(roles)):
-			if not frappe.db.exists("Role", role):
-				r = frappe.get_doc(dict(doctype="Role", role_name=role, desk_access=1))
+			if not capkpi.db.exists("Role", role):
+				r = capkpi.get_doc(dict(doctype="Role", role_name=role, desk_access=1))
 				r.flags.ignore_mandatory = r.flags.ignore_permissions = True
 				r.insert()
-	except frappe.DoesNotExistError as e:
+	except capkpi.DoesNotExistError as e:
 		pass
-	except frappe.db.ProgrammingError as e:
-		if frappe.db.is_table_missing(e):
+	except capkpi.db.ProgrammingError as e:
+		if capkpi.db.is_table_missing(e):
 			pass
 		else:
 			raise
@@ -1524,7 +1524,7 @@ def make_module_and_roles(doc, perm_fieldname="permissions"):
 def check_fieldname_conflicts(doctype, fieldname):
 	"""Checks if fieldname conflicts with methods or properties"""
 
-	doc = frappe.get_doc({"doctype": doctype})
+	doc = capkpi.get_doc({"doctype": doctype})
 	available_objects = [x for x in dir(doc) if isinstance(x, str)]
 	property_list = [
 		x for x in available_objects if isinstance(getattr(type(doc), x, None), property)
@@ -1534,11 +1534,11 @@ def check_fieldname_conflicts(doctype, fieldname):
 	]
 
 	if fieldname in method_list + property_list:
-		frappe.throw(_("Fieldname {0} conflicting with meta object").format(fieldname))
+		capkpi.throw(_("Fieldname {0} conflicting with meta object").format(fieldname))
 
 
 def clear_linked_doctype_cache():
-	frappe.cache().delete_value("linked_doctypes_without_ignore_user_permissions_enabled")
+	capkpi.cache().delete_value("linked_doctypes_without_ignore_user_permissions_enabled")
 
 
 def check_email_append_to(doc):
@@ -1550,7 +1550,7 @@ def check_email_append_to(doc):
 	subject_field = get_field(doc, doc.subject_field)
 
 	if doc.subject_field and not subject_field:
-		frappe.throw(_("Select a valid Subject field for creating documents from Email"))
+		capkpi.throw(_("Select a valid Subject field for creating documents from Email"))
 
 	if subject_field and subject_field.fieldtype not in [
 		"Data",
@@ -1559,17 +1559,17 @@ def check_email_append_to(doc):
 		"Small Text",
 		"Text Editor",
 	]:
-		frappe.throw(_("Subject Field type should be Data, Text, Long Text, Small Text, Text Editor"))
+		capkpi.throw(_("Subject Field type should be Data, Text, Long Text, Small Text, Text Editor"))
 
 	# Sender Field is mandatory
 	doc.sender_field = doc.sender_field.strip() if doc.sender_field else None
 	sender_field = get_field(doc, doc.sender_field)
 
 	if doc.sender_field and not sender_field:
-		frappe.throw(_("Select a valid Sender Field for creating documents from Email"))
+		capkpi.throw(_("Select a valid Sender Field for creating documents from Email"))
 
 	if not sender_field.options == "Email":
-		frappe.throw(_("Sender Field should have Email in options"))
+		capkpi.throw(_("Sender Field should have Email in options"))
 
 
 def get_field(doc, fieldname):

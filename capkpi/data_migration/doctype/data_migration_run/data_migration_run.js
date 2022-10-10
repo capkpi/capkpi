@@ -1,7 +1,7 @@
 // Copyright (c) 2017, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Data Migration Run', {
+capkpi.ui.form.on('Data Migration Run', {
 	refresh: function(frm) {
 		if (frm.doc.status !== 'Success') {
 			frm.add_custom_button(__('Run'), () => frm.call('run'));

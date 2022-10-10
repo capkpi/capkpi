@@ -1,9 +1,9 @@
 // Copyright (c) 2020, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('System Console', {
+capkpi.ui.form.on('System Console', {
 	onload: function(frm) {
-		frappe.ui.keys.add_shortcut({
+		capkpi.ui.keys.add_shortcut({
 			shortcut: 'shift+enter',
 			action: () => frm.execute_action('Execute'),
 			page: frm.page,

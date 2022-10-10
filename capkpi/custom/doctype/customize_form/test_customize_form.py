@@ -6,18 +6,18 @@ from __future__ import unicode_literals
 import json
 import unittest
 
-import frappe
-from frappe.core.doctype.doctype.doctype import InvalidFieldNameError
-from frappe.core.doctype.doctype.test_doctype import new_doctype
-from frappe.test_runner import make_test_records_for_doctype
+import capkpi
+from capkpi.core.doctype.doctype.doctype import InvalidFieldNameError
+from capkpi.core.doctype.doctype.test_doctype import new_doctype
+from capkpi.test_runner import make_test_records_for_doctype
 
 test_dependencies = ["Custom Field", "Property Setter"]
 
 
 class TestCustomizeForm(unittest.TestCase):
 	def insert_custom_field(self):
-		frappe.delete_doc_if_exists("Custom Field", "Event-test_custom_field")
-		frappe.get_doc(
+		capkpi.delete_doc_if_exists("Custom Field", "Event-test_custom_field")
+		capkpi.get_doc(
 			{
 				"doctype": "Custom Field",
 				"dt": "Event",
@@ -27,23 +27,23 @@ class TestCustomizeForm(unittest.TestCase):
 				"in_list_view": 1,
 				"options": "\nCustom 1\nCustom 2\nCustom 3",
 				"default": "Custom 3",
-				"insert_after": frappe.get_meta("Event").fields[-1].fieldname,
+				"insert_after": capkpi.get_meta("Event").fields[-1].fieldname,
 			}
 		).insert()
 
 	def setUp(self):
 		self.insert_custom_field()
-		frappe.db.delete("Property Setter", dict(doc_type="Event"))
-		frappe.db.commit()
-		frappe.clear_cache(doctype="Event")
+		capkpi.db.delete("Property Setter", dict(doc_type="Event"))
+		capkpi.db.commit()
+		capkpi.clear_cache(doctype="Event")
 
 	def tearDown(self):
-		frappe.delete_doc("Custom Field", "Event-test_custom_field")
-		frappe.db.commit()
-		frappe.clear_cache(doctype="Event")
+		capkpi.delete_doc("Custom Field", "Event-test_custom_field")
+		capkpi.db.commit()
+		capkpi.clear_cache(doctype="Event")
 
 	def get_customize_form(self, doctype=None):
-		d = frappe.get_doc("Customize Form")
+		d = capkpi.get_doc("Customize Form")
 		if doctype:
 			d.doc_type = doctype
 		d.run_method("fetch_to_customize")
@@ -61,7 +61,7 @@ class TestCustomizeForm(unittest.TestCase):
 		d = self.get_customize_form("Event")
 		self.assertEquals(d.doc_type, "Event")
 
-		self.assertEqual(len(d.get("fields")), len(frappe.get_doc("DocType", d.doc_type).fields) + 1)
+		self.assertEqual(len(d.get("fields")), len(capkpi.get_doc("DocType", d.doc_type).fields) + 1)
 		self.assertEquals(d.get("fields")[-1].fieldname, "test_custom_field")
 		self.assertEquals(d.get("fields", {"fieldname": "event_type"})[0].in_list_view, 1)
 
@@ -70,7 +70,7 @@ class TestCustomizeForm(unittest.TestCase):
 	def test_save_customization_property(self):
 		d = self.get_customize_form("Event")
 		self.assertEquals(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Property Setter", {"doc_type": "Event", "property": "allow_copy"}, "value"
 			),
 			None,
@@ -79,7 +79,7 @@ class TestCustomizeForm(unittest.TestCase):
 		d.allow_copy = 1
 		d.run_method("save_customization")
 		self.assertEquals(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Property Setter", {"doc_type": "Event", "property": "allow_copy"}, "value"
 			),
 			"1",
@@ -88,7 +88,7 @@ class TestCustomizeForm(unittest.TestCase):
 		d.allow_copy = 0
 		d.run_method("save_customization")
 		self.assertEquals(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Property Setter", {"doc_type": "Event", "property": "allow_copy"}, "value"
 			),
 			None,
@@ -97,7 +97,7 @@ class TestCustomizeForm(unittest.TestCase):
 	def test_save_customization_field_property(self):
 		d = self.get_customize_form("Event")
 		self.assertEquals(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Property Setter",
 				{"doc_type": "Event", "property": "reqd", "field_name": "repeat_this_event"},
 				"value",
@@ -109,7 +109,7 @@ class TestCustomizeForm(unittest.TestCase):
 		repeat_this_event_field.reqd = 1
 		d.run_method("save_customization")
 		self.assertEquals(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Property Setter",
 				{"doc_type": "Event", "property": "reqd", "field_name": "repeat_this_event"},
 				"value",
@@ -121,7 +121,7 @@ class TestCustomizeForm(unittest.TestCase):
 		repeat_this_event_field.reqd = 0
 		d.run_method("save_customization")
 		self.assertEquals(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Property Setter",
 				{"doc_type": "Event", "property": "reqd", "field_name": "repeat_this_event"},
 				"value",
@@ -131,21 +131,21 @@ class TestCustomizeForm(unittest.TestCase):
 
 	def test_save_customization_custom_field_property(self):
 		d = self.get_customize_form("Event")
-		self.assertEquals(frappe.db.get_value("Custom Field", "Event-test_custom_field", "reqd"), 0)
+		self.assertEquals(capkpi.db.get_value("Custom Field", "Event-test_custom_field", "reqd"), 0)
 
 		custom_field = d.get("fields", {"fieldname": "test_custom_field"})[0]
 		custom_field.reqd = 1
 		custom_field.no_copy = 1
 		d.run_method("save_customization")
-		self.assertEqual(frappe.db.get_value("Custom Field", "Event-test_custom_field", "reqd"), 1)
-		self.assertEqual(frappe.db.get_value("Custom Field", "Event-test_custom_field", "no_copy"), 1)
+		self.assertEqual(capkpi.db.get_value("Custom Field", "Event-test_custom_field", "reqd"), 1)
+		self.assertEqual(capkpi.db.get_value("Custom Field", "Event-test_custom_field", "no_copy"), 1)
 
 		custom_field = d.get("fields", {"is_custom_field": True})[0]
 		custom_field.reqd = 0
 		custom_field.no_copy = 0
 		d.run_method("save_customization")
-		self.assertEqual(frappe.db.get_value("Custom Field", "Event-test_custom_field", "reqd"), 0)
-		self.assertEqual(frappe.db.get_value("Custom Field", "Event-test_custom_field", "no_copy"), 0)
+		self.assertEqual(capkpi.db.get_value("Custom Field", "Event-test_custom_field", "reqd"), 0)
+		self.assertEqual(capkpi.db.get_value("Custom Field", "Event-test_custom_field", "no_copy"), 0)
 
 	def test_save_customization_new_field(self):
 		d = self.get_customize_form("Event")
@@ -160,22 +160,22 @@ class TestCustomizeForm(unittest.TestCase):
 		)
 		d.run_method("save_customization")
 		self.assertEquals(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Custom Field", "Event-test_add_custom_field_via_customize_form", "fieldtype"
 			),
 			"Data",
 		)
 
 		self.assertEquals(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Custom Field", "Event-test_add_custom_field_via_customize_form", "insert_after"
 			),
 			last_fieldname,
 		)
 
-		frappe.delete_doc("Custom Field", "Event-test_add_custom_field_via_customize_form")
+		capkpi.delete_doc("Custom Field", "Event-test_add_custom_field_via_customize_form")
 		self.assertEquals(
-			frappe.db.get_value("Custom Field", "Event-test_add_custom_field_via_customize_form"), None
+			capkpi.db.get_value("Custom Field", "Event-test_add_custom_field_via_customize_form"), None
 		)
 
 	def test_save_customization_remove_field(self):
@@ -184,19 +184,19 @@ class TestCustomizeForm(unittest.TestCase):
 		d.get("fields").remove(custom_field)
 		d.run_method("save_customization")
 
-		self.assertEqual(frappe.db.get_value("Custom Field", custom_field.name), None)
+		self.assertEqual(capkpi.db.get_value("Custom Field", custom_field.name), None)
 
-		frappe.local.test_objects["Custom Field"] = []
+		capkpi.local.test_objects["Custom Field"] = []
 		make_test_records_for_doctype("Custom Field")
 
 	def test_reset_to_defaults(self):
-		d = frappe.get_doc("Customize Form")
+		d = capkpi.get_doc("Customize Form")
 		d.doc_type = "Event"
 		d.run_method("reset_to_defaults")
 
 		self.assertEquals(d.get("fields", {"fieldname": "repeat_this_event"})[0].in_list_view, 0)
 
-		frappe.local.test_objects["Property Setter"] = []
+		capkpi.local.test_objects["Property Setter"] = []
 		make_test_records_for_doctype("Property Setter")
 
 	def test_set_allow_on_submit(self):
@@ -239,7 +239,7 @@ class TestCustomizeForm(unittest.TestCase):
 		d.run_method("save_customization")
 
 	def test_core_doctype_customization(self):
-		self.assertRaises(frappe.ValidationError, self.get_customize_form, "User")
+		self.assertRaises(capkpi.ValidationError, self.get_customize_form, "User")
 
 	def test_save_customization_length_field_property(self):
 		# Using Notification Log doctype as it doesn't have any other custom fields
@@ -250,7 +250,7 @@ class TestCustomizeForm(unittest.TestCase):
 		d.run_method("save_customization")
 
 		self.assertEqual(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"Property Setter",
 				{"doc_type": "Notification Log", "property": "length", "field_name": "document_name"},
 				"value",
@@ -260,7 +260,7 @@ class TestCustomizeForm(unittest.TestCase):
 
 		self.assertTrue(d.flags.update_db)
 
-		length = frappe.db.sql(
+		length = capkpi.db.sql(
 			"""SELECT character_maximum_length
 			FROM information_schema.columns
 			WHERE table_name = 'tabNotification Log'
@@ -290,8 +290,8 @@ class TestCustomizeForm(unittest.TestCase):
 
 			d.run_method("save_customization")
 
-			frappe.clear_cache()
-			event = frappe.get_meta("Event")
+			capkpi.clear_cache()
+			event = capkpi.get_meta("Event")
 
 			# check links exist
 			self.assertTrue([d.name for d in event.links if d.link_doctype == testdt_name])
@@ -306,8 +306,8 @@ class TestCustomizeForm(unittest.TestCase):
 			d.links = []
 			d.run_method("save_customization")
 
-			frappe.clear_cache()
-			event = frappe.get_meta("Event")
+			capkpi.clear_cache()
+			event = capkpi.get_meta("Event")
 			self.assertFalse([d.name for d in (event.links or []) if d.link_doctype == testdt_name])
 		finally:
 			testdt.delete()
@@ -315,7 +315,7 @@ class TestCustomizeForm(unittest.TestCase):
 
 	def test_custom_internal_links(self):
 		# add a custom internal link
-		frappe.clear_cache()
+		capkpi.clear_cache()
 		d = self.get_customize_form("User Group")
 
 		d.append(
@@ -332,8 +332,8 @@ class TestCustomizeForm(unittest.TestCase):
 
 		d.run_method("save_customization")
 
-		frappe.clear_cache()
-		user_group = frappe.get_meta("User Group")
+		capkpi.clear_cache()
+		user_group = capkpi.get_meta("User Group")
 
 		# check links exist
 		self.assertTrue([d.name for d in user_group.links if d.link_doctype == "User Group Member"])
@@ -344,8 +344,8 @@ class TestCustomizeForm(unittest.TestCase):
 		d.links = []
 		d.run_method("save_customization")
 
-		frappe.clear_cache()
-		user_group = frappe.get_meta("Event")
+		capkpi.clear_cache()
+		user_group = capkpi.get_meta("Event")
 		self.assertFalse(
 			[d.name for d in (user_group.links or []) if d.link_doctype == "User Group Member"]
 		)
@@ -358,8 +358,8 @@ class TestCustomizeForm(unittest.TestCase):
 		d.append("actions", dict(label="Test Action", action_type="Route", action=test_route))
 		d.run_method("save_customization")
 
-		frappe.clear_cache()
-		event = frappe.get_meta("Event")
+		capkpi.clear_cache()
+		event = capkpi.get_meta("Event")
 
 		# check if added to meta
 		action = [d for d in event.actions if d.label == "Test Action"]
@@ -371,8 +371,8 @@ class TestCustomizeForm(unittest.TestCase):
 		d.actions = []
 		d.run_method("save_customization")
 
-		frappe.clear_cache()
-		event = frappe.get_meta("Event")
+		capkpi.clear_cache()
+		event = capkpi.get_meta("Event")
 
 		action = [d for d in event.actions if d.label == "Test Action"]
 		self.assertEqual(len(action), 0)

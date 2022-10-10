@@ -8,30 +8,30 @@ import ast
 from types import FunctionType, MethodType, ModuleType
 from typing import Dict, List
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
-from frappe.utils.safe_exec import NamespaceDict, get_safe_globals, safe_exec
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
+from capkpi.utils.safe_exec import NamespaceDict, get_safe_globals, safe_exec
 
 
 class ServerScript(Document):
 	def validate(self):
-		frappe.only_for("Script Manager", True)
+		capkpi.only_for("Script Manager", True)
 		self.sync_scheduled_jobs()
 		self.clear_scheduled_events()
 
 	def on_update(self):
-		frappe.cache().delete_value("server_script_map")
+		capkpi.cache().delete_value("server_script_map")
 		self.sync_scheduler_events()
 
 	def on_trash(self):
 		if self.script_type == "Scheduler Event":
 			for job in self.scheduled_jobs:
-				frappe.delete_doc("Scheduled Job Type", job.name)
+				capkpi.delete_doc("Scheduled Job Type", job.name)
 
 	@property
 	def scheduled_jobs(self) -> List[Dict[str, str]]:
-		return frappe.get_all(
+		return capkpi.get_all(
 			"Scheduled Job Type",
 			filters={"server_script": self.name},
 			fields=["name", "stopped"],
@@ -44,7 +44,7 @@ class ServerScript(Document):
 
 		for scheduled_job in self.scheduled_jobs:
 			if bool(scheduled_job.stopped) != bool(self.disabled):
-				job = frappe.get_doc("Scheduled Job Type", scheduled_job.name)
+				job = capkpi.get_doc("Scheduled Job Type", scheduled_job.name)
 				job.stopped = self.disabled
 				job.save()
 
@@ -57,29 +57,29 @@ class ServerScript(Document):
 		"""Deletes existing scheduled jobs by Server Script if self.event_frequency has changed"""
 		if self.script_type == "Scheduler Event" and self.has_value_changed("event_frequency"):
 			for scheduled_job in self.scheduled_jobs:
-				frappe.delete_doc("Scheduled Job Type", scheduled_job.name)
+				capkpi.delete_doc("Scheduled Job Type", scheduled_job.name)
 
 	def execute_method(self) -> Dict:
 		"""Specific to API endpoint Server Scripts
 
 		Raises:
-		        frappe.DoesNotExistError: If self.script_type is not API
-		        frappe.PermissionError: If self.allow_guest is unset for API accessed by Guest user
+		        capkpi.DoesNotExistError: If self.script_type is not API
+		        capkpi.PermissionError: If self.allow_guest is unset for API accessed by Guest user
 
 		Returns:
-		        dict: Evaluates self.script with frappe.utils.safe_exec.safe_exec and returns the flags set in it's safe globals
+		        dict: Evaluates self.script with capkpi.utils.safe_exec.safe_exec and returns the flags set in it's safe globals
 		"""
 		# wrong report type!
 		if self.script_type != "API":
-			raise frappe.DoesNotExistError
+			raise capkpi.DoesNotExistError
 
 		# validate if guest is allowed
-		if frappe.session.user == "Guest" and not self.allow_guest:
-			raise frappe.PermissionError
+		if capkpi.session.user == "Guest" and not self.allow_guest:
+			raise capkpi.PermissionError
 
 		# output can be stored in flags
 		_globals, _locals = safe_exec(self.script)
-		return _globals.frappe.flags
+		return _globals.capkpi.flags
 
 	def execute_doc(self, doc: Document):
 		"""Specific to Document Event triggered Server Scripts
@@ -93,10 +93,10 @@ class ServerScript(Document):
 		"""Specific to Scheduled Jobs via Server Scripts
 
 		Raises:
-		        frappe.DoesNotExistError: If script type is not a scheduler event
+		        capkpi.DoesNotExistError: If script type is not a scheduler event
 		"""
 		if self.script_type != "Scheduler Event":
-			raise frappe.DoesNotExistError
+			raise capkpi.DoesNotExistError
 
 		safe_exec(self.script)
 
@@ -114,14 +114,14 @@ class ServerScript(Document):
 		if locals["conditions"]:
 			return locals["conditions"]
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def get_autocompletion_items(self):
 		"""Generates a list of a autocompletion strings from the context dict
 		that is used while executing a Server Script.
 
 		Returns:
 		        list: Returns list of autocompletion items.
-		        For e.g., ["frappe.utils.cint", "frappe.db.get_all", ...]
+		        For e.g., ["capkpi.utils.cint", "capkpi.db.get_all", ...]
 		"""
 
 		def get_keys(obj):
@@ -153,15 +153,15 @@ class ServerScript(Document):
 					out.append([key, score])
 			return out
 
-		items = frappe.cache().get_value("server_script_autocompletion_items")
+		items = capkpi.cache().get_value("server_script_autocompletion_items")
 		if not items:
 			items = get_keys(get_safe_globals())
 			items = [{"value": d[0], "score": d[1]} for d in items]
-			frappe.cache().set_value("server_script_autocompletion_items", items)
+			capkpi.cache().set_value("server_script_autocompletion_items", items)
 		return items
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def setup_scheduler_events(script_name, frequency):
 	"""Creates or Updates Scheduled Job Type documents based on the specified script name and frequency
 
@@ -169,11 +169,11 @@ def setup_scheduler_events(script_name, frequency):
 	        script_name (str): Name of the Server Script document
 	        frequency (str): Event label compatible with the CapKPI scheduler
 	"""
-	method = frappe.scrub(f"{script_name}-{frequency}")
-	scheduled_script = frappe.db.get_value("Scheduled Job Type", {"method": method})
+	method = capkpi.scrub(f"{script_name}-{frequency}")
+	scheduled_script = capkpi.db.get_value("Scheduled Job Type", {"method": method})
 
 	if not scheduled_script:
-		frappe.get_doc(
+		capkpi.get_doc(
 			{
 				"doctype": "Scheduled Job Type",
 				"method": method,
@@ -182,10 +182,10 @@ def setup_scheduler_events(script_name, frequency):
 			}
 		).insert()
 
-		frappe.msgprint(_("Enabled scheduled execution for script {0}").format(script_name))
+		capkpi.msgprint(_("Enabled scheduled execution for script {0}").format(script_name))
 
 	else:
-		doc = frappe.get_doc("Scheduled Job Type", scheduled_script)
+		doc = capkpi.get_doc("Scheduled Job Type", scheduled_script)
 
 		if doc.frequency == frequency:
 			return
@@ -193,4 +193,4 @@ def setup_scheduler_events(script_name, frequency):
 		doc.frequency = frequency
 		doc.save()
 
-		frappe.msgprint(_("Scheduled execution for script {0} has updated").format(script_name))
+		capkpi.msgprint(_("Scheduled execution for script {0} has updated").format(script_name))

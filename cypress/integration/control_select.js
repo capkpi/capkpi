@@ -19,8 +19,8 @@ context('Control Select', () => {
 	it('toggles placholder on clicking an option', () => {
 		get_dialog_with_select().as('dialog');
 
-		cy.get('.frappe-control[data-fieldname=select_control] .control-input').as('control');
-		cy.get('.frappe-control[data-fieldname=select_control] .control-input select').as('select');
+		cy.get('.capkpi-control[data-fieldname=select_control] .control-input').as('control');
+		cy.get('.capkpi-control[data-fieldname=select_control] .control-input select').as('select');
 		cy.get('@control').get('.select-icon').should('exist');
 		cy.get('@control').get('.placeholder').should('have.css', 'display', 'block');
 		cy.get('@select').select('Option 1');

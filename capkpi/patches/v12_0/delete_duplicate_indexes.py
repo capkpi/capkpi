@@ -1,22 +1,22 @@
 from pymysql import InternalError
 
-import frappe
+import capkpi
 
 # This patch deletes all the duplicate indexes created for same column
 # The patch only checks for indexes with UNIQUE constraints
 
 
 def execute():
-	if frappe.db.db_type != "mariadb":
+	if capkpi.db.db_type != "mariadb":
 		return
 
-	all_tables = frappe.db.get_tables()
-	final_deletion_map = frappe._dict()
+	all_tables = capkpi.db.get_tables()
+	final_deletion_map = capkpi._dict()
 
 	for table in all_tables:
-		indexes_to_keep_map = frappe._dict()
+		indexes_to_keep_map = capkpi._dict()
 		indexes_to_delete = []
-		index_info = frappe.db.sql(
+		index_info = capkpi.db.sql(
 			"""
 			SELECT
 				column_name,
@@ -50,6 +50,6 @@ def execute():
 
 		for query in query_list:
 			try:
-				frappe.db.sql(query)
+				capkpi.db.sql(query)
 			except InternalError:
 				pass

@@ -1,7 +1,7 @@
 // Copyright (c) 2019, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Tag', {
+capkpi.ui.form.on('Tag', {
 	// refresh: function(frm) {
 
 	// }

@@ -8,7 +8,7 @@ locale
 *.egg-info
 dist/
 # build/
-frappe/docs/current
+capkpi/docs/current
 .vscode
 node_modules
 .kdev4/

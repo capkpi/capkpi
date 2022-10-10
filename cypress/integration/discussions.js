@@ -2,8 +2,8 @@ context('Discussions', () => {
 	before(() => {
 		cy.login();
 		cy.visit('/app');
-		return cy.window().its('frappe').then(frappe => {
-			return frappe.call('frappe.tests.ui_test_helpers.create_data_for_discussions');
+		return cy.window().its('capkpi').then(capkpi => {
+			return capkpi.call('capkpi.tests.ui_test_helpers.create_data_for_discussions');
 		});
 	});
 

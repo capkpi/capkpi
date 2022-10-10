@@ -3,10 +3,10 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
-from frappe.utils import cint, get_fullname
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
+from capkpi.utils import cint, get_fullname
 
 exclude_from_linked_with = True
 
@@ -29,29 +29,29 @@ class DocShare(Document):
 
 	def get_doc(self):
 		if not getattr(self, "_doc", None):
-			self._doc = frappe.get_doc(self.share_doctype, self.share_name)
+			self._doc = capkpi.get_doc(self.share_doctype, self.share_name)
 		return self._doc
 
 	def validate_user(self):
 		if self.everyone:
 			self.user = None
 		elif not self.user:
-			frappe.throw(_("User is mandatory for Share"), frappe.MandatoryError)
+			capkpi.throw(_("User is mandatory for Share"), capkpi.MandatoryError)
 
 	def check_share_permission(self):
-		if not self.flags.ignore_share_permission and not frappe.has_permission(
+		if not self.flags.ignore_share_permission and not capkpi.has_permission(
 			self.share_doctype, "share", self.get_doc()
 		):
 
-			frappe.throw(_('You need to have "Share" permission'), frappe.PermissionError)
+			capkpi.throw(_('You need to have "Share" permission'), capkpi.PermissionError)
 
 	def check_is_submittable(self):
 		if self.submit and not cint(
-			frappe.db.get_value("DocType", self.share_doctype, "is_submittable")
+			capkpi.db.get_value("DocType", self.share_doctype, "is_submittable")
 		):
-			frappe.throw(
+			capkpi.throw(
 				_("Cannot share {0} with submit permission as the doctype {1} is not submittable").format(
-					frappe.bold(self.share_name), frappe.bold(self.share_doctype)
+					capkpi.bold(self.share_name), capkpi.bold(self.share_doctype)
 				)
 			)
 
@@ -80,5 +80,5 @@ class DocShare(Document):
 
 def on_doctype_update():
 	"""Add index in `tabDocShare` for `(user, share_doctype)`"""
-	frappe.db.add_index("DocShare", ["user", "share_doctype"])
-	frappe.db.add_index("DocShare", ["share_doctype", "share_name"])
+	capkpi.db.add_index("DocShare", ["user", "share_doctype"])
+	capkpi.db.add_index("DocShare", ["share_doctype", "share_name"])

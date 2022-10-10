@@ -7,17 +7,17 @@ from __future__ import unicode_literals
 import json
 import math
 
-import frappe
-from frappe import _
-from frappe.data_migration.doctype.data_migration_mapping.data_migration_mapping import (
+import capkpi
+from capkpi import _
+from capkpi.data_migration.doctype.data_migration_mapping.data_migration_mapping import (
 	get_source_value,
 )
-from frappe.model.document import Document
-from frappe.utils import cstr
+from capkpi.model.document import Document
+from capkpi.utils import cstr
 
 
 class DataMigrationRun(Document):
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def run(self):
 		self.begin()
 		if self.total_pages > 0:
@@ -39,7 +39,7 @@ class DataMigrationRun(Document):
 				notify=True,
 				commit=True,
 			)
-			frappe.enqueue_doc(self.doctype, self.name, "run_current_mapping", now=frappe.flags.in_test)
+			capkpi.enqueue_doc(self.doctype, self.name, "run_current_mapping", now=capkpi.flags.in_test)
 		else:
 			self.complete()
 
@@ -57,11 +57,11 @@ class DataMigrationRun(Document):
 		self.db_set(fields, notify=True, commit=True)
 
 		if percent_complete < 100:
-			frappe.publish_realtime(
-				self.trigger_name, {"progress_percent": percent_complete}, user=frappe.session.user
+			capkpi.publish_realtime(
+				self.trigger_name, {"progress_percent": percent_complete}, user=capkpi.session.user
 			)
 
-		frappe.enqueue_doc(self.doctype, self.name, "run_current_mapping", now=frappe.flags.in_test)
+		capkpi.enqueue_doc(self.doctype, self.name, "run_current_mapping", now=capkpi.flags.in_test)
 
 	def run_current_mapping(self):
 		try:
@@ -80,12 +80,12 @@ class DataMigrationRun(Document):
 		except Exception as e:
 			self.db_set("status", "Error", notify=True, commit=True)
 			print("Data Migration Run failed")
-			print(frappe.get_traceback())
+			print(capkpi.get_traceback())
 			self.execute_postprocess("Error")
 			raise e
 
 	def get_last_modified_condition(self):
-		last_run_timestamp = frappe.db.get_value(
+		last_run_timestamp = capkpi.db.get_value(
 			"Data Migration Run",
 			dict(
 				data_migration_plan=self.data_migration_plan,
@@ -103,7 +103,7 @@ class DataMigrationRun(Document):
 	def begin(self):
 		plan_active_mappings = [m for m in self.get_plan().mappings if m.enabled]
 		self.mappings = [
-			frappe.get_doc("Data Migration Mapping", m.mapping) for m in plan_active_mappings
+			capkpi.get_doc("Data Migration Mapping", m.mapping) for m in plan_active_mappings
 		]
 
 		total_pages = 0
@@ -147,14 +147,14 @@ class DataMigrationRun(Document):
 
 		self.execute_postprocess(status)
 
-		frappe.publish_realtime(self.trigger_name, {"progress_percent": 100}, user=frappe.session.user)
+		capkpi.publish_realtime(self.trigger_name, {"progress_percent": 100}, user=capkpi.session.user)
 
 	def execute_postprocess(self, status):
 		# Execute post process
 		postprocess_method_path = self.get_plan().postprocess_method
 
 		if postprocess_method_path:
-			frappe.get_attr(postprocess_method_path)(
+			capkpi.get_attr(postprocess_method_path)(
 				{
 					"status": status,
 					"stats": {
@@ -169,7 +169,7 @@ class DataMigrationRun(Document):
 
 	def get_plan(self):
 		if not hasattr(self, "plan"):
-			self.plan = frappe.get_doc("Data Migration Plan", self.data_migration_plan)
+			self.plan = capkpi.get_doc("Data Migration Plan", self.data_migration_plan)
 		return self.plan
 
 	def get_mapping(self, mapping_name):
@@ -177,7 +177,7 @@ class DataMigrationRun(Document):
 			for m in self.mappings:
 				if m.name == mapping_name:
 					return m
-		return frappe.get_doc("Data Migration Mapping", mapping_name)
+		return capkpi.get_doc("Data Migration Mapping", mapping_name)
 
 	def get_next_mapping_name(self):
 		mappings = [m for m in self.get_plan().mappings if m.enabled]
@@ -191,7 +191,7 @@ class DataMigrationRun(Document):
 			if d.mapping == self.current_mapping:
 				return mappings[i + 1].mapping
 
-		raise frappe.ValidationError("Mapping Broken")
+		raise capkpi.ValidationError("Mapping Broken")
 
 	def get_data(self, filters):
 		mapping = self.get_mapping(self.current_mapping)
@@ -199,7 +199,7 @@ class DataMigrationRun(Document):
 		start = self.current_mapping_start
 
 		data = []
-		doclist = frappe.get_all(
+		doclist = capkpi.get_all(
 			mapping.local_doctype,
 			filters=filters,
 			or_filters=or_filters,
@@ -208,12 +208,12 @@ class DataMigrationRun(Document):
 		)
 
 		for d in doclist:
-			doc = frappe.get_doc(mapping.local_doctype, d["name"])
+			doc = capkpi.get_doc(mapping.local_doctype, d["name"])
 			data.append(doc)
 		return data
 
 	def get_new_local_data(self):
-		"""Fetch newly inserted local data using `frappe.get_all`. Used during Push"""
+		"""Fetch newly inserted local data using `capkpi.get_all`. Used during Push"""
 		mapping = self.get_mapping(self.current_mapping)
 		filters = mapping.get_filters() or {}
 
@@ -223,7 +223,7 @@ class DataMigrationRun(Document):
 		return self.get_data(filters)
 
 	def get_updated_local_data(self):
-		"""Fetch local updated data using `frappe.get_all`. Used during Push"""
+		"""Fetch local updated data using `capkpi.get_all`. Used during Push"""
 		mapping = self.get_mapping(self.current_mapping)
 		filters = mapping.get_filters() or {}
 
@@ -233,12 +233,12 @@ class DataMigrationRun(Document):
 		return self.get_data(filters)
 
 	def get_deleted_local_data(self):
-		"""Fetch local deleted data using `frappe.get_all`. Used during Push"""
+		"""Fetch local deleted data using `capkpi.get_all`. Used during Push"""
 		mapping = self.get_mapping(self.current_mapping)
 		filters = self.get_last_modified_condition()
 		filters.update({"deleted_doctype": mapping.local_doctype})
 
-		data = frappe.get_all("Deleted Document", fields=["name", "data"], filters=filters)
+		data = capkpi.get_all("Deleted Document", fields=["name", "data"], filters=filters)
 
 		_data = []
 		for d in data:
@@ -268,11 +268,11 @@ class DataMigrationRun(Document):
 		filters = mapping.get_filters() or {}
 		or_filters = self.get_or_filters(mapping)
 
-		to_insert = frappe.get_all(
+		to_insert = capkpi.get_all(
 			mapping.local_doctype, ["count(name) as total"], filters=filters, or_filters=or_filters
 		)[0].total
 
-		to_delete = frappe.get_all(
+		to_delete = capkpi.get_all(
 			"Deleted Document",
 			["count(name) as total"],
 			filters={"deleted_doctype": mapping.local_doctype},
@@ -292,7 +292,7 @@ class DataMigrationRun(Document):
 
 	def get_connection(self):
 		if not hasattr(self, "connection"):
-			self.connection = frappe.get_doc(
+			self.connection = capkpi.get_doc(
 				"Data Migration Connector", self.data_migration_connector
 			).get_connection()
 
@@ -326,14 +326,14 @@ class DataMigrationRun(Document):
 
 			try:
 				response_doc = connection.insert(mapping.remote_objectname, doc)
-				frappe.db.set_value(
+				capkpi.db.set_value(
 					mapping.local_doctype,
 					d.name,
 					mapping.migration_id_field,
 					response_doc[connection.name_field],
 					update_modified=False,
 				)
-				frappe.db.commit()
+				capkpi.db.commit()
 				self.update_log("push_insert", 1)
 				# post process after insert
 				self.post_process_doc(local_doc=d, remote_doc=response_doc)
@@ -424,14 +424,14 @@ class DataMigrationRun(Document):
 
 						self.update_log("pull_insert", 1)
 						# set migration id
-						frappe.db.set_value(
+						capkpi.db.set_value(
 							mapping.local_doctype,
 							local_doc.name,
 							mapping.migration_id_field,
 							migration_id_value,
 							update_modified=False,
 						)
-						frappe.db.commit()
+						capkpi.db.commit()
 					else:
 						# update doc
 						local_doc = update_local_doc(mapping, doc, migration_id_value)
@@ -487,30 +487,30 @@ def insert_local_doc(mapping, doc):
 		# insert new doc
 		if not doc.doctype:
 			doc.doctype = mapping.local_doctype
-		doc = frappe.get_doc(doc).insert()
+		doc = capkpi.get_doc(doc).insert()
 		return doc
 	except Exception:
 		print("Data Migration Run failed: Error in Pull insert")
-		print(frappe.get_traceback())
+		print(capkpi.get_traceback())
 		return None
 
 
 def update_local_doc(mapping, remote_doc, migration_id_value):
 	try:
 		# migration id value is set in migration_id_field in mapping.local_doctype
-		docname = frappe.db.get_value(
+		docname = capkpi.db.get_value(
 			mapping.local_doctype, filters={mapping.migration_id_field: migration_id_value}
 		)
 
-		doc = frappe.get_doc(mapping.local_doctype, docname)
+		doc = capkpi.get_doc(mapping.local_doctype, docname)
 		doc.update(remote_doc)
 		doc.save()
 		return doc
 	except Exception:
 		print("Data Migration Run failed: Error in Pull update")
-		print(frappe.get_traceback())
+		print(capkpi.get_traceback())
 		return None
 
 
 def local_doc_exists(mapping, migration_id_value):
-	return frappe.db.exists(mapping.local_doctype, {mapping.migration_id_field: migration_id_value})
+	return capkpi.db.exists(mapping.local_doctype, {mapping.migration_id_field: migration_id_value})

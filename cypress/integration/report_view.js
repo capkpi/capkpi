@@ -16,7 +16,7 @@ context('Report View', () => {
 	});
 
 	it('Field with enabled allow_on_submit should be editable.', () => {
-		cy.intercept('POST', 'api/method/frappe.client.set_value').as('value-update');
+		cy.intercept('POST', 'api/method/capkpi.client.set_value').as('value-update');
 		cy.visit(`/app/List/${doctype_name}/Report`);
 
 		// check status column added from docstatus
@@ -29,7 +29,7 @@ context('Report View', () => {
 		cy.get('.dt-row-0 > .dt-cell--col-5').click();
 		cy.wait('@value-update');
 
-		cy.call('frappe.client.get_value', {
+		cy.call('capkpi.client.get_value', {
 			doctype: doctype_name,
 			filters: {
 				title: 'Doc 1',

@@ -12,10 +12,10 @@ context('Data Field Input Validation in New Form', () => {
 	function validateField(fieldname, invalid_value, valid_value) {
 		// Invalid, should have has-error class
 		cy.get_field(fieldname).clear().type(invalid_value).blur();
-		cy.get(`.frappe-control[data-fieldname="${fieldname}"]`).should('have.class', 'has-error');
+		cy.get(`.capkpi-control[data-fieldname="${fieldname}"]`).should('have.class', 'has-error');
 		// Valid value, should not have has-error class
 		cy.get_field(fieldname).clear().type(valid_value);
-		cy.get(`.frappe-control[data-fieldname="${fieldname}"]`).should('not.have.class', 'has-error');
+		cy.get(`.capkpi-control[data-fieldname="${fieldname}"]`).should('not.have.class', 'has-error');
 	}
 
 	describe('Data Field Options', () => {

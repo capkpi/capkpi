@@ -7,41 +7,41 @@ import json
 
 from six import string_types
 
-import frappe
-from frappe import _
-from frappe.model import default_fields, table_fields
-from frappe.utils import cstr
+import capkpi
+from capkpi import _
+from capkpi.model import default_fields, table_fields
+from capkpi.utils import cstr
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def make_mapped_doc(method, source_name, selected_children=None, args=None):
 	"""Returns the mapped document calling the given mapper method.
 	Sets selected_children as flags for the `get_mapped_doc` method.
 
 	Called from `open_mapped_doc` from create_new.js"""
 
-	for hook in frappe.get_hooks("override_whitelisted_methods", {}).get(method, []):
+	for hook in capkpi.get_hooks("override_whitelisted_methods", {}).get(method, []):
 		# override using the first hook
 		method = hook
 		break
 
-	method = frappe.get_attr(method)
+	method = capkpi.get_attr(method)
 
-	if method not in frappe.whitelisted:
-		raise frappe.PermissionError
+	if method not in capkpi.whitelisted:
+		raise capkpi.PermissionError
 
 	if selected_children:
 		selected_children = json.loads(selected_children)
 
 	if args:
-		frappe.flags.args = frappe._dict(json.loads(args))
+		capkpi.flags.args = capkpi._dict(json.loads(args))
 
-	frappe.flags.selected_children = selected_children or None
+	capkpi.flags.selected_children = selected_children or None
 
 	return method(source_name)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def map_docs(method, source_names, target_doc, args=None):
 	'''Returns the mapped document calling the given mapper method
 	with each of the given source docs on the target doc
@@ -49,9 +49,9 @@ def map_docs(method, source_names, target_doc, args=None):
 	:param args: Args as string to pass to the mapper method
 	E.g. args: "{ 'supplier': 'XYZ' }"'''
 
-	method = frappe.get_attr(method)
-	if method not in frappe.whitelisted:
-		raise frappe.PermissionError
+	method = capkpi.get_attr(method)
+	if method not in capkpi.whitelisted:
+		raise capkpi.PermissionError
 
 	for src in json.loads(source_names):
 		_args = (src, target_doc, json.loads(args)) if args else (src, target_doc)
@@ -69,13 +69,13 @@ def get_mapped_doc(
 	ignore_child_tables=False,
 ):
 
-	apply_strict_user_permissions = frappe.get_system_settings("apply_strict_user_permissions")
+	apply_strict_user_permissions = capkpi.get_system_settings("apply_strict_user_permissions")
 
 	# main
 	if not target_doc:
-		target_doc = frappe.new_doc(table_maps[from_doctype]["doctype"])
+		target_doc = capkpi.new_doc(table_maps[from_doctype]["doctype"])
 	elif isinstance(target_doc, string_types):
-		target_doc = frappe.get_doc(json.loads(target_doc))
+		target_doc = capkpi.get_doc(json.loads(target_doc))
 
 	if (
 		not apply_strict_user_permissions
@@ -84,7 +84,7 @@ def get_mapped_doc(
 	):
 		target_doc.raise_no_permission_to("create")
 
-	source_doc = frappe.get_doc(from_doctype, from_docname)
+	source_doc = capkpi.get_doc(from_doctype, from_docname)
 
 	if not ignore_permissions:
 		if not source_doc.has_permission("read"):
@@ -122,9 +122,9 @@ def get_mapped_doc(
 					# if children are selected (checked from UI) for this table type,
 					# and this record is not in the selected children, then continue
 					if (
-						frappe.flags.selected_children
-						and (df.fieldname in frappe.flags.selected_children)
-						and source_d.name not in frappe.flags.selected_children[df.fieldname]
+						capkpi.flags.selected_children
+						and (df.fieldname in capkpi.flags.selected_children)
+						and source_d.name not in capkpi.flags.selected_children[df.fieldname]
 					):
 						continue
 
@@ -165,7 +165,7 @@ def map_doc(source_doc, target_doc, table_map, source_parent=None):
 		for key, condition in table_map["validation"].items():
 			if condition[0] == "=":
 				if source_doc.get(key) != condition[1]:
-					frappe.throw(
+					capkpi.throw(
 						_("Cannot map because following condition fails: ") + key + "=" + cstr(condition[1])
 					)
 
@@ -247,7 +247,7 @@ def map_fetch_fields(target_doc, df, no_copy_fields):
 
 			if not linked_doc:
 				try:
-					linked_doc = frappe.get_doc(df.options, target_doc.get(df.fieldname))
+					linked_doc = capkpi.get_doc(df.options, target_doc.get(df.fieldname))
 				except Exception:
 					return
 
@@ -260,7 +260,7 @@ def map_fetch_fields(target_doc, df, no_copy_fields):
 def map_child_doc(source_d, target_parent, table_map, source_parent=None):
 	target_child_doctype = table_map["doctype"]
 	target_parentfield = target_parent.get_parentfield_of_doctype(target_child_doctype)
-	target_d = frappe.new_doc(target_child_doctype, target_parent, target_parentfield)
+	target_d = capkpi.new_doc(target_child_doctype, target_parent, target_parentfield)
 
 	map_doc(source_d, target_d, table_map, source_parent)
 

@@ -1,30 +1,30 @@
 import os
 
-import frappe
+import capkpi
 
 
 def setup_database(force, source_sql=None, verbose=False):
-	root_conn = get_root_connection(frappe.flags.root_login, frappe.flags.root_password)
+	root_conn = get_root_connection(capkpi.flags.root_login, capkpi.flags.root_password)
 	root_conn.commit()
-	root_conn.sql("DROP DATABASE IF EXISTS `{0}`".format(frappe.conf.db_name))
-	root_conn.sql("DROP USER IF EXISTS {0}".format(frappe.conf.db_name))
-	root_conn.sql("CREATE DATABASE `{0}`".format(frappe.conf.db_name))
+	root_conn.sql("DROP DATABASE IF EXISTS `{0}`".format(capkpi.conf.db_name))
+	root_conn.sql("DROP USER IF EXISTS {0}".format(capkpi.conf.db_name))
+	root_conn.sql("CREATE DATABASE `{0}`".format(capkpi.conf.db_name))
 	root_conn.sql(
-		"CREATE user {0} password '{1}'".format(frappe.conf.db_name, frappe.conf.db_password)
+		"CREATE user {0} password '{1}'".format(capkpi.conf.db_name, capkpi.conf.db_password)
 	)
-	root_conn.sql("GRANT ALL PRIVILEGES ON DATABASE `{0}` TO {0}".format(frappe.conf.db_name))
+	root_conn.sql("GRANT ALL PRIVILEGES ON DATABASE `{0}` TO {0}".format(capkpi.conf.db_name))
 	root_conn.close()
 
-	bootstrap_database(frappe.conf.db_name, verbose, source_sql=source_sql)
-	frappe.connect()
+	bootstrap_database(capkpi.conf.db_name, verbose, source_sql=source_sql)
+	capkpi.connect()
 
 
 def bootstrap_database(db_name, verbose, source_sql=None):
-	frappe.connect(db_name=db_name)
+	capkpi.connect(db_name=db_name)
 	import_db_from_sql(source_sql, verbose)
-	frappe.connect(db_name=db_name)
+	capkpi.connect(db_name=db_name)
 
-	if "tabDefaultValue" not in frappe.db.get_tables():
+	if "tabDefaultValue" not in capkpi.db.get_tables():
 		import sys
 
 		from click import secho
@@ -45,7 +45,7 @@ def import_db_from_sql(source_sql=None, verbose=False):
 	# we can't pass psql password in arguments in postgresql as mysql. So
 	# set password connection parameter in environment variable
 	subprocess_env = os.environ.copy()
-	subprocess_env["PGPASSWORD"] = str(frappe.conf.db_password)
+	subprocess_env["PGPASSWORD"] = str(capkpi.conf.db_password)
 
 	# bootstrap db
 	if not source_sql:
@@ -54,9 +54,9 @@ def import_db_from_sql(source_sql=None, verbose=False):
 	pv = which("pv")
 
 	_command = (
-		f"psql {frappe.conf.db_name} "
-		f"-h {frappe.conf.db_host or 'localhost'} -p {str(frappe.conf.db_port or '5432')} "
-		f"-U {frappe.conf.db_name}"
+		f"psql {capkpi.conf.db_name} "
+		f"-h {capkpi.conf.db_host or 'localhost'} -p {str(capkpi.conf.db_port or '5432')} "
+		f"-U {capkpi.conf.db_name}"
 	)
 
 	if pv:
@@ -77,7 +77,7 @@ def import_db_from_sql(source_sql=None, verbose=False):
 
 
 def setup_help_database(help_db_name):
-	root_conn = get_root_connection(frappe.flags.root_login, frappe.flags.root_password)
+	root_conn = get_root_connection(capkpi.flags.root_login, capkpi.flags.root_password)
 	root_conn.sql("DROP DATABASE IF EXISTS `{0}`".format(help_db_name))
 	root_conn.sql("DROP USER IF EXISTS {0}".format(help_db_name))
 	root_conn.sql("CREATE DATABASE `{0}`".format(help_db_name))
@@ -86,9 +86,9 @@ def setup_help_database(help_db_name):
 
 
 def get_root_connection(root_login=None, root_password=None):
-	if not frappe.local.flags.root_connection:
+	if not capkpi.local.flags.root_connection:
 		if not root_login:
-			root_login = frappe.conf.get("root_login") or None
+			root_login = capkpi.conf.get("root_login") or None
 
 		if not root_login:
 			from six.moves import input
@@ -96,15 +96,15 @@ def get_root_connection(root_login=None, root_password=None):
 			root_login = input("Enter postgres super user: ")
 
 		if not root_password:
-			root_password = frappe.conf.get("root_password") or None
+			root_password = capkpi.conf.get("root_password") or None
 
 		if not root_password:
 			from getpass import getpass
 
 			root_password = getpass("Postgres super user password: ")
 
-		frappe.local.flags.root_connection = frappe.database.get_db(
+		capkpi.local.flags.root_connection = capkpi.database.get_db(
 			user=root_login, password=root_password
 		)
 
-	return frappe.local.flags.root_connection
+	return capkpi.local.flags.root_connection

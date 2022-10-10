@@ -3,10 +3,10 @@ from __future__ import unicode_literals
 import datetime
 import os
 
-import frappe
-from frappe import _
-from frappe.utils import cint, get_site_path, get_url
-from frappe.utils.data import convert_utc_to_user_timezone
+import capkpi
+from capkpi import _
+from capkpi.utils import cint, get_site_path, get_url
+from capkpi.utils.data import convert_utc_to_user_timezone
 
 
 def get_context(context):
@@ -41,7 +41,7 @@ def get_context(context):
 
 
 def get_scheduled_backup_limit():
-	backup_limit = frappe.db.get_singles_value("System Settings", "backup_limit")
+	backup_limit = capkpi.db.get_singles_value("System Settings", "backup_limit")
 	return cint(backup_limit)
 
 
@@ -71,34 +71,34 @@ def delete_downloadable_backups():
 		cleanup_old_backups(path, files, backup_limit)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def schedule_files_backup(user_email):
-	from frappe.utils.background_jobs import enqueue, get_jobs
+	from capkpi.utils.background_jobs import enqueue, get_jobs
 
-	queued_jobs = get_jobs(site=frappe.local.site, queue="long")
-	method = "frappe.desk.page.backups.backups.backup_files_and_notify_user"
+	queued_jobs = get_jobs(site=capkpi.local.site, queue="long")
+	method = "capkpi.desk.page.backups.backups.backup_files_and_notify_user"
 
-	if method not in queued_jobs[frappe.local.site]:
+	if method not in queued_jobs[capkpi.local.site]:
 		enqueue(
-			"frappe.desk.page.backups.backups.backup_files_and_notify_user",
+			"capkpi.desk.page.backups.backups.backup_files_and_notify_user",
 			queue="long",
 			user_email=user_email,
 		)
-		frappe.msgprint(_("Queued for backup. You will receive an email with the download link"))
+		capkpi.msgprint(_("Queued for backup. You will receive an email with the download link"))
 	else:
-		frappe.msgprint(
+		capkpi.msgprint(
 			_("Backup job is already queued. You will receive an email with the download link")
 		)
 
 
 def backup_files_and_notify_user(user_email=None):
-	from frappe.utils.backups import backup
+	from capkpi.utils.backups import backup
 
 	backup_files = backup(with_files=True)
 	get_downloadable_links(backup_files)
 
 	subject = _("File backup is ready")
-	frappe.sendmail(
+	capkpi.sendmail(
 		recipients=[user_email],
 		subject=subject,
 		template="file_backup_notification",

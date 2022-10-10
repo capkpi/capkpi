@@ -4,14 +4,14 @@
 
 import os
 
-import frappe
-import frappe.modules.import_file
-from frappe import _
-from frappe.core.doctype.data_import_legacy.importer import upload
-from frappe.model.document import Document
-from frappe.modules.import_file import import_file_by_path as _import_file_by_path
-from frappe.utils.background_jobs import enqueue
-from frappe.utils.data import format_datetime
+import capkpi
+import capkpi.modules.import_file
+from capkpi import _
+from capkpi.core.doctype.data_import_legacy.importer import upload
+from capkpi.model.document import Document
+from capkpi.modules.import_file import import_file_by_path as _import_file_by_path
+from capkpi.utils.background_jobs import enqueue
+from capkpi.utils.data import format_datetime
 
 
 class DataImportLegacy(Document):
@@ -23,7 +23,7 @@ class DataImportLegacy(Document):
 		if not self.import_file:
 			self.db_set("total_rows", 0)
 		if self.import_status == "In Progress":
-			frappe.throw(_("Can't save the form as data import is in progress."))
+			capkpi.throw(_("Can't save the form as data import is in progress."))
 
 		# validate the template just after the upload
 		# if there is total_rows in the doc, it means that the template is already validated and error free
@@ -31,23 +31,23 @@ class DataImportLegacy(Document):
 			upload(data_import_doc=self, from_data_import="Yes", validate_template=True)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_importable_doctypes():
-	return frappe.cache().hget("can_import", frappe.session.user)
+	return capkpi.cache().hget("can_import", capkpi.session.user)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def import_data(data_import):
-	frappe.db.set_value(
+	capkpi.db.set_value(
 		"Data Import Legacy", data_import, "import_status", "In Progress", update_modified=False
 	)
-	frappe.publish_realtime(
+	capkpi.publish_realtime(
 		"data_import_progress",
 		{"progress": "0", "data_import": data_import, "reload": True},
-		user=frappe.session.user,
+		user=capkpi.session.user,
 	)
 
-	from frappe.core.page.background_jobs.background_jobs import get_info
+	from capkpi.core.page.background_jobs.background_jobs import get_info
 
 	enqueued_jobs = [d.get("job_name") for d in get_info()]
 
@@ -60,7 +60,7 @@ def import_data(data_import):
 			job_name=data_import,
 			data_import_doc=data_import,
 			from_data_import="Yes",
-			user=frappe.session.user,
+			user=capkpi.session.user,
 		)
 
 
@@ -80,23 +80,23 @@ def import_doc(
 
 	for f in files:
 		if f.endswith(".json"):
-			frappe.flags.mute_emails = True
+			capkpi.flags.mute_emails = True
 			_import_file_by_path(
 				f, data_import=True, force=True, pre_process=pre_process, reset_permissions=True
 			)
-			frappe.flags.mute_emails = False
-			frappe.db.commit()
+			capkpi.flags.mute_emails = False
+			capkpi.db.commit()
 		elif f.endswith(".csv"):
 			import_file_by_path(
 				f, ignore_links=ignore_links, overwrite=overwrite, submit=submit, pre_process=pre_process
 			)
-			frappe.db.commit()
+			capkpi.db.commit()
 
 
 def import_file_by_path(
 	path, ignore_links=False, overwrite=False, submit=False, pre_process=None, no_email=True
 ):
-	from frappe.utils.csvutils import read_csv_content
+	from capkpi.utils.csvutils import read_csv_content
 
 	print("Importing " + path)
 	with open(path, "r") as infile:
@@ -126,11 +126,11 @@ def export_json(doctype, path, filters=None, or_filters=None, name=None, order_b
 
 	out = []
 	if name:
-		out.append(frappe.get_doc(doctype, name).as_dict())
-	elif frappe.db.get_value("DocType", doctype, "issingle"):
-		out.append(frappe.get_doc(doctype).as_dict())
+		out.append(capkpi.get_doc(doctype, name).as_dict())
+	elif capkpi.db.get_value("DocType", doctype, "issingle"):
+		out.append(capkpi.get_doc(doctype).as_dict())
 	else:
-		for doc in frappe.get_all(
+		for doc in capkpi.get_all(
 			doctype,
 			fields=["name"],
 			filters=filters,
@@ -138,7 +138,7 @@ def export_json(doctype, path, filters=None, or_filters=None, name=None, order_b
 			limit_page_length=0,
 			order_by=order_by,
 		):
-			out.append(frappe.get_doc(doctype, doc.name).as_dict())
+			out.append(capkpi.get_doc(doctype, doc.name).as_dict())
 	post_process(out)
 
 	dirname = os.path.dirname(path)
@@ -146,27 +146,27 @@ def export_json(doctype, path, filters=None, or_filters=None, name=None, order_b
 		path = os.path.join("..", path)
 
 	with open(path, "w") as outfile:
-		outfile.write(frappe.as_json(out))
+		outfile.write(capkpi.as_json(out))
 
 
 def export_csv(doctype, path):
-	from frappe.core.doctype.data_export.exporter import export_data
+	from capkpi.core.doctype.data_export.exporter import export_data
 
 	with open(path, "wb") as csvfile:
 		export_data(doctype=doctype, all_doctypes=True, template=True, with_data=True)
-		csvfile.write(frappe.response.result.encode("utf-8"))
+		csvfile.write(capkpi.response.result.encode("utf-8"))
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def export_fixture(doctype, app):
-	if frappe.session.user != "Administrator":
-		raise frappe.PermissionError
+	if capkpi.session.user != "Administrator":
+		raise capkpi.PermissionError
 
-	if not os.path.exists(frappe.get_app_path(app, "fixtures")):
-		os.mkdir(frappe.get_app_path(app, "fixtures"))
+	if not os.path.exists(capkpi.get_app_path(app, "fixtures")):
+		os.mkdir(capkpi.get_app_path(app, "fixtures"))
 
 	export_json(
 		doctype,
-		frappe.get_app_path(app, "fixtures", frappe.scrub(doctype) + ".json"),
+		capkpi.get_app_path(app, "fixtures", capkpi.scrub(doctype) + ".json"),
 		order_by="name asc",
 	)

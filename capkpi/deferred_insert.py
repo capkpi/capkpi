@@ -1,23 +1,23 @@
 import json
 
-import frappe
-from frappe.utils import cstr
+import capkpi
+from capkpi.utils import cstr
 
 queue_prefix = "insert_queue_for_"
 
 
 def deferred_insert(doctype, records):
-	frappe.cache().rpush(queue_prefix + doctype, records)
+	capkpi.cache().rpush(queue_prefix + doctype, records)
 
 
 def save_to_db():
-	queue_keys = frappe.cache().get_keys(queue_prefix)
+	queue_keys = capkpi.cache().get_keys(queue_prefix)
 	for key in queue_keys:
 		record_count = 0
 		queue_key = get_key_name(key)
 		doctype = get_doctype_name(key)
-		while frappe.cache().llen(queue_key) > 0 and record_count <= 500:
-			records = frappe.cache().lpop(queue_key)
+		while capkpi.cache().llen(queue_key) > 0 and record_count <= 500:
+			records = capkpi.cache().lpop(queue_key)
 			records = json.loads(records.decode("utf-8"))
 			if isinstance(records, dict):
 				record_count += 1
@@ -27,14 +27,14 @@ def save_to_db():
 				record_count += 1
 				insert_record(record, doctype)
 
-	frappe.db.commit()
+	capkpi.db.commit()
 
 
 def insert_record(record, doctype):
 	if not record.get("doctype"):
 		record["doctype"] = doctype
 	try:
-		doc = frappe.get_doc(record)
+		doc = capkpi.get_doc(record)
 		doc.insert()
 	except Exception as e:
 		print(e, doctype)

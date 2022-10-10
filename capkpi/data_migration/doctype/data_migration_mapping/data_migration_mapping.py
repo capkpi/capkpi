@@ -4,15 +4,15 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.model.document import Document
-from frappe.utils.safe_exec import get_safe_globals
+import capkpi
+from capkpi.model.document import Document
+from capkpi.utils.safe_exec import get_safe_globals
 
 
 class DataMigrationMapping(Document):
 	def get_filters(self):
 		if self.condition:
-			return frappe.safe_eval(self.condition, get_safe_globals())
+			return capkpi.safe_eval(self.condition, get_safe_globals())
 
 	def get_fields(self):
 		fields = []
@@ -20,7 +20,7 @@ class DataMigrationMapping(Document):
 			if not (f.local_fieldname[0] in ('"', "'") or f.local_fieldname.startswith("eval:")):
 				fields.append(f.local_fieldname)
 
-		if frappe.db.has_column(self.local_doctype, self.migration_id_field):
+		if capkpi.db.has_column(self.local_doctype, self.migration_id_field):
 			fields.append(self.migration_id_field)
 
 		if "name" not in fields:
@@ -30,7 +30,7 @@ class DataMigrationMapping(Document):
 
 	def get_mapped_record(self, doc):
 		"""Build a mapped record using information from the fields table"""
-		mapped = frappe._dict()
+		mapped = capkpi._dict()
 
 		key_fieldname = "remote_fieldname"
 		value_fieldname = "local_fieldname"
@@ -58,7 +58,7 @@ class DataMigrationMapping(Document):
 
 def get_mapped_child_records(mapping_name, child_docs):
 	mapped_child_docs = []
-	mapping = frappe.get_doc("Data Migration Mapping", mapping_name)
+	mapping = capkpi.get_doc("Data Migration Mapping", mapping_name)
 	for child_doc in child_docs:
 		mapped_child_docs.append(mapping.get_mapped_record(child_doc))
 
@@ -69,7 +69,7 @@ def get_value_from_fieldname(field_map, fieldname_field, doc):
 	field_name = get_source_value(field_map, fieldname_field)
 
 	if field_name.startswith("eval:"):
-		value = frappe.safe_eval(field_name[5:], get_safe_globals())
+		value = capkpi.safe_eval(field_name[5:], get_safe_globals())
 	elif field_name[0] in ('"', "'"):
 		value = field_name[1:-1]
 	else:

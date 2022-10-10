@@ -8,18 +8,18 @@ from typing import Dict, List, Union
 
 from six.moves.urllib.parse import quote
 
-import frappe
-import frappe.defaults
-import frappe.desk.form.meta
-import frappe.share
-import frappe.utils
-from frappe import _
-from frappe.desk.form.document_follow import is_document_followed
-from frappe.model.utils.user_settings import get_user_settings
-from frappe.permissions import get_doc_permissions
+import capkpi
+import capkpi.defaults
+import capkpi.desk.form.meta
+import capkpi.share
+import capkpi.utils
+from capkpi import _
+from capkpi.desk.form.document_follow import is_document_followed
+from capkpi.model.utils.user_settings import get_user_settings
+from capkpi.permissions import get_doc_permissions
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def getdoc(doctype, name, user=None):
 	"""
 	Loads a doclist for a given document. This method is called directly from the client.
@@ -33,18 +33,18 @@ def getdoc(doctype, name, user=None):
 	if not name:
 		name = doctype
 
-	if not frappe.db.exists(doctype, name):
+	if not capkpi.db.exists(doctype, name):
 		return []
 
 	try:
-		doc = frappe.get_doc(doctype, name)
+		doc = capkpi.get_doc(doctype, name)
 		run_onload(doc)
 
 		if not doc.has_permission("read"):
-			frappe.flags.error_message = _("Insufficient Permission for {0}").format(
-				frappe.bold(doctype + " " + name)
+			capkpi.flags.error_message = _("Insufficient Permission for {0}").format(
+				capkpi.bold(doctype + " " + name)
 			)
-			raise frappe.PermissionError(("read", doctype, name))
+			raise capkpi.PermissionError(("read", doctype, name))
 
 		doc.apply_fieldlevel_read_permissions()
 
@@ -57,10 +57,10 @@ def getdoc(doctype, name, user=None):
 
 	doc.add_seen()
 
-	frappe.response.docs.append(doc)
+	capkpi.response.docs.append(doc)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def getdoctype(doctype, with_parent=False, cached_timestamp=None):
 	"""load doctype"""
 
@@ -69,36 +69,36 @@ def getdoctype(doctype, with_parent=False, cached_timestamp=None):
 
 	# with parent (called from report builder)
 	if with_parent:
-		parent_dt = frappe.model.meta.get_parent_dt(doctype)
+		parent_dt = capkpi.model.meta.get_parent_dt(doctype)
 		if parent_dt:
 			docs = get_meta_bundle(parent_dt)
-			frappe.response["parent_dt"] = parent_dt
+			capkpi.response["parent_dt"] = parent_dt
 
 	if not docs:
 		docs = get_meta_bundle(doctype)
 
-	frappe.response["user_settings"] = get_user_settings(parent_dt or doctype)
+	capkpi.response["user_settings"] = get_user_settings(parent_dt or doctype)
 
 	if cached_timestamp and docs[0].modified == cached_timestamp:
 		return "use_cache"
 
-	frappe.response.docs.extend(docs)
+	capkpi.response.docs.extend(docs)
 
 
 def get_meta_bundle(doctype):
-	bundle = [frappe.desk.form.meta.get_meta(doctype)]
+	bundle = [capkpi.desk.form.meta.get_meta(doctype)]
 	for df in bundle[0].fields:
-		if df.fieldtype in frappe.model.table_fields:
-			bundle.append(frappe.desk.form.meta.get_meta(df.options, not frappe.conf.developer_mode))
+		if df.fieldtype in capkpi.model.table_fields:
+			bundle.append(capkpi.desk.form.meta.get_meta(df.options, not capkpi.conf.developer_mode))
 	return bundle
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_docinfo(doc=None, doctype=None, name=None):
 	if not doc:
-		doc = frappe.get_doc(doctype, name)
+		doc = capkpi.get_doc(doctype, name)
 		if not doc.has_permission("read"):
-			raise frappe.PermissionError
+			raise capkpi.PermissionError
 
 	all_communications = _get_communications(doc.doctype, doc.name)
 	automated_messages = [
@@ -108,7 +108,7 @@ def get_docinfo(doc=None, doctype=None, name=None):
 		msg for msg in all_communications if msg["communication_type"] != "Automated Message"
 	]
 
-	frappe.response["docinfo"] = {
+	capkpi.response["docinfo"] = {
 		"attachments": get_attachments(doc.doctype, doc.name),
 		"attachment_logs": get_comments(doc.doctype, doc.name, "attachment"),
 		"communications": communications_except_auto_messages,
@@ -119,7 +119,7 @@ def get_docinfo(doc=None, doctype=None, name=None):
 		"assignments": get_assignments(doc.doctype, doc.name),
 		"assignment_logs": get_comments(doc.doctype, doc.name, "assignment"),
 		"permissions": get_doc_permissions(doc),
-		"shared": frappe.share.get_users(doc.doctype, doc.name),
+		"shared": capkpi.share.get_users(doc.doctype, doc.name),
 		"info_logs": get_comments(doc.doctype, doc.name, comment_type=["Info", "Edit", "Label"]),
 		"share_logs": get_comments(doc.doctype, doc.name, "share"),
 		"like_logs": get_comments(doc.doctype, doc.name, "Like"),
@@ -128,14 +128,14 @@ def get_docinfo(doc=None, doctype=None, name=None):
 		"energy_point_logs": get_point_logs(doc.doctype, doc.name),
 		"additional_timeline_content": get_additional_timeline_content(doc.doctype, doc.name),
 		"milestones": get_milestones(doc.doctype, doc.name),
-		"is_document_followed": is_document_followed(doc.doctype, doc.name, frappe.session.user),
+		"is_document_followed": is_document_followed(doc.doctype, doc.name, capkpi.session.user),
 		"tags": get_tags(doc.doctype, doc.name),
 		"document_email": get_document_email(doc.doctype, doc.name),
 	}
 
 
 def get_milestones(doctype, name):
-	return frappe.db.get_all(
+	return capkpi.db.get_all(
 		"Milestone",
 		fields=["creation", "owner", "track_field", "value"],
 		filters=dict(reference_type=doctype, reference_name=name),
@@ -143,7 +143,7 @@ def get_milestones(doctype, name):
 
 
 def get_attachments(dt, dn):
-	return frappe.get_all(
+	return capkpi.get_all(
 		"File",
 		fields=["name", "file_name", "file_url", "is_private"],
 		filters={"attached_to_name": dn, "attached_to_doctype": dt},
@@ -151,7 +151,7 @@ def get_attachments(dt, dn):
 
 
 def get_versions(doc):
-	return frappe.get_all(
+	return capkpi.get_all(
 		"Version",
 		filters=dict(ref_doctype=doc.doctype, docname=doc.name),
 		fields=["name", "owner", "creation", "data"],
@@ -160,18 +160,18 @@ def get_versions(doc):
 	)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_communications(doctype, name, start=0, limit=20):
-	doc = frappe.get_doc(doctype, name)
+	doc = capkpi.get_doc(doctype, name)
 	if not doc.has_permission("read"):
-		raise frappe.PermissionError
+		raise capkpi.PermissionError
 
 	return _get_communications(doctype, name, start, limit)
 
 
 def get_comments(
 	doctype: str, name: str, comment_type: Union[str, List[str]] = "Comment"
-) -> List[frappe._dict]:
+) -> List[capkpi._dict]:
 	if isinstance(comment_type, list):
 		comment_types = comment_type
 
@@ -187,7 +187,7 @@ def get_comments(
 	else:
 		comment_types = [comment_type]
 
-	comments = frappe.get_all(
+	comments = capkpi.get_all(
 		"Comment",
 		fields=["name", "creation", "content", "owner", "comment_type"],
 		filters={
@@ -200,13 +200,13 @@ def get_comments(
 	# convert to markdown (legacy ?)
 	for c in comments:
 		if c.comment_type == "Comment":
-			c.content = frappe.utils.markdown(c.content)
+			c.content = capkpi.utils.markdown(c.content)
 
 	return comments
 
 
 def get_point_logs(doctype, docname):
-	return frappe.db.get_all(
+	return capkpi.db.get_all(
 		"Energy Point Log",
 		filters={"reference_doctype": doctype, "reference_name": docname, "type": ["!=", "Review"]},
 		fields=["*"],
@@ -218,7 +218,7 @@ def _get_communications(doctype, name, start=0, limit=20):
 	for c in communications:
 		if c.communication_type == "Communication":
 			c.attachments = json.dumps(
-				frappe.get_all(
+				capkpi.get_all(
 					"File",
 					fields=["file_url", "is_private"],
 					filters={"attached_to_doctype": "Communication", "attached_to_name": c.name},
@@ -279,7 +279,7 @@ def get_communication_data(
 		fields=fields, conditions=conditions
 	)
 
-	communications = frappe.db.sql(
+	communications = capkpi.db.sql(
 		"""
 		SELECT *
 		FROM (({part1}) UNION ({part2})) AS combined
@@ -290,7 +290,7 @@ def get_communication_data(
 	""".format(
 			part1=part1, part2=part2, group_by=(group_by or "")
 		),
-		dict(doctype=doctype, name=name, start=frappe.utils.cint(start), limit=limit),
+		dict(doctype=doctype, name=name, start=capkpi.utils.cint(start), limit=limit),
 		as_dict=as_dict,
 	)
 
@@ -298,7 +298,7 @@ def get_communication_data(
 
 
 def get_assignments(dt, dn):
-	cl = frappe.get_all(
+	cl = capkpi.get_all(
 		"ToDo",
 		fields=["name", "owner", "description", "status"],
 		filters={
@@ -312,28 +312,28 @@ def get_assignments(dt, dn):
 	return cl
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_badge_info(doctypes, filters):
 	filters = json.loads(filters)
 	doctypes = json.loads(doctypes)
 	filters["docstatus"] = ["!=", 2]
 	out = {}
 	for doctype in doctypes:
-		out[doctype] = frappe.db.get_value(doctype, filters, "count(*)")
+		out[doctype] = capkpi.db.get_value(doctype, filters, "count(*)")
 
 	return out
 
 
 def run_onload(doc):
-	doc.set("__onload", frappe._dict())
+	doc.set("__onload", capkpi._dict())
 	doc.run_method("onload")
 
 
 def get_view_logs(doctype, docname):
 	"""get and return the latest view logs if available"""
 	logs = []
-	if hasattr(frappe.get_meta(doctype), "track_views") and frappe.get_meta(doctype).track_views:
-		view_logs = frappe.get_all(
+	if hasattr(capkpi.get_meta(doctype), "track_views") and capkpi.get_meta(doctype).track_views:
+		view_logs = capkpi.get_all(
 			"View Log",
 			filters={
 				"reference_doctype": doctype,
@@ -351,7 +351,7 @@ def get_view_logs(doctype, docname):
 def get_tags(doctype, name):
 	tags = [
 		tag.tag
-		for tag in frappe.get_all(
+		for tag in capkpi.get_all(
 			"Tag Link", filters={"document_type": doctype, "document_name": name}, fields=["tag"]
 		)
 	]
@@ -369,18 +369,18 @@ def get_document_email(doctype, name):
 
 
 def get_automatic_email_link():
-	return frappe.db.get_value(
+	return capkpi.db.get_value(
 		"Email Account", {"enable_incoming": 1, "enable_automatic_linking": 1}, "email_id"
 	)
 
 
 def get_additional_timeline_content(doctype, docname):
 	contents = []
-	hooks = frappe.get_hooks().get("additional_timeline_content", {})
+	hooks = capkpi.get_hooks().get("additional_timeline_content", {})
 	methods_for_all_doctype = hooks.get("*", [])
 	methods_for_current_doctype = hooks.get(doctype, [])
 
 	for method in methods_for_all_doctype + methods_for_current_doctype:
-		contents.extend(frappe.get_attr(method)(doctype, docname) or [])
+		contents.extend(capkpi.get_attr(method)(doctype, docname) or [])
 
 	return contents

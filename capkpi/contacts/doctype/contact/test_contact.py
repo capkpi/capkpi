@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
+import capkpi
 
 test_dependencies = ["Contact", "Salutation"]
 
@@ -37,7 +37,7 @@ class TestContact(unittest.TestCase):
 
 
 def create_contact(name, salutation, emails=None, phones=None, save=True):
-	doc = frappe.get_doc(
+	doc = capkpi.get_doc(
 		{"doctype": "Contact", "first_name": name, "status": "Open", "salutation": salutation}
 	)
 

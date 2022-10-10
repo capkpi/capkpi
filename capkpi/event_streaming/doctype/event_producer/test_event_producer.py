@@ -6,10 +6,10 @@ from __future__ import unicode_literals
 import json
 import unittest
 
-import frappe
-from frappe.core.doctype.user.user import generate_keys
-from frappe.event_streaming.doctype.event_producer.event_producer import pull_from_node
-from frappe.frappeclient import CapKPIClient
+import capkpi
+from capkpi.core.doctype.user.user import generate_keys
+from capkpi.event_streaming.doctype.event_producer.event_producer import pull_from_node
+from capkpi.capkpiclient import CapKPIClient
 
 producer_url = "http://test_site_producer:8000"
 
@@ -17,11 +17,11 @@ producer_url = "http://test_site_producer:8000"
 class TestEventProducer(unittest.TestCase):
 	# @classmethod
 	# def setUpClass(cls):
-	# 	frappe.print_sql(True)
+	# 	capkpi.print_sql(True)
 
 	# @classmethod
 	# def tearDownClass(cls):
-	# 	frappe.print_sql(False)
+	# 	capkpi.print_sql(False)
 
 	def setUp(self):
 		create_event_producer(producer_url)
@@ -33,7 +33,7 @@ class TestEventProducer(unittest.TestCase):
 		producer = get_remote_site()
 		producer_doc = insert_into_producer(producer, "test creation 1 sync")
 		self.pull_producer_data()
-		self.assertTrue(frappe.db.exists("ToDo", producer_doc.name))
+		self.assertTrue(capkpi.db.exists("ToDo", producer_doc.name))
 
 	def test_update(self):
 		producer = get_remote_site()
@@ -41,30 +41,30 @@ class TestEventProducer(unittest.TestCase):
 		producer_doc["description"] = "test update 2"
 		producer_doc = producer.update(producer_doc)
 		self.pull_producer_data()
-		local_doc = frappe.get_doc(producer_doc.doctype, producer_doc.name)
+		local_doc = capkpi.get_doc(producer_doc.doctype, producer_doc.name)
 		self.assertEqual(local_doc.description, producer_doc.description)
 
 	def test_delete(self):
 		producer = get_remote_site()
 		producer_doc = insert_into_producer(producer, "test delete sync")
 		self.pull_producer_data()
-		self.assertTrue(frappe.db.exists("ToDo", producer_doc.name))
+		self.assertTrue(capkpi.db.exists("ToDo", producer_doc.name))
 		producer.delete("ToDo", producer_doc.name)
 		self.pull_producer_data()
-		self.assertFalse(frappe.db.exists("ToDo", producer_doc.name))
+		self.assertFalse(capkpi.db.exists("ToDo", producer_doc.name))
 
 	def test_multiple_doctypes_sync(self):
 		producer = get_remote_site()
 
 		# insert todo and note in producer
 		producer_todo = insert_into_producer(producer, "test multiple doc sync")
-		producer_note1 = frappe._dict(doctype="Note", title="test multiple doc sync 1")
+		producer_note1 = capkpi._dict(doctype="Note", title="test multiple doc sync 1")
 		delete_on_remote_if_exists(producer, "Note", {"title": producer_note1["title"]})
-		frappe.db.delete("Note", {"title": producer_note1["title"]})
+		capkpi.db.delete("Note", {"title": producer_note1["title"]})
 		producer_note1 = producer.insert(producer_note1)
-		producer_note2 = frappe._dict(doctype="Note", title="test multiple doc sync 2")
+		producer_note2 = capkpi._dict(doctype="Note", title="test multiple doc sync 2")
 		delete_on_remote_if_exists(producer, "Note", {"title": producer_note2["title"]})
-		frappe.db.delete("Note", {"title": producer_note2["title"]})
+		capkpi.db.delete("Note", {"title": producer_note2["title"]})
 		producer_note2 = producer.insert(producer_note2)
 
 		# update in producer
@@ -78,20 +78,20 @@ class TestEventProducer(unittest.TestCase):
 		self.pull_producer_data()
 
 		# check inserted
-		self.assertTrue(frappe.db.exists("ToDo", producer_todo.name))
+		self.assertTrue(capkpi.db.exists("ToDo", producer_todo.name))
 
 		# check update
-		local_todo = frappe.get_doc("ToDo", producer_todo.name)
+		local_todo = capkpi.get_doc("ToDo", producer_todo.name)
 		self.assertEqual(local_todo.description, producer_todo.description)
-		local_note1 = frappe.get_doc("Note", producer_note1.name)
+		local_note1 = capkpi.get_doc("Note", producer_note1.name)
 		self.assertEqual(local_note1.content, producer_note1.content)
 
 		# check delete
-		self.assertFalse(frappe.db.exists("Note", producer_note2.name))
+		self.assertFalse(capkpi.db.exists("Note", producer_note2.name))
 
 	def test_child_table_sync_with_dependencies(self):
 		producer = get_remote_site()
-		producer_user = frappe._dict(
+		producer_user = capkpi._dict(
 			doctype="User",
 			email="test_user@sync.com",
 			send_welcome_email=0,
@@ -100,36 +100,36 @@ class TestEventProducer(unittest.TestCase):
 			roles=[{"role": "System Manager"}],
 		)
 		delete_on_remote_if_exists(producer, "User", {"email": producer_user.email})
-		frappe.db.delete("User", {"email": producer_user.email})
+		capkpi.db.delete("User", {"email": producer_user.email})
 		producer_user = producer.insert(producer_user)
 
-		producer_note = frappe._dict(
+		producer_note = capkpi._dict(
 			doctype="Note", title="test child table dependency sync", seen_by=[{"user": producer_user.name}]
 		)
 		delete_on_remote_if_exists(producer, "Note", {"title": producer_note.title})
-		frappe.db.delete("Note", {"title": producer_note.title})
+		capkpi.db.delete("Note", {"title": producer_note.title})
 		producer_note = producer.insert(producer_note)
 
 		self.pull_producer_data()
-		self.assertTrue(frappe.db.exists("User", producer_user.name))
-		if self.assertTrue(frappe.db.exists("Note", producer_note.name)):
-			local_note = frappe.get_doc("Note", producer_note.name)
+		self.assertTrue(capkpi.db.exists("User", producer_user.name))
+		if self.assertTrue(capkpi.db.exists("Note", producer_note.name)):
+			local_note = capkpi.get_doc("Note", producer_note.name)
 			self.assertEqual(len(local_note.seen_by), 1)
 
 	def test_dynamic_link_dependencies_synced(self):
 		producer = get_remote_site()
 		# unsubscribe for Note to check whether dependency is fulfilled
-		event_producer = frappe.get_doc("Event Producer", producer_url, for_update=True)
+		event_producer = capkpi.get_doc("Event Producer", producer_url, for_update=True)
 		event_producer.producer_doctypes = []
 		event_producer.append("producer_doctypes", {"ref_doctype": "ToDo", "use_same_name": 1})
 		event_producer.save()
 
-		producer_link_doc = frappe._dict(doctype="Note", title="Test Dynamic Link 1")
+		producer_link_doc = capkpi._dict(doctype="Note", title="Test Dynamic Link 1")
 
 		delete_on_remote_if_exists(producer, "Note", {"title": producer_link_doc.title})
-		frappe.db.delete("Note", {"title": producer_link_doc.title})
+		capkpi.db.delete("Note", {"title": producer_link_doc.title})
 		producer_link_doc = producer.insert(producer_link_doc)
-		producer_doc = frappe._dict(
+		producer_doc = capkpi._dict(
 			doctype="ToDo",
 			description="Test Dynamic Link 2",
 			assigned_by="Administrator",
@@ -141,9 +141,9 @@ class TestEventProducer(unittest.TestCase):
 		self.pull_producer_data()
 
 		# check dynamic link dependency created
-		self.assertTrue(frappe.db.exists("Note", producer_link_doc.name))
+		self.assertTrue(capkpi.db.exists("Note", producer_link_doc.name))
 		self.assertEqual(
-			producer_link_doc.name, frappe.db.get_value("ToDo", producer_doc.name, "reference_name")
+			producer_link_doc.name, capkpi.db.get_value("ToDo", producer_doc.name, "reference_name")
 		)
 
 		reset_configuration(producer_url)
@@ -151,7 +151,7 @@ class TestEventProducer(unittest.TestCase):
 	def test_naming_configuration(self):
 		# test with use_same_name = 0
 		producer = get_remote_site()
-		event_producer = frappe.get_doc("Event Producer", producer_url, for_update=True)
+		event_producer = capkpi.get_doc("Event Producer", producer_url, for_update=True)
 		event_producer.producer_doctypes = []
 		event_producer.append("producer_doctypes", {"ref_doctype": "ToDo", "use_same_name": 0})
 		event_producer.save()
@@ -159,7 +159,7 @@ class TestEventProducer(unittest.TestCase):
 		producer_doc = insert_into_producer(producer, "test different name sync")
 		self.pull_producer_data()
 		self.assertTrue(
-			frappe.db.exists(
+			capkpi.db.exists(
 				"ToDo", {"remote_docname": producer_doc.name, "remote_site_name": producer_url}
 			)
 		)
@@ -170,13 +170,13 @@ class TestEventProducer(unittest.TestCase):
 		producer = get_remote_site()
 
 		# Add Condition
-		event_producer = frappe.get_doc("Event Producer", producer_url)
+		event_producer = capkpi.get_doc("Event Producer", producer_url)
 		note_producer_entry = [x for x in event_producer.producer_doctypes if x.ref_doctype == "Note"][0]
 		note_producer_entry.condition = "doc.public == 1"
 		event_producer.save()
 
 		# Make test doc
-		producer_note1 = frappe._dict(doctype="Note", public=0, title="test conditional sync")
+		producer_note1 = capkpi._dict(doctype="Note", public=0, title="test conditional sync")
 		delete_on_remote_if_exists(producer, "Note", {"title": producer_note1["title"]})
 		producer_note1 = producer.insert(producer_note1)
 
@@ -187,7 +187,7 @@ class TestEventProducer(unittest.TestCase):
 		self.pull_producer_data()
 
 		# Check if synced here
-		self.assertFalse(frappe.db.exists("Note", producer_note1.name))
+		self.assertFalse(capkpi.db.exists("Note", producer_note1.name))
 
 		# Lets satisfy the condition
 		producer_note1["public"] = 1
@@ -196,8 +196,8 @@ class TestEventProducer(unittest.TestCase):
 		self.pull_producer_data()
 
 		# it should sync now
-		self.assertTrue(frappe.db.exists("Note", producer_note1.name))
-		local_note = frappe.get_doc("Note", producer_note1.name)
+		self.assertTrue(capkpi.db.exists("Note", producer_note1.name))
+		local_note = capkpi.get_doc("Note", producer_note1.name)
 		self.assertEqual(local_note.content, producer_note1.content)
 
 		reset_configuration(producer_url)
@@ -206,15 +206,15 @@ class TestEventProducer(unittest.TestCase):
 		producer = get_remote_site()
 
 		# Add Condition
-		event_producer = frappe.get_doc("Event Producer", producer_url)
+		event_producer = capkpi.get_doc("Event Producer", producer_url)
 		note_producer_entry = [x for x in event_producer.producer_doctypes if x.ref_doctype == "Note"][0]
 		note_producer_entry.condition = (
-			"cmd: frappe.event_streaming.doctype.event_producer.test_event_producer.can_sync_note"
+			"cmd: capkpi.event_streaming.doctype.event_producer.test_event_producer.can_sync_note"
 		)
 		event_producer.save()
 
 		# Make test doc
-		producer_note1 = frappe._dict(doctype="Note", public=0, title="test conditional sync cmd")
+		producer_note1 = capkpi._dict(doctype="Note", public=0, title="test conditional sync cmd")
 		delete_on_remote_if_exists(producer, "Note", {"title": producer_note1["title"]})
 		producer_note1 = producer.insert(producer_note1)
 
@@ -225,7 +225,7 @@ class TestEventProducer(unittest.TestCase):
 		self.pull_producer_data()
 
 		# Check if synced here
-		self.assertFalse(frappe.db.exists("Note", producer_note1.name))
+		self.assertFalse(capkpi.db.exists("Note", producer_note1.name))
 
 		# Lets satisfy the condition
 		producer_note1["public"] = 1
@@ -234,8 +234,8 @@ class TestEventProducer(unittest.TestCase):
 		self.pull_producer_data()
 
 		# it should sync now
-		self.assertTrue(frappe.db.exists("Note", producer_note1.name))
-		local_note = frappe.get_doc("Note", producer_note1.name)
+		self.assertTrue(capkpi.db.exists("Note", producer_note1.name))
+		local_note = capkpi.get_doc("Note", producer_note1.name)
 		self.assertEqual(local_note.content, producer_note1.content)
 
 		reset_configuration(producer_url)
@@ -252,14 +252,14 @@ class TestEventProducer(unittest.TestCase):
 		producer = get_remote_site()
 		producer_doc = insert_into_producer(producer, "test event sync log")
 		self.pull_producer_data()
-		self.assertTrue(frappe.db.exists("Event Sync Log", {"docname": producer_doc.name}))
+		self.assertTrue(capkpi.db.exists("Event Sync Log", {"docname": producer_doc.name}))
 
 	def pull_producer_data(self):
 		pull_from_node(producer_url)
 
 	def test_mapping(self):
 		producer = get_remote_site()
-		event_producer = frappe.get_doc("Event Producer", producer_url, for_update=True)
+		event_producer = capkpi.get_doc("Event Producer", producer_url, for_update=True)
 		event_producer.producer_doctypes = []
 		mapping = [{"local_fieldname": "description", "remote_fieldname": "content"}]
 		event_producer.append(
@@ -273,12 +273,12 @@ class TestEventProducer(unittest.TestCase):
 		)
 		event_producer.save()
 
-		producer_note = frappe._dict(doctype="Note", title="Test Mapping", content="Test Mapping")
+		producer_note = capkpi._dict(doctype="Note", title="Test Mapping", content="Test Mapping")
 		delete_on_remote_if_exists(producer, "Note", {"title": producer_note.title})
 		producer_note = producer.insert(producer_note)
 		self.pull_producer_data()
 		# check inserted
-		self.assertTrue(frappe.db.exists("ToDo", {"description": producer_note.content}))
+		self.assertTrue(capkpi.db.exists("ToDo", {"description": producer_note.content}))
 
 		# update in producer
 		producer_note["content"] = "test mapped doc update sync"
@@ -286,12 +286,12 @@ class TestEventProducer(unittest.TestCase):
 		self.pull_producer_data()
 
 		# check updated
-		self.assertTrue(frappe.db.exists("ToDo", {"description": producer_note["content"]}))
+		self.assertTrue(capkpi.db.exists("ToDo", {"description": producer_note["content"]}))
 
 		producer.delete("Note", producer_note.name)
 		self.pull_producer_data()
 		# check delete
-		self.assertFalse(frappe.db.exists("ToDo", {"description": producer_note.content}))
+		self.assertFalse(capkpi.db.exists("ToDo", {"description": producer_note.content}))
 
 		reset_configuration(producer_url)
 
@@ -299,7 +299,7 @@ class TestEventProducer(unittest.TestCase):
 		producer = get_remote_site()
 
 		setup_event_producer_for_inner_mapping()
-		producer_note = frappe._dict(
+		producer_note = capkpi._dict(
 			doctype="Note", title="Inner Mapping Tester", content="Test Inner Mapping"
 		)
 		delete_on_remote_if_exists(producer, "Note", {"title": producer_note.title})
@@ -307,9 +307,9 @@ class TestEventProducer(unittest.TestCase):
 		self.pull_producer_data()
 
 		# check dependency inserted
-		self.assertTrue(frappe.db.exists("Role", {"role_name": producer_note.title}))
+		self.assertTrue(capkpi.db.exists("Role", {"role_name": producer_note.title}))
 		# check doc inserted
-		self.assertTrue(frappe.db.exists("ToDo", {"description": producer_note.content}))
+		self.assertTrue(capkpi.db.exists("ToDo", {"description": producer_note.content}))
 
 		reset_configuration(producer_url)
 
@@ -319,7 +319,7 @@ def can_sync_note(consumer, doc, update_log):
 
 
 def setup_event_producer_for_inner_mapping():
-	event_producer = frappe.get_doc("Event Producer", producer_url, for_update=True)
+	event_producer = capkpi.get_doc("Event Producer", producer_url, for_update=True)
 	event_producer.producer_doctypes = []
 	inner_mapping = [{"local_fieldname": "role_name", "remote_fieldname": "title"}]
 	inner_map = get_mapping("Role to Note Dependency Creation", "Role", "Note", inner_mapping)
@@ -362,11 +362,11 @@ def delete_on_remote_if_exists(producer, doctype, filters):
 
 
 def get_mapping(mapping_name, local, remote, field_map):
-	name = frappe.db.exists("Document Type Mapping", mapping_name)
+	name = capkpi.db.exists("Document Type Mapping", mapping_name)
 	if name:
-		doc = frappe.get_doc("Document Type Mapping", name)
+		doc = capkpi.get_doc("Document Type Mapping", name)
 	else:
-		doc = frappe.new_doc("Document Type Mapping")
+		doc = capkpi.new_doc("Document Type Mapping")
 
 	doc.mapping_name = mapping_name
 	doc.local_doctype = local
@@ -378,8 +378,8 @@ def get_mapping(mapping_name, local, remote, field_map):
 
 
 def create_event_producer(producer_url):
-	if frappe.db.exists("Event Producer", producer_url):
-		event_producer = frappe.get_doc("Event Producer", producer_url)
+	if capkpi.db.exists("Event Producer", producer_url):
+		event_producer = capkpi.get_doc("Event Producer", producer_url)
 		for entry in event_producer.producer_doctypes:
 			entry.unsubscribe = 0
 		event_producer.save()
@@ -390,7 +390,7 @@ def create_event_producer(producer_url):
 	producer_site = connect()
 
 	response = producer_site.post_api(
-		"frappe.core.doctype.user.user.generate_keys", params={"user": "Administrator"}
+		"capkpi.core.doctype.user.user.generate_keys", params={"user": "Administrator"}
 	)
 
 	api_secret = response.get("api_secret")
@@ -398,7 +398,7 @@ def create_event_producer(producer_url):
 	response = producer_site.get_value("User", "api_key", {"name": "Administrator"})
 	api_key = response.get("api_key")
 
-	event_producer = frappe.new_doc("Event Producer")
+	event_producer = capkpi.new_doc("Event Producer")
 	event_producer.producer_doctypes = []
 	event_producer.producer_url = producer_url
 	event_producer.append("producer_doctypes", {"ref_doctype": "ToDo", "use_same_name": 1})
@@ -410,7 +410,7 @@ def create_event_producer(producer_url):
 
 
 def reset_configuration(producer_url):
-	event_producer = frappe.get_doc("Event Producer", producer_url, for_update=True)
+	event_producer = capkpi.get_doc("Event Producer", producer_url, for_update=True)
 	event_producer.producer_doctypes = []
 	event_producer.conditions = []
 	event_producer.producer_url = producer_url
@@ -421,7 +421,7 @@ def reset_configuration(producer_url):
 
 
 def get_remote_site():
-	producer_doc = frappe.get_doc("Event Producer", producer_url)
+	producer_doc = capkpi.get_doc("Event Producer", producer_url)
 	producer_site = CapKPIClient(
 		url=producer_doc.producer_url, username="Administrator", password="admin", verify=False
 	)
@@ -429,7 +429,7 @@ def get_remote_site():
 
 
 def unsubscribe_doctypes(producer_url):
-	event_producer = frappe.get_doc("Event Producer", producer_url)
+	event_producer = capkpi.get_doc("Event Producer", producer_url)
 	for entry in event_producer.producer_doctypes:
 		entry.unsubscribe = 1
 	event_producer.save()

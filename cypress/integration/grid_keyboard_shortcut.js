@@ -6,7 +6,7 @@ context('Grid Keyboard Shortcut', () => {
 	beforeEach(() => {
 		cy.reload();
 		cy.visit('/app/contact/new-contact-1');
-		cy.get('.frappe-control[data-fieldname="email_ids"]').find(".grid-add-row").click();
+		cy.get('.capkpi-control[data-fieldname="email_ids"]').find(".grid-add-row").click();
 	});
 	it('Insert new row at the end', () => {
 		cy.add_new_row_in_grid('{ctrl}{shift}{downarrow}', (cy, total_count) => {
@@ -31,7 +31,7 @@ context('Grid Keyboard Shortcut', () => {
 });
 
 Cypress.Commands.add('add_new_row_in_grid', (shortcut_keys, callbackFn, total_count) => {
-	cy.get('.frappe-control[data-fieldname="email_ids"]').as('table');
+	cy.get('.capkpi-control[data-fieldname="email_ids"]').as('table');
 	cy.get('@table').find('.grid-body [data-fieldname="email_id"]').first().click();
 	cy.get('@table').find('.grid-body [data-fieldname="email_id"]')
 		.first().type(shortcut_keys);

@@ -1,5 +1,5 @@
 """
-CapKPIClient is a library that helps you connect with other frappe systems
+CapKPIClient is a library that helps you connect with other capkpi systems
 """
 from __future__ import print_function, unicode_literals
 
@@ -9,7 +9,7 @@ import json
 import requests
 from six import iteritems, string_types
 
-import frappe
+import capkpi
 
 
 class AuthError(Exception):
@@ -37,7 +37,7 @@ class CapKPIClient(object):
 		verify=True,
 		api_key=None,
 		api_secret=None,
-		frappe_authorization_source=None,
+		capkpi_authorization_source=None,
 	):
 		self.headers = {
 			"Accept": "application/json",
@@ -48,7 +48,7 @@ class CapKPIClient(object):
 		self.url = url
 		self.api_key = api_key
 		self.api_secret = api_secret
-		self.frappe_authorization_source = frappe_authorization_source
+		self.capkpi_authorization_source = capkpi_authorization_source
 
 		self.setup_key_authentication_headers()
 
@@ -95,8 +95,8 @@ class CapKPIClient(object):
 			}
 			self.headers.update(auth_header)
 
-			if self.frappe_authorization_source:
-				auth_source = {"CapKPI-Authorization-Source": self.frappe_authorization_source}
+			if self.capkpi_authorization_source:
+				auth_source = {"CapKPI-Authorization-Source": self.capkpi_authorization_source}
 				self.headers.update(auth_source)
 
 	def logout(self):
@@ -133,17 +133,17 @@ class CapKPIClient(object):
 		:param doc: A dict or Document object to be inserted remotely"""
 		res = self.session.post(
 			self.url + "/api/resource/" + doc.get("doctype"),
-			data={"data": frappe.as_json(doc)},
+			data={"data": capkpi.as_json(doc)},
 			verify=self.verify,
 			headers=self.headers,
 		)
-		return frappe._dict(self.post_process(res))
+		return capkpi._dict(self.post_process(res))
 
 	def insert_many(self, docs):
 		"""Insert multiple documents to the remote server
 
 		:param docs: List of dict or Document objects to be inserted in one request"""
-		return self.post_request({"cmd": "frappe.client.insert_many", "docs": frappe.as_json(docs)})
+		return self.post_request({"cmd": "capkpi.client.insert_many", "docs": capkpi.as_json(docs)})
 
 	def update(self, doc):
 		"""Update a remote document
@@ -151,28 +151,28 @@ class CapKPIClient(object):
 		:param doc: dict or Document object to be updated remotely. `name` is mandatory for this"""
 		url = self.url + "/api/resource/" + doc.get("doctype") + "/" + doc.get("name")
 		res = self.session.put(
-			url, data={"data": frappe.as_json(doc)}, verify=self.verify, headers=self.headers
+			url, data={"data": capkpi.as_json(doc)}, verify=self.verify, headers=self.headers
 		)
-		return frappe._dict(self.post_process(res))
+		return capkpi._dict(self.post_process(res))
 
 	def bulk_update(self, docs):
 		"""Bulk update documents remotely
 
 		:param docs: List of dict or Document objects to be updated remotely (by `name`)"""
-		return self.post_request({"cmd": "frappe.client.bulk_update", "docs": frappe.as_json(docs)})
+		return self.post_request({"cmd": "capkpi.client.bulk_update", "docs": capkpi.as_json(docs)})
 
 	def delete(self, doctype, name):
 		"""Delete remote document by name
 
 		:param doctype: `doctype` to be deleted
 		:param name: `name` of document to be deleted"""
-		return self.post_request({"cmd": "frappe.client.delete", "doctype": doctype, "name": name})
+		return self.post_request({"cmd": "capkpi.client.delete", "doctype": doctype, "name": name})
 
 	def submit(self, doc):
 		"""Submit remote document
 
 		:param doc: dict or Document object to be submitted remotely"""
-		return self.post_request({"cmd": "frappe.client.submit", "doc": frappe.as_json(doc)})
+		return self.post_request({"cmd": "capkpi.client.submit", "doc": capkpi.as_json(doc)})
 
 	def get_value(self, doctype, fieldname=None, filters=None):
 		"""Returns a value form a document
@@ -182,10 +182,10 @@ class CapKPIClient(object):
 		:param filters: dict or string for identifying the record"""
 		return self.get_request(
 			{
-				"cmd": "frappe.client.get_value",
+				"cmd": "capkpi.client.get_value",
 				"doctype": doctype,
 				"fieldname": fieldname or "name",
-				"filters": frappe.as_json(filters),
+				"filters": capkpi.as_json(filters),
 			}
 		)
 
@@ -198,7 +198,7 @@ class CapKPIClient(object):
 		:param value: value to be updated"""
 		return self.post_request(
 			{
-				"cmd": "frappe.client.set_value",
+				"cmd": "capkpi.client.set_value",
 				"doctype": doctype,
 				"name": docname,
 				"fieldname": fieldname,
@@ -211,7 +211,7 @@ class CapKPIClient(object):
 
 		:param doctype: DocType of the document to be cancelled
 		:param name: name of the document to be cancelled"""
-		return self.post_request({"cmd": "frappe.client.cancel", "doctype": doctype, "name": name})
+		return self.post_request({"cmd": "capkpi.client.cancel", "doctype": doctype, "name": name})
 
 	def get_doc(self, doctype, name="", filters=None, fields=None):
 		"""Returns a single remote document
@@ -242,7 +242,7 @@ class CapKPIClient(object):
 		:param old_name: Current `name` of the document to be renamed
 		:param new_name: New `name` to be set"""
 		params = {
-			"cmd": "frappe.client.rename_doc",
+			"cmd": "capkpi.client.rename_doc",
 			"doctype": doctype,
 			"old_name": old_name,
 			"new_name": new_name,
@@ -253,7 +253,7 @@ class CapKPIClient(object):
 		self, doctype, filters=None, update=None, verbose=1, exclude=None, preprocess=None
 	):
 		"""Migrate records from another doctype"""
-		meta = frappe.get_meta(doctype)
+		meta = capkpi.get_meta(doctype)
 		tables = {}
 		for df in meta.get_table_fields():
 			if verbose:
@@ -267,12 +267,12 @@ class CapKPIClient(object):
 
 		# build - attach children to parents
 		if tables:
-			docs = [frappe._dict(doc) for doc in docs]
+			docs = [capkpi._dict(doc) for doc in docs]
 			docs_map = dict((doc.name, doc) for doc in docs)
 
 			for fieldname in tables:
 				for child in tables[fieldname]:
-					child = frappe._dict(child)
+					child = capkpi._dict(child)
 					if child.parent in docs_map:
 						docs_map[child.parent].setdefault(fieldname, []).append(child)
 
@@ -288,8 +288,8 @@ class CapKPIClient(object):
 			if not doc.get("owner"):
 				doc["owner"] = "Administrator"
 
-			if doctype != "User" and not frappe.db.exists("User", doc.get("owner")):
-				frappe.get_doc(
+			if doctype != "User" and not capkpi.db.exists("User", doc.get("owner")):
+				capkpi.get_doc(
 					{"doctype": "User", "email": doc.get("owner"), "first_name": doc.get("owner").split("@")[0]}
 				).insert()
 
@@ -297,7 +297,7 @@ class CapKPIClient(object):
 				doc.update(update)
 
 			doc["doctype"] = doctype
-			new_doc = frappe.get_doc(doc)
+			new_doc = capkpi.get_doc(doc)
 			new_doc.insert()
 
 			if not meta.istable:
@@ -319,11 +319,11 @@ class CapKPIClient(object):
 
 	def migrate_single(self, doctype):
 		doc = self.get_doc(doctype, doctype)
-		doc = frappe.get_doc(doc)
+		doc = capkpi.get_doc(doc)
 
 		# change modified so that there is no error
-		doc.modified = frappe.db.get_single_value(doctype, "modified")
-		frappe.get_doc(doc).insert()
+		doc.modified = capkpi.db.get_single_value(doctype, "modified")
+		capkpi.get_doc(doc).insert()
 
 	def get_api(self, method, params=None):
 		if params is None:

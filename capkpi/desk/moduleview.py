@@ -5,18 +5,18 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe import _
-from frappe.boot import get_allowed_pages, get_allowed_reports
-from frappe.cache_manager import (
+import capkpi
+from capkpi import _
+from capkpi.boot import get_allowed_pages, get_allowed_reports
+from capkpi.cache_manager import (
 	build_domain_restriced_doctype_cache,
 	build_domain_restriced_page_cache,
 	build_table_count_cache,
 )
-from frappe.desk.doctype.desktop_icon.desktop_icon import clear_desktop_icons_cache, set_hidden
+from capkpi.desk.doctype.desktop_icon.desktop_icon import clear_desktop_icons_cache, set_hidden
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get(module):
 	"""Returns data (sections, list of reports, counts) to render module view in desk:
 	`/desk/#Module/[name]`."""
@@ -27,14 +27,14 @@ def get(module):
 	return out
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def hide_module(module):
-	set_hidden(module, frappe.session.user, 1)
+	set_hidden(module, capkpi.session.user, 1)
 	clear_desktop_icons_cache()
 
 
 def get_table_with_counts():
-	counts = frappe.cache().get_value("information_schema:counts")
+	counts = capkpi.cache().get_value("information_schema:counts")
 	if counts:
 		return counts
 	else:
@@ -64,8 +64,8 @@ def get_data(module, build=True):
 		def doctype_contains_a_record(name):
 			exists = exists_cache.get(name)
 			if not exists:
-				if not frappe.db.get_value("DocType", name, "issingle"):
-					exists = frappe.db.count(name)
+				if not capkpi.db.get_value("DocType", name, "issingle"):
+					exists = capkpi.db.count(name)
 				else:
 					exists = True
 				exists_cache[name] = exists
@@ -101,9 +101,9 @@ def get_data(module, build=True):
 def build_config_from_file(module):
 	"""Build module info from `app/config/desktop.py` files."""
 	data = []
-	module = frappe.scrub(module)
+	module = capkpi.scrub(module)
 
-	for app in frappe.get_installed_apps():
+	for app in capkpi.get_installed_apps():
 		try:
 			data += get_config(app, module)
 		except ImportError:
@@ -115,9 +115,9 @@ def build_config_from_file(module):
 def filter_by_restrict_to_domain(data):
 	"""filter Pages and DocType depending on the Active Module(s)"""
 	doctypes = (
-		frappe.cache().get_value("domain_restricted_doctypes") or build_domain_restriced_doctype_cache()
+		capkpi.cache().get_value("domain_restricted_doctypes") or build_domain_restriced_doctype_cache()
 	)
-	pages = frappe.cache().get_value("domain_restricted_pages") or build_domain_restriced_page_cache()
+	pages = capkpi.cache().get_value("domain_restricted_pages") or build_domain_restriced_page_cache()
 
 	for d in data:
 		_items = []
@@ -136,8 +136,8 @@ def filter_by_restrict_to_domain(data):
 
 def build_standard_config(module, doctype_info):
 	"""Build standard module data from DocTypes."""
-	if not frappe.db.get_value("Module Def", module):
-		frappe.throw(_("Module Not Found"))
+	if not capkpi.db.get_value("Module Def", module):
+		capkpi.throw(_("Module Not Found"))
 
 	data = []
 
@@ -186,9 +186,9 @@ def add_custom_doctypes(data, doctype_info):
 
 def get_doctype_info(module):
 	"""Returns list of non child DocTypes for given module."""
-	active_domains = frappe.get_active_domains()
+	active_domains = capkpi.get_active_domains()
 
-	doctype_info = frappe.get_all(
+	doctype_info = capkpi.get_all(
 		"DocType",
 		filters={"module": module, "istable": 0},
 		or_filters={"ifnull(restrict_to_domain, '')": "", "restrict_to_domain": ("in", active_domains)},
@@ -218,9 +218,9 @@ def combine_common_sections(data):
 
 
 def apply_permissions(data):
-	default_country = frappe.db.get_default("country")
+	default_country = capkpi.db.get_default("country")
 
-	user = frappe.get_user()
+	user = capkpi.get_user()
 	user.build_permissions()
 
 	allowed_pages = get_allowed_pages()
@@ -231,7 +231,7 @@ def apply_permissions(data):
 		new_items = []
 
 		for item in section.get("items") or []:
-			item = frappe._dict(item)
+			item = capkpi._dict(item)
 
 			if item.country and item.country != default_country:
 				continue
@@ -254,14 +254,14 @@ def apply_permissions(data):
 
 
 def get_disabled_reports():
-	if not hasattr(frappe.local, "disabled_reports"):
-		frappe.local.disabled_reports = set(r.name for r in frappe.get_all("Report", {"disabled": 1}))
-	return frappe.local.disabled_reports
+	if not hasattr(capkpi.local, "disabled_reports"):
+		capkpi.local.disabled_reports = set(r.name for r in capkpi.get_all("Report", {"disabled": 1}))
+	return capkpi.local.disabled_reports
 
 
 def get_config(app, module):
 	"""Load module info from `[app].config.[module]`."""
-	config = frappe.get_module("{app}.config.{module}".format(app=app, module=module))
+	config = capkpi.get_module("{app}.config.{module}".format(app=app, module=module))
 	config = config.get_data()
 
 	sections = [s for s in config if s.get("condition", True)]
@@ -285,7 +285,7 @@ def get_config(app, module):
 
 def config_exists(app, module):
 	try:
-		frappe.get_module("{app}.config.{module}".format(app=app, module=module))
+		capkpi.get_module("{app}.config.{module}".format(app=app, module=module))
 		return True
 	except ImportError:
 		return False
@@ -336,14 +336,14 @@ def get_onboard_items(app, module):
 	return onboard_items or fallback_items
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_links_for_module(app, module):
 	return [{"value": l.get("name"), "label": l.get("label")} for l in get_links(app, module)]
 
 
 def get_links(app, module):
 	try:
-		sections = get_config(app, frappe.scrub(module))
+		sections = get_config(app, capkpi.scrub(module))
 	except ImportError:
 		return []
 
@@ -354,9 +354,9 @@ def get_links(app, module):
 	return links
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_desktop_settings():
-	from frappe.config import get_modules_from_all_apps_for_user
+	from capkpi.config import get_modules_from_all_apps_for_user
 
 	all_modules = get_modules_from_all_apps_for_user()
 	home_settings = get_home_settings()
@@ -372,14 +372,14 @@ def get_desktop_settings():
 	user_saved_links_by_module = home_settings.links_by_module or {}
 
 	def apply_user_saved_links(module):
-		module = frappe._dict(module)
+		module = capkpi._dict(module)
 		all_links = get_links(module.app, module.module_name)
 		module_links_by_name = {}
 		for link in all_links:
 			module_links_by_name[link["name"]] = link
 
 		if module.module_name in user_saved_links_by_module:
-			user_links = frappe.parse_json(user_saved_links_by_module[module.module_name])
+			user_links = capkpi.parse_json(user_saved_links_by_module[module.module_name])
 			module.links = [module_links_by_name[l] for l in user_links if l in module_links_by_name]
 
 		return module
@@ -407,15 +407,15 @@ def get_desktop_settings():
 	return user_modules_by_category
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def update_hidden_modules(category_map):
-	category_map = frappe.parse_json(category_map)
+	category_map = capkpi.parse_json(category_map)
 	home_settings = get_home_settings()
 
 	saved_hidden_modules = home_settings.hidden_modules or []
 
 	for category in category_map:
-		config = frappe._dict(category_map[category])
+		config = capkpi._dict(category_map[category])
 		saved_hidden_modules += config.removed or []
 		saved_hidden_modules = [d for d in saved_hidden_modules if d not in (config.added or [])]
 
@@ -431,12 +431,12 @@ def update_hidden_modules(category_map):
 	return get_desktop_settings()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def update_global_hidden_modules(modules):
-	modules = frappe.parse_json(modules)
-	frappe.only_for("System Manager")
+	modules = capkpi.parse_json(modules)
+	capkpi.only_for("System Manager")
 
-	doc = frappe.get_doc("User", "Administrator")
+	doc = capkpi.get_doc("User", "Administrator")
 	doc.set("block_modules", [])
 	for module in modules:
 		doc.append("block_modules", {"module": module})
@@ -446,9 +446,9 @@ def update_global_hidden_modules(modules):
 	return get_desktop_settings()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def update_modules_order(module_category, modules):
-	modules = frappe.parse_json(modules)
+	modules = capkpi.parse_json(modules)
 	home_settings = get_home_settings()
 
 	home_settings.modules_by_category = home_settings.modules_by_category or {}
@@ -457,9 +457,9 @@ def update_modules_order(module_category, modules):
 	set_home_settings(home_settings)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def update_links_for_module(module_name, links):
-	links = frappe.parse_json(links)
+	links = capkpi.parse_json(links)
 	home_settings = get_home_settings()
 
 	home_settings.setdefault("links_by_module", {})
@@ -471,27 +471,27 @@ def update_links_for_module(module_name, links):
 	return get_desktop_settings()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_options_for_show_hide_cards():
 	global_options = []
 
-	if "System Manager" in frappe.get_roles():
+	if "System Manager" in capkpi.get_roles():
 		global_options = get_options_for_global_modules()
 
 	return {"user_options": get_options_for_user_blocked_modules(), "global_options": global_options}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_options_for_global_modules():
-	from frappe.config import get_modules_from_all_apps
+	from capkpi.config import get_modules_from_all_apps
 
 	all_modules = get_modules_from_all_apps()
 
-	blocked_modules = frappe.get_doc("User", "Administrator").get_blocked_modules()
+	blocked_modules = capkpi.get_doc("User", "Administrator").get_blocked_modules()
 
 	options = []
 	for module in all_modules:
-		module = frappe._dict(module)
+		module = capkpi._dict(module)
 		options.append(
 			{
 				"category": module.category,
@@ -504,9 +504,9 @@ def get_options_for_global_modules():
 	return options
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_options_for_user_blocked_modules():
-	from frappe.config import get_modules_from_all_apps_for_user
+	from capkpi.config import get_modules_from_all_apps_for_user
 
 	all_modules = get_modules_from_all_apps_for_user()
 	home_settings = get_home_settings()
@@ -515,7 +515,7 @@ def get_options_for_user_blocked_modules():
 
 	options = []
 	for module in all_modules:
-		module = frappe._dict(module)
+		module = capkpi._dict(module)
 		options.append(
 			{
 				"category": module.category,
@@ -529,23 +529,23 @@ def get_options_for_user_blocked_modules():
 
 
 def set_home_settings(home_settings):
-	frappe.cache().hset("home_settings", frappe.session.user, home_settings)
-	frappe.db.set_value("User", frappe.session.user, "home_settings", json.dumps(home_settings))
+	capkpi.cache().hset("home_settings", capkpi.session.user, home_settings)
+	capkpi.db.set_value("User", capkpi.session.user, "home_settings", json.dumps(home_settings))
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_home_settings():
 	def get_from_db():
-		settings = frappe.db.get_value("User", frappe.session.user, "home_settings")
-		return frappe.parse_json(settings or "{}")
+		settings = capkpi.db.get_value("User", capkpi.session.user, "home_settings")
+		return capkpi.parse_json(settings or "{}")
 
-	home_settings = frappe.cache().hget("home_settings", frappe.session.user, get_from_db)
+	home_settings = capkpi.cache().hget("home_settings", capkpi.session.user, get_from_db)
 	return home_settings
 
 
 def get_module_link_items_from_list(app, module, list_of_link_names):
 	try:
-		sections = get_config(app, frappe.scrub(module))
+		sections = get_config(app, capkpi.scrub(module))
 	except ImportError:
 		return []
 
@@ -568,11 +568,11 @@ def set_last_modified(data):
 def get_last_modified(doctype):
 	def _get():
 		try:
-			last_modified = frappe.get_all(
+			last_modified = capkpi.get_all(
 				doctype, fields=["max(modified)"], as_list=True, limit_page_length=1
 			)[0][0]
 		except Exception as e:
-			if frappe.db.is_table_missing(e):
+			if capkpi.db.is_table_missing(e):
 				last_modified = None
 			else:
 				raise
@@ -583,7 +583,7 @@ def get_last_modified(doctype):
 
 		return last_modified
 
-	last_modified = frappe.cache().hget("last_modified", doctype, _get)
+	last_modified = capkpi.cache().hget("last_modified", doctype, _get)
 
 	if last_modified == -1:
 		last_modified = None
@@ -593,7 +593,7 @@ def get_last_modified(doctype):
 
 def get_report_list(module, is_standard="No"):
 	"""Returns list on new style reports for modules."""
-	reports = frappe.get_list(
+	reports = capkpi.get_list(
 		"Report",
 		fields=["name", "ref_doctype", "report_type"],
 		filters={"is_standard": is_standard, "disabled": 0, "module": module},

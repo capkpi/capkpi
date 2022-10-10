@@ -4,14 +4,14 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.model.document import Document
+import capkpi
+from capkpi.model.document import Document
 
 
 class InstalledApplications(Document):
 	def update_versions(self):
 		self.delete_key("installed_applications")
-		for app in frappe.utils.get_installed_apps_info():
+		for app in capkpi.utils.get_installed_apps_info():
 			self.append(
 				"installed_applications",
 				{

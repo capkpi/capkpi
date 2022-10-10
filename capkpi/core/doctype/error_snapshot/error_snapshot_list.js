@@ -1,4 +1,4 @@
-frappe.listview_settings["Error Snapshot"] = {
+capkpi.listview_settings["Error Snapshot"] = {
 	add_fields: ["parent_error_snapshot", "relapses", "seen"],
 	filters:[
 		["parent_error_snapshot","=",null],

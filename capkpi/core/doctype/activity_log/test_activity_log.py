@@ -6,45 +6,45 @@ from __future__ import unicode_literals
 import time
 import unittest
 
-import frappe
-from frappe.auth import CookieManager, LoginManager
+import capkpi
+from capkpi.auth import CookieManager, LoginManager
 
 
 class TestActivityLog(unittest.TestCase):
 	def test_activity_log(self):
 
 		# test user login log
-		frappe.local.form_dict = frappe._dict(
+		capkpi.local.form_dict = capkpi._dict(
 			{
 				"cmd": "login",
 				"sid": "Guest",
-				"pwd": frappe.conf.admin_password or "admin",
+				"pwd": capkpi.conf.admin_password or "admin",
 				"usr": "Administrator",
 			}
 		)
 
-		frappe.local.cookie_manager = CookieManager()
-		frappe.local.login_manager = LoginManager()
+		capkpi.local.cookie_manager = CookieManager()
+		capkpi.local.login_manager = LoginManager()
 
 		auth_log = self.get_auth_log()
-		self.assertFalse(frappe.form_dict.pwd)
+		self.assertFalse(capkpi.form_dict.pwd)
 		self.assertEqual(auth_log.status, "Success")
 
 		# test user logout log
-		frappe.local.login_manager.logout()
+		capkpi.local.login_manager.logout()
 		auth_log = self.get_auth_log(operation="Logout")
 		self.assertEqual(auth_log.status, "Success")
 
 		# test invalid login
-		frappe.form_dict.update({"pwd": "password"})
-		self.assertRaises(frappe.AuthenticationError, LoginManager)
+		capkpi.form_dict.update({"pwd": "password"})
+		self.assertRaises(capkpi.AuthenticationError, LoginManager)
 		auth_log = self.get_auth_log()
 		self.assertEqual(auth_log.status, "Failed")
 
-		frappe.local.form_dict = frappe._dict()
+		capkpi.local.form_dict = capkpi._dict()
 
 	def get_auth_log(self, operation="Login"):
-		names = frappe.db.get_all(
+		names = capkpi.db.get_all(
 			"Activity Log",
 			filters={
 				"user": "Administrator",
@@ -54,45 +54,45 @@ class TestActivityLog(unittest.TestCase):
 		)
 
 		name = names[0]
-		auth_log = frappe.get_doc("Activity Log", name)
+		auth_log = capkpi.get_doc("Activity Log", name)
 		return auth_log
 
 	def test_brute_security(self):
 		update_system_settings({"allow_consecutive_login_attempts": 3, "allow_login_after_fail": 5})
 
-		frappe.local.form_dict = frappe._dict(
+		capkpi.local.form_dict = capkpi._dict(
 			{"cmd": "login", "sid": "Guest", "pwd": "admin", "usr": "Administrator"}
 		)
 
-		frappe.local.cookie_manager = CookieManager()
-		frappe.local.login_manager = LoginManager()
+		capkpi.local.cookie_manager = CookieManager()
+		capkpi.local.login_manager = LoginManager()
 
 		auth_log = self.get_auth_log()
 		self.assertEquals(auth_log.status, "Success")
 
 		# test user logout log
-		frappe.local.login_manager.logout()
+		capkpi.local.login_manager.logout()
 		auth_log = self.get_auth_log(operation="Logout")
 		self.assertEquals(auth_log.status, "Success")
 
 		# test invalid login
-		frappe.form_dict.update({"pwd": "password"})
-		self.assertRaises(frappe.AuthenticationError, LoginManager)
-		self.assertRaises(frappe.AuthenticationError, LoginManager)
-		self.assertRaises(frappe.AuthenticationError, LoginManager)
+		capkpi.form_dict.update({"pwd": "password"})
+		self.assertRaises(capkpi.AuthenticationError, LoginManager)
+		self.assertRaises(capkpi.AuthenticationError, LoginManager)
+		self.assertRaises(capkpi.AuthenticationError, LoginManager)
 
 		# REMOVE ME: current logic allows allow_consecutive_login_attempts+1 attempts
 		# before raising security exception, remove below line when that is fixed.
-		self.assertRaises(frappe.AuthenticationError, LoginManager)
-		self.assertRaises(frappe.SecurityException, LoginManager)
+		self.assertRaises(capkpi.AuthenticationError, LoginManager)
+		self.assertRaises(capkpi.SecurityException, LoginManager)
 		time.sleep(5)
-		self.assertRaises(frappe.AuthenticationError, LoginManager)
+		self.assertRaises(capkpi.AuthenticationError, LoginManager)
 
-		frappe.local.form_dict = frappe._dict()
+		capkpi.local.form_dict = capkpi._dict()
 
 
 def update_system_settings(args):
-	doc = frappe.get_doc("System Settings")
+	doc = capkpi.get_doc("System Settings")
 	doc.update(args)
 	doc.flags.ignore_mandatory = 1
 	doc.save()

@@ -1,8 +1,8 @@
-frappe.provide("frappe.setup");
-frappe.provide("frappe.setup.events");
-frappe.provide("frappe.ui");
+capkpi.provide("capkpi.setup");
+capkpi.provide("capkpi.setup.events");
+capkpi.provide("capkpi.ui");
 
-frappe.setup = {
+capkpi.setup = {
 	slides: [],
 	events: {},
 	data: {},
@@ -10,79 +10,79 @@ frappe.setup = {
 	domains: [],
 
 	on: function (event, fn) {
-		if (!frappe.setup.events[event]) {
-			frappe.setup.events[event] = [];
+		if (!capkpi.setup.events[event]) {
+			capkpi.setup.events[event] = [];
 		}
-		frappe.setup.events[event].push(fn);
+		capkpi.setup.events[event].push(fn);
 	},
 	add_slide: function (slide) {
-		frappe.setup.slides.push(slide);
+		capkpi.setup.slides.push(slide);
 	},
 
 	remove_slide: function (slide_name) {
-		frappe.setup.slides = frappe.setup.slides.filter((slide) => slide.name !== slide_name);
+		capkpi.setup.slides = capkpi.setup.slides.filter((slide) => slide.name !== slide_name);
 	},
 
 	run_event: function (event) {
-		$.each(frappe.setup.events[event] || [], function (i, fn) {
+		$.each(capkpi.setup.events[event] || [], function (i, fn) {
 			fn();
 		});
 	}
 }
 
-frappe.pages['setup-wizard'].on_page_load = function (wrapper) {
-	let requires = (frappe.boot.setup_wizard_requires || []);
-	frappe.require(requires, function () {
-		frappe.call({
-			method: "frappe.desk.page.setup_wizard.setup_wizard.load_languages",
+capkpi.pages['setup-wizard'].on_page_load = function (wrapper) {
+	let requires = (capkpi.boot.setup_wizard_requires || []);
+	capkpi.require(requires, function () {
+		capkpi.call({
+			method: "capkpi.desk.page.setup_wizard.setup_wizard.load_languages",
 			freeze: true,
 			callback: function (r) {
-				frappe.setup.data.lang = r.message;
+				capkpi.setup.data.lang = r.message;
 
-				frappe.setup.run_event("before_load");
+				capkpi.setup.run_event("before_load");
 				var wizard_settings = {
 					parent: wrapper,
-					slides: frappe.setup.slides,
-					slide_class: frappe.setup.SetupWizardSlide,
+					slides: capkpi.setup.slides,
+					slide_class: capkpi.setup.SetupWizardSlide,
 					unidirectional: 1,
 					done_state: 1,
 				}
-				frappe.wizard = new frappe.setup.SetupWizard(wizard_settings);
-				frappe.setup.run_event("after_load");
-				// frappe.wizard.values = test_values_edu;
-				let route = frappe.get_route();
+				capkpi.wizard = new capkpi.setup.SetupWizard(wizard_settings);
+				capkpi.setup.run_event("after_load");
+				// capkpi.wizard.values = test_values_edu;
+				let route = capkpi.get_route();
 				if (route) {
-					frappe.wizard.show_slide(route[1]);
+					capkpi.wizard.show_slide(route[1]);
 				}
 			}
 		});
 	});
 };
 
-frappe.pages['setup-wizard'].on_page_show = function () {
-	if (frappe.get_route()[1]) {
-		frappe.wizard && frappe.wizard.show_slide(frappe.get_route()[1]);
+capkpi.pages['setup-wizard'].on_page_show = function () {
+	if (capkpi.get_route()[1]) {
+		capkpi.wizard && capkpi.wizard.show_slide(capkpi.get_route()[1]);
 	}
 };
 
-frappe.setup.on("before_load", function () {
+capkpi.setup.on("before_load", function () {
 	// load slides
-	frappe.setup.slides_settings.forEach((s) => {
-		if (!(s.name === 'user' && frappe.boot.developer_mode)) {
+	capkpi.setup.slides_settings.forEach((s) => {
+		if (!(s.name === 'user' && capkpi.boot.developer_mode)) {
 			// if not user slide with developer mode
-			frappe.setup.add_slide(s);
+			capkpi.setup.add_slide(s);
 		}
 	});
 });
 
-frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
+capkpi.setup.SetupWizard = class SetupWizard extends capkpi.ui.Slides {
 	constructor(args = {}) {
 		super(args);
 		$.extend(this, args);
 
 		this.page_name = "setup-wizard";
 		this.welcomed = true;
-		frappe.set_route("setup-wizard/0");
+		capkpi.set_route("setup-wizard/0");
 	}
 
 	make() {
@@ -102,7 +102,7 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 	}
 
 	handle_enter_press(e) {
-		if (e.which === frappe.ui.keyCode.ENTER) {
+		if (e.which === capkpi.ui.keyCode.ENTER) {
 			var $target = $(e.target);
 			if ($target.hasClass('prev-btn')) {
 				$target.trigger('click');
@@ -115,7 +115,7 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 
 	before_show_slide() {
 		if (!this.welcomed) {
-			frappe.set_route(this.page_name);
+			capkpi.set_route(this.page_name);
 			return false;
 		}
 		return true;
@@ -128,7 +128,7 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 			return;
 		}
 		super.show_slide(id);
-		frappe.set_route(this.page_name, id + "");
+		capkpi.set_route(this.page_name, id + "");
 	}
 
 	show_hide_prev_next(id) {
@@ -151,13 +151,13 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 		this.in_refresh_slides = true;
 
 		this.update_values();
-		frappe.setup.slides = [];
-		frappe.setup.run_event("before_load");
+		capkpi.setup.slides = [];
+		capkpi.setup.run_event("before_load");
 
-		frappe.setup.slides = this.get_setup_slides_filtered_by_domain();
+		capkpi.setup.slides = this.get_setup_slides_filtered_by_domain();
 
-		this.slides = frappe.setup.slides;
-		frappe.setup.run_event("after_load");
+		this.slides = capkpi.setup.slides;
+		capkpi.setup.run_event("after_load");
 
 		// re-render all slide, only remake made slides
 		$.each(this.slide_dict, (id, slide) => {
@@ -183,8 +183,8 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 		this.disable_keyboard_nav();
 		this.listen_for_setup_stages();
 
-		return frappe.call({
-			method: "frappe.desk.page.setup_wizard.setup_wizard.setup_complete",
+		return capkpi.call({
+			method: "capkpi.desk.page.setup_wizard.setup_wizard.setup_complete",
 			args: { args: this.values },
 			callback: (r) => {
 				if (r.message.status === 'ok') {
@@ -199,8 +199,8 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 
 	post_setup_success() {
 		this.set_setup_complete_message(__("Setup Complete"), __("Refreshing..."));
-		if (frappe.setup.welcome_page) {
-			localStorage.setItem("session_last_route", frappe.setup.welcome_page);
+		if (capkpi.setup.welcome_page) {
+			localStorage.setItem("session_last_route", capkpi.setup.welcome_page);
 		}
 		setTimeout(function () {
 			// Reload
@@ -220,7 +220,7 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 	}
 
 	listen_for_setup_stages() {
-		frappe.realtime.on("setup_task", (data) => {
+		capkpi.realtime.on("setup_task", (data) => {
 			// console.log('data', data);
 			if (data.stage_status) {
 				// .html('Process '+ data.progress[0] + ' of ' + data.progress[1] + ': ' + data.stage_status);
@@ -239,9 +239,9 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 
 	get_setup_slides_filtered_by_domain() {
 		var filtered_slides = [];
-		frappe.setup.slides.forEach(function (slide) {
-			if (frappe.setup.domains) {
-				let active_domains = frappe.setup.domains;
+		capkpi.setup.slides.forEach(function (slide) {
+			if (capkpi.setup.domains) {
+				let active_domains = capkpi.setup.domains;
 				if (!slide.domains ||
 					slide.domains.filter(d => active_domains.includes(d)).length > 0) {
 					filtered_slides.push(slide);
@@ -255,7 +255,7 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 
 	show_working_state() {
 		this.container.hide();
-		frappe.set_route(this.page_name);
+		capkpi.set_route(this.page_name);
 
 		this.$working_state = this.get_message(
 			__("Setting up your system"),
@@ -274,7 +274,7 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 		this.$abort_btn.on('click', () => {
 			$(this.parent).find('.setup-in-progress').remove();
 			this.container.show();
-			frappe.set_route(this.page_name, this.slides.length - 1);
+			capkpi.set_route(this.page_name, this.slides.length - 1);
 		});
 
 		this.$abort_btn.hide();
@@ -306,7 +306,7 @@ frappe.setup.SetupWizard = class SetupWizard extends frappe.ui.Slides {
 	}
 };
 
-frappe.setup.SetupWizardSlide = class SetupWizardSlide extends frappe.ui.Slide {
+capkpi.setup.SetupWizardSlide = class SetupWizardSlide extends capkpi.ui.Slide {
 	constructor(slide = null) {
 		super(slide);
 	}
@@ -319,10 +319,10 @@ frappe.setup.SetupWizardSlide = class SetupWizardSlide extends frappe.ui.Slide {
 
 	set_init_values() {
 		var me = this;
-		// set values from frappe.setup.values
-		if (frappe.wizard.values && this.fields) {
+		// set values from capkpi.setup.values
+		if (capkpi.wizard.values && this.fields) {
 			this.fields.forEach(function (f) {
-				var value = frappe.wizard.values[f.fieldname];
+				var value = capkpi.wizard.values[f.fieldname];
 				if (value) {
 					me.get_field(f.fieldname).set_input(value);
 				}
@@ -334,7 +334,7 @@ frappe.setup.SetupWizardSlide = class SetupWizardSlide extends frappe.ui.Slide {
 
 // CapKPI slides settings
 // ======================================================
-frappe.setup.slides_settings = [
+capkpi.setup.slides_settings = [
 	{
 		// Welcome (language) slide
 		name: "welcome",
@@ -351,21 +351,21 @@ frappe.setup.slides_settings = [
 
 		onload: function (slide) {
 			this.setup_fields(slide);
-			let browser_language = frappe.setup.utils.get_language_name_from_code(navigator.language);
+			let browser_language = capkpi.setup.utils.get_language_name_from_code(navigator.language);
 			let language_field = slide.get_field("language");
 
 			language_field.set_input(browser_language || "English");
 
-			if (!frappe.setup._from_load_messages) {
+			if (!capkpi.setup._from_load_messages) {
 				language_field.$input.trigger("change");
 			}
-			delete frappe.setup._from_load_messages;
+			delete capkpi.setup._from_load_messages;
 			moment.locale("en");
 		},
 
 		setup_fields: function (slide) {
-			frappe.setup.utils.setup_language_field(slide);
-			frappe.setup.utils.bind_language_events(slide);
+			capkpi.setup.utils.setup_language_field(slide);
+			capkpi.setup.utils.bind_language_events(slide);
 		},
 	},
 
@@ -400,16 +400,16 @@ frappe.setup.slides_settings = [
 		],
 
 		onload: function (slide) {
-			if (frappe.setup.data.regional_data) {
+			if (capkpi.setup.data.regional_data) {
 				this.setup_fields(slide);
 			} else {
-				frappe.setup.utils.load_regional_data(slide, this.setup_fields);
+				capkpi.setup.utils.load_regional_data(slide, this.setup_fields);
 			}
 		},
 
 		setup_fields: function (slide) {
-			frappe.setup.utils.setup_region_fields(slide);
-			frappe.setup.utils.bind_region_events(slide);
+			capkpi.setup.utils.setup_region_fields(slide);
+			capkpi.setup.utils.bind_region_events(slide);
 		}
 	},
 
@@ -435,19 +435,19 @@ frappe.setup.slides_settings = [
 		],
 		// help: __('The first user will become the System Manager (you can change this later).'),
 		onload: function (slide) {
-			if (frappe.session.user !== "Administrator") {
+			if (capkpi.session.user !== "Administrator") {
 				slide.form.fields_dict.email.$wrapper.toggle(false);
 				slide.form.fields_dict.password.$wrapper.toggle(false);
 
 				// remove password field
 				delete slide.form.fields_dict.password;
 
-				if (frappe.boot.user.first_name || frappe.boot.user.last_name) {
+				if (capkpi.boot.user.first_name || capkpi.boot.user.last_name) {
 					slide.form.fields_dict.full_name.set_input(
-						[frappe.boot.user.first_name, frappe.boot.user.last_name].join(' ').trim());
+						[capkpi.boot.user.first_name, capkpi.boot.user.last_name].join(' ').trim());
 				}
 
-				var user_image = frappe.get_cookie("user_image");
+				var user_image = capkpi.get_cookie("user_image");
 				var $attach_user_image = slide.form.fields_dict.attach_user_image.$wrapper;
 
 				if (user_image) {
@@ -463,21 +463,21 @@ frappe.setup.slides_settings = [
 				slide.form.fields_dict.password.df.reqd = 1;
 				slide.form.fields_dict.password.refresh();
 
-				frappe.setup.utils.load_user_details(slide, this.setup_fields);
+				capkpi.setup.utils.load_user_details(slide, this.setup_fields);
 			}
 		},
 
 		setup_fields: function (slide) {
-			if (frappe.setup.data.full_name) {
-				slide.form.fields_dict.full_name.set_input(frappe.setup.data.full_name);
+			if (capkpi.setup.data.full_name) {
+				slide.form.fields_dict.full_name.set_input(capkpi.setup.data.full_name);
 			}
-			if (frappe.setup.data.email) {
-				let email = frappe.setup.data.email;
+			if (capkpi.setup.data.email) {
+				let email = capkpi.setup.data.email;
 				slide.form.fields_dict.email.set_input(email);
-				if (frappe.get_gravatar(email, 200)) {
+				if (capkpi.get_gravatar(email, 200)) {
 					var $attach_user_image = slide.form.fields_dict.attach_user_image.$wrapper;
 					$attach_user_image.find(".missing-image").toggle(false);
-					$attach_user_image.find("img").attr("src", frappe.get_gravatar(email, 200));
+					$attach_user_image.find("img").attr("src", capkpi.get_gravatar(email, 200));
 					$attach_user_image.find(".img-container").toggle(true);
 				}
 			}
@@ -485,24 +485,24 @@ frappe.setup.slides_settings = [
 	}
 ];
 
-frappe.setup.utils = {
+capkpi.setup.utils = {
 	load_regional_data: function (slide, callback) {
-		frappe.call({
-			method: "frappe.geo.country_info.get_country_timezone_info",
+		capkpi.call({
+			method: "capkpi.geo.country_info.get_country_timezone_info",
 			callback: function (data) {
-				frappe.setup.data.regional_data = data.message;
+				capkpi.setup.data.regional_data = data.message;
 				callback(slide);
 			}
 		});
 	},
 
 	load_user_details: function (slide, callback) {
-		frappe.call({
-			method: "frappe.desk.page.setup_wizard.setup_wizard.load_user_details",
+		capkpi.call({
+			method: "capkpi.desk.page.setup_wizard.setup_wizard.load_user_details",
 			freeze: true,
 			callback: function (r) {
-				frappe.setup.data.full_name = r.message.full_name;
-				frappe.setup.data.email = r.message.email;
+				capkpi.setup.data.full_name = r.message.full_name;
+				capkpi.setup.data.email = r.message.email;
 				callback(slide);
 			}
 		});
@@ -510,7 +510,7 @@ frappe.setup.utils = {
 
 	setup_language_field: function (slide) {
 		var language_field = slide.get_field("language");
-		language_field.df.options = frappe.setup.data.lang.languages;
+		language_field.df.options = capkpi.setup.data.lang.languages;
 		language_field.refresh();
 	},
 
@@ -518,7 +518,7 @@ frappe.setup.utils = {
 		/*
 			Set a slide's country, timezone and currency fields
 		*/
-		let data = frappe.setup.data.regional_data;
+		let data = capkpi.setup.data.regional_data;
 		let country_field = slide.get_field('country');
 		let translated_countries = [];
 
@@ -534,7 +534,7 @@ frappe.setup.utils = {
 		slide.get_input("currency")
 			.empty()
 			.add_options(
-				frappe.utils.unique(
+				capkpi.utils.unique(
 					$.map(data.country_info, opts => opts.currency).sort()
 				)
 			);
@@ -543,15 +543,15 @@ frappe.setup.utils = {
 			.add_options(data.all_timezones);
 
 		// set values if present
-		if (frappe.wizard.values.country) {
-			country_field.set_input(frappe.wizard.values.country);
+		if (capkpi.wizard.values.country) {
+			country_field.set_input(capkpi.wizard.values.country);
 		} else if (data.default_country) {
 			country_field.set_input(data.default_country);
 		}
 
-		slide.get_field("currency").set_input(frappe.wizard.values.currency);
+		slide.get_field("currency").set_input(capkpi.wizard.values.currency);
 
-		slide.get_field("timezone").set_input(frappe.wizard.values.timezone);
+		slide.get_field("timezone").set_input(capkpi.wizard.values.timezone);
 
 	},
 
@@ -560,16 +560,16 @@ frappe.setup.utils = {
 			clearTimeout(slide.language_call_timeout);
 			slide.language_call_timeout = setTimeout(() => {
 				var lang = $(this).val() || "English";
-				frappe._messages = {};
-				frappe.call({
-					method: "frappe.desk.page.setup_wizard.setup_wizard.load_messages",
+				capkpi._messages = {};
+				capkpi.call({
+					method: "capkpi.desk.page.setup_wizard.setup_wizard.load_messages",
 					freeze: true,
 					args: {
 						language: lang
 					},
 					callback: function () {
-						frappe.setup._from_load_messages = true;
-						frappe.wizard.refresh_slides();
+						capkpi.setup._from_load_messages = true;
+						capkpi.wizard.refresh_slides();
 					}
 				});
 			}, 500);
@@ -577,7 +577,7 @@ frappe.setup.utils = {
 	},
 
 	get_language_name_from_code: function (language_code) {
-		return frappe.setup.data.lang.codes_to_names[language_code] || "English";
+		return capkpi.setup.data.lang.codes_to_names[language_code] || "English";
 	},
 
 	bind_region_events: function (slide) {
@@ -587,7 +587,7 @@ frappe.setup.utils = {
 		slide.get_input("country").on("change", function () {
 			var country = slide.get_input("country").val();
 			var $timezone = slide.get_input("timezone");
-			var data = frappe.setup.data.regional_data;
+			var data = capkpi.setup.data.regional_data;
 
 			$timezone.empty();
 
@@ -603,16 +603,16 @@ frappe.setup.utils = {
 			slide.get_field("timezone").set_input($timezone.val());
 
 			// temporarily set date format
-			frappe.boot.sysdefaults.date_format = (data.country_info[country].date_format
+			capkpi.boot.sysdefaults.date_format = (data.country_info[country].date_format
 				|| "dd-mm-yyyy");
 		});
 
 		slide.get_input("currency").on("change", function () {
 			var currency = slide.get_input("currency").val();
 			if (!currency) return;
-			frappe.model.with_doc("Currency", currency, function () {
-				frappe.provide("locals.:Currency." + currency);
-				var currency_doc = frappe.model.get_doc("Currency", currency);
+			capkpi.model.with_doc("Currency", currency, function () {
+				capkpi.provide("locals.:Currency." + currency);
+				var currency_doc = capkpi.model.get_doc("Currency", currency);
 				var number_format = currency_doc.number_format;
 				if (number_format === "#.###") {
 					number_format = "#.###,##";
@@ -620,7 +620,7 @@ frappe.setup.utils = {
 					number_format = "#,###.##";
 				}
 
-				frappe.boot.sysdefaults.number_format = number_format;
+				capkpi.boot.sysdefaults.number_format = number_format;
 				locals[":Currency"][currency] = $.extend({}, currency_doc);
 			});
 		});

@@ -1,4 +1,4 @@
-frappe.listview_settings['Event Sync Log'] = {
+capkpi.listview_settings['Event Sync Log'] = {
 	get_indicator: function(doc) {
 		var colors = {
 			"Failed": "red",

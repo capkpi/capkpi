@@ -1,8 +1,8 @@
-import frappe
+import capkpi
 
 
 def execute():
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""
         DELETE from `tabDocType`
         WHERE name = 'Feedback Request'

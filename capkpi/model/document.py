@@ -10,25 +10,25 @@ import time
 from six import iteritems, string_types
 from werkzeug.exceptions import Forbidden, NotFound
 
-import frappe
-from frappe import _, is_whitelisted, msgprint
-from frappe.core.doctype.server_script.server_script_utils import run_server_script_for_doc_event
-from frappe.desk.form.document_follow import follow_document
-from frappe.integrations.doctype.webhook import run_webhooks
-from frappe.model import optional_fields, table_fields
-from frappe.model.base_document import BaseDocument, get_controller
-from frappe.model.naming import set_new_name, validate_name
-from frappe.model.workflow import set_workflow_state_on_action, validate_workflow
-from frappe.utils import cstr, date_diff, file_lock, flt, get_datetime_str, now
-from frappe.utils.data import get_absolute_url
-from frappe.utils.global_search import update_global_search
+import capkpi
+from capkpi import _, is_whitelisted, msgprint
+from capkpi.core.doctype.server_script.server_script_utils import run_server_script_for_doc_event
+from capkpi.desk.form.document_follow import follow_document
+from capkpi.integrations.doctype.webhook import run_webhooks
+from capkpi.model import optional_fields, table_fields
+from capkpi.model.base_document import BaseDocument, get_controller
+from capkpi.model.naming import set_new_name, validate_name
+from capkpi.model.workflow import set_workflow_state_on_action, validate_workflow
+from capkpi.utils import cstr, date_diff, file_lock, flt, get_datetime_str, now
+from capkpi.utils.data import get_absolute_url
+from capkpi.utils.global_search import update_global_search
 
 # once_only validation
 # methods
 
 
 def get_doc(*args, **kwargs):
-	"""returns a frappe.model.Document object.
+	"""returns a capkpi.model.Document object.
 
 	:param arg1: Document dict or DocType name.
 	:param arg2: [optional] document name.
@@ -95,7 +95,7 @@ class Document(BaseDocument):
 		"""
 		self.doctype = self.name = None
 		self._default_new_docs = {}
-		self.flags = frappe._dict()
+		self.flags = capkpi._dict()
 
 		if args and args[0] and isinstance(args[0], string_types):
 			# first arugment is doctype
@@ -106,9 +106,9 @@ class Document(BaseDocument):
 				self.doctype = args[0]
 				if isinstance(args[1], dict):
 					# filter
-					self.name = frappe.db.get_value(args[0], args[1], "name")
+					self.name = capkpi.db.get_value(args[0], args[1], "name")
 					if self.name is None:
-						frappe.throw(_("{0} {1} not found").format(_(args[0]), args[1]), frappe.DoesNotExistError)
+						capkpi.throw(_("{0} {1} not found").format(_(args[0]), args[1]), capkpi.DoesNotExistError)
 				else:
 					self.name = args[1]
 
@@ -134,7 +134,7 @@ class Document(BaseDocument):
 	@staticmethod
 	def whitelist(fn):
 		"""Decorator: Whitelist method to be called remotely via REST API."""
-		frappe.whitelist()(fn)
+		capkpi.whitelist()(fn)
 		return fn
 
 	def reload(self):
@@ -145,9 +145,9 @@ class Document(BaseDocument):
 		"""Load document and children from database and create properties
 		from fields"""
 		if not getattr(self, "_metaclass", False) and self.meta.issingle:
-			single_doc = frappe.db.get_singles_dict(self.doctype)
+			single_doc = capkpi.db.get_singles_dict(self.doctype)
 			if not single_doc:
-				single_doc = frappe.new_doc(self.doctype).as_dict()
+				single_doc = capkpi.new_doc(self.doctype).as_dict()
 				single_doc["name"] = self.doctype
 				del single_doc["__islocal"]
 
@@ -156,25 +156,25 @@ class Document(BaseDocument):
 			self._fix_numeric_types()
 
 		else:
-			d = frappe.db.get_value(
+			d = capkpi.db.get_value(
 				self.doctype, self.name, "*", as_dict=1, for_update=self.flags.for_update
 			)
 			if not d:
-				frappe.throw(
-					_("{0} {1} not found").format(_(self.doctype), self.name), frappe.DoesNotExistError
+				capkpi.throw(
+					_("{0} {1} not found").format(_(self.doctype), self.name), capkpi.DoesNotExistError
 				)
 
 			super(Document, self).__init__(d)
 
 		if self.name == "DocType" and self.doctype == "DocType":
-			from frappe.model.meta import DOCTYPE_TABLE_FIELDS
+			from capkpi.model.meta import DOCTYPE_TABLE_FIELDS
 
 			table_fields = DOCTYPE_TABLE_FIELDS
 		else:
 			table_fields = self.meta.get_table_fields()
 
 		for df in table_fields:
-			children = frappe.db.get_values(
+			children = capkpi.db.get_values(
 				df.options,
 				{"parent": self.name, "parenttype": self.doctype, "parentfield": df.fieldname},
 				"*",
@@ -192,29 +192,29 @@ class Document(BaseDocument):
 
 	def get_latest(self):
 		if not getattr(self, "latest", None):
-			self.latest = frappe.get_doc(self.doctype, self.name)
+			self.latest = capkpi.get_doc(self.doctype, self.name)
 		return self.latest
 
 	def check_permission(self, permtype="read", permlevel=None):
-		"""Raise `frappe.PermissionError` if not permitted"""
+		"""Raise `capkpi.PermissionError` if not permitted"""
 		if not self.has_permission(permtype):
 			self.raise_no_permission_to(permlevel or permtype)
 
 	def has_permission(self, permtype="read", verbose=False):
-		"""Call `frappe.has_permission` if `self.flags.ignore_permissions`
+		"""Call `capkpi.has_permission` if `self.flags.ignore_permissions`
 		is not set.
 
 		:param permtype: one of `read`, `write`, `submit`, `cancel`, `delete`"""
-		import frappe.permissions
+		import capkpi.permissions
 
 		if self.flags.ignore_permissions:
 			return True
-		return frappe.permissions.has_permission(self.doctype, permtype, self, verbose=verbose)
+		return capkpi.permissions.has_permission(self.doctype, permtype, self, verbose=verbose)
 
 	def raise_no_permission_to(self, perm_type):
-		"""Raise `frappe.PermissionError`."""
-		frappe.flags.error_message = _("Insufficient Permission for {0}").format(self.doctype)
-		raise frappe.PermissionError
+		"""Raise `capkpi.PermissionError`."""
+		capkpi.flags.error_message = _("Insufficient Permission for {0}").format(self.doctype)
+		raise capkpi.PermissionError
 
 	def insert(
 		self,
@@ -271,7 +271,7 @@ class Document(BaseDocument):
 		else:
 			try:
 				self.db_insert()
-			except frappe.DuplicateEntryError as e:
+			except capkpi.DuplicateEntryError as e:
 				if not ignore_if_duplicate:
 					raise e
 
@@ -300,9 +300,9 @@ class Document(BaseDocument):
 			delattr(self, "__unsaved")
 
 		if not (
-			frappe.flags.in_migrate or frappe.local.flags.in_install or frappe.flags.in_setup_wizard
+			capkpi.flags.in_migrate or capkpi.local.flags.in_install or capkpi.flags.in_setup_wizard
 		):
-			follow_document(self.doctype, self.name, frappe.session.user)
+			follow_document(self.doctype, self.name, capkpi.session.user)
 		return self
 
 	def save(self, *args, **kwargs):
@@ -326,7 +326,7 @@ class Document(BaseDocument):
 		if ignore_permissions != None:
 			self.flags.ignore_permissions = ignore_permissions
 
-		self.flags.ignore_version = frappe.flags.in_test if ignore_version is None else ignore_version
+		self.flags.ignore_version = capkpi.flags.in_test if ignore_version is None else ignore_version
 
 		if self.get("__islocal") or not self.get("name"):
 			return self.insert()
@@ -371,13 +371,13 @@ class Document(BaseDocument):
 
 	def copy_attachments_from_amended_from(self):
 		"""Copy attachments from `amended_from`"""
-		from frappe.desk.form.load import get_attachments
+		from capkpi.desk.form.load import get_attachments
 
 		# loop through attachments
 		for attach_item in get_attachments(self.doctype, self.amended_from):
 
 			# save attachments to new doc
-			_file = frappe.get_doc(
+			_file = capkpi.get_doc(
 				{
 					"doctype": "File",
 					"file_url": attach_item.file_url,
@@ -411,7 +411,7 @@ class Document(BaseDocument):
 
 		if rows:
 			# select rows that do not match the ones in the document
-			deleted_rows = frappe.db.sql(
+			deleted_rows = capkpi.db.sql(
 				"""select name from `tab{0}` where parent=%s
 				and parenttype=%s and parentfield=%s
 				and name not in ({1})""".format(
@@ -421,7 +421,7 @@ class Document(BaseDocument):
 			)
 			if len(deleted_rows) > 0:
 				# delete rows that do not match the ones in the document
-				frappe.db.sql(
+				capkpi.db.sql(
 					"""delete from `tab{0}` where name in ({1})""".format(
 						df.options, ",".join(["%s"] * len(deleted_rows))
 					),
@@ -430,7 +430,7 @@ class Document(BaseDocument):
 
 		else:
 			# no rows found, delete all rows
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""delete from `tab{0}` where parent=%s
 				and parenttype=%s and parentfield=%s""".format(
 					df.options
@@ -447,7 +447,7 @@ class Document(BaseDocument):
 		return previous.get(fieldname) != self.get(fieldname) if previous else True
 
 	def set_new_name(self, force=False, set_name=None, set_child_names=True):
-		"""Calls `frappe.naming.set_new_name` for parent and child docs."""
+		"""Calls `capkpi.naming.set_new_name` for parent and child docs."""
 
 		if self.flags.name_set and not force:
 			return
@@ -496,22 +496,22 @@ class Document(BaseDocument):
 
 	def update_single(self, d):
 		"""Updates values for Single type Document in `tabSingles`."""
-		frappe.db.sql("""delete from `tabSingles` where doctype=%s""", self.doctype)
+		capkpi.db.sql("""delete from `tabSingles` where doctype=%s""", self.doctype)
 		for field, value in iteritems(d):
 			if field != "doctype":
-				frappe.db.sql(
+				capkpi.db.sql(
 					"""insert into `tabSingles` (doctype, field, value)
 					values (%s, %s, %s)""",
 					(self.doctype, field, value),
 				)
 
-		if self.doctype in frappe.db.value_cache:
-			del frappe.db.value_cache[self.doctype]
+		if self.doctype in capkpi.db.value_cache:
+			del capkpi.db.value_cache[self.doctype]
 
 	def set_user_and_timestamp(self):
 		self._original_modified = self.modified
 		self.modified = now()
-		self.modified_by = frappe.session.user
+		self.modified_by = capkpi.session.user
 		if not self.creation:
 			self.creation = self.modified
 		if not self.owner:
@@ -525,7 +525,7 @@ class Document(BaseDocument):
 			if not d.creation:
 				d.creation = self.creation
 
-		frappe.flags.currently_saving.append((self.doctype, self.name))
+		capkpi.flags.currently_saving.append((self.doctype, self.name))
 
 	def set_docstatus(self):
 		if self.docstatus == None:
@@ -569,15 +569,15 @@ class Document(BaseDocument):
 		def get_msg(df):
 			if self.parentfield:
 				return "{} {} #{}: {} {}".format(
-					frappe.bold(_(self.doctype)),
+					capkpi.bold(_(self.doctype)),
 					_("Row"),
 					self.idx,
 					_("Value cannot be negative for"),
-					frappe.bold(_(df.label)),
+					capkpi.bold(_(df.label)),
 				)
 			else:
 				return _("Value cannot be negative for {0}: {1}").format(
-					_(df.parent), frappe.bold(_(df.label))
+					_(df.parent), capkpi.bold(_(df.label))
 				)
 
 		for df in self.meta.get(
@@ -586,11 +586,11 @@ class Document(BaseDocument):
 
 			if flt(self.get(df.fieldname)) < 0:
 				msg = get_msg(df)
-				frappe.throw(msg, frappe.NonNegativeError, title=_("Negative Value"))
+				capkpi.throw(msg, capkpi.NonNegativeError, title=_("Negative Value"))
 
 	def validate_workflow(self):
 		"""Validate if the workflow transition is valid"""
-		if frappe.flags.in_install == "frappe":
+		if capkpi.flags.in_install == "capkpi":
 			return
 		workflow = self.meta.get_workflow()
 		if workflow:
@@ -617,9 +617,9 @@ class Document(BaseDocument):
 					fail = value != original_value
 
 				if fail:
-					frappe.throw(
+					capkpi.throw(
 						_("Value cannot be changed for {0}").format(self.meta.get_label(field.fieldname)),
-						frappe.CannotChangeConstantError,
+						capkpi.CannotChangeConstantError,
 					)
 
 		return False
@@ -652,14 +652,14 @@ class Document(BaseDocument):
 	def apply_fieldlevel_read_permissions(self):
 		"""Remove values the user is not allowed to read (called when loading in desk)"""
 
-		if frappe.session.user == "Administrator":
+		if capkpi.session.user == "Administrator":
 			return
 
 		has_higher_permlevel = False
 
 		all_fields = self.meta.fields.copy()
 		for table_field in self.meta.get_table_fields():
-			all_fields += frappe.get_meta(table_field.options).fields or []
+			all_fields += capkpi.get_meta(table_field.options).fields or []
 
 		for df in all_fields:
 			if df.permlevel > 0:
@@ -676,17 +676,17 @@ class Document(BaseDocument):
 				self.set(df.fieldname, None)
 
 		for table_field in self.meta.get_table_fields():
-			for df in frappe.get_meta(table_field.options).fields or []:
+			for df in capkpi.get_meta(table_field.options).fields or []:
 				if df.permlevel and not df.permlevel in has_access_to:
 					for child in self.get(table_field.fieldname) or []:
 						child.set(df.fieldname, None)
 
 	def validate_higher_perm_levels(self):
 		"""If the user does not have permissions at permlevel > 0, then reset the values to original / default"""
-		if self.flags.ignore_permissions or frappe.flags.in_install:
+		if self.flags.ignore_permissions or capkpi.flags.in_install:
 			return
 
-		if frappe.session.user == "Administrator":
+		if capkpi.session.user == "Administrator":
 			return
 
 		has_access_to = self.get_permlevel_access()
@@ -701,7 +701,7 @@ class Document(BaseDocument):
 
 		# check for child tables
 		for df in self.meta.get_table_fields():
-			high_permlevel_fields = frappe.get_meta(df.options).get_high_permlevel_fields()
+			high_permlevel_fields = capkpi.get_meta(df.options).get_high_permlevel_fields()
 			if high_permlevel_fields:
 				for d in self.get(df.fieldname):
 					d.reset_values_if_no_permlevel_access(has_access_to, high_permlevel_fields)
@@ -711,7 +711,7 @@ class Document(BaseDocument):
 			self._has_access_to = {}
 
 		self._has_access_to[permission_type] = []
-		roles = frappe.get_roles()
+		roles = capkpi.get_roles()
 		for perm in self.get_permissions():
 			if perm.role in roles and perm.get(permission_type):
 				if perm.permlevel not in self._has_access_to[permission_type]:
@@ -728,22 +728,22 @@ class Document(BaseDocument):
 	def get_permissions(self):
 		if self.meta.istable:
 			# use parent permissions
-			permissions = frappe.get_meta(self.parenttype).permissions
+			permissions = capkpi.get_meta(self.parenttype).permissions
 		else:
 			permissions = self.meta.permissions
 
 		return permissions
 
 	def _set_defaults(self):
-		if frappe.flags.in_import:
+		if capkpi.flags.in_import:
 			return
 
-		new_doc = frappe.new_doc(self.doctype, as_dict=True)
+		new_doc = capkpi.new_doc(self.doctype, as_dict=True)
 		self.update_if_missing(new_doc)
 
 		# children
 		for df in self.meta.get_table_fields():
-			new_doc = frappe.new_doc(df.options, as_dict=True)
+			new_doc = capkpi.new_doc(df.options, as_dict=True)
 			value = self.get(df.fieldname)
 			if isinstance(value, list):
 				for d in value:
@@ -761,7 +761,7 @@ class Document(BaseDocument):
 		self._action = "save"
 		if not self.get("__islocal") and not self.meta.get("is_virtual"):
 			if self.meta.issingle:
-				modified = frappe.db.sql(
+				modified = capkpi.db.sql(
 					"""select value from tabSingles
 					where doctype=%s and field='modified' for update""",
 					self.doctype,
@@ -770,7 +770,7 @@ class Document(BaseDocument):
 				if modified and modified != cstr(self._original_modified):
 					conflict = True
 			else:
-				tmp = frappe.db.sql(
+				tmp = capkpi.db.sql(
 					"""select modified, docstatus from `tab{0}`
 					where name = %s for update""".format(
 						self.doctype
@@ -780,7 +780,7 @@ class Document(BaseDocument):
 				)
 
 				if not tmp:
-					frappe.throw(_("Record does not exist"))
+					capkpi.throw(_("Record does not exist"))
 				else:
 					tmp = tmp[0]
 
@@ -792,11 +792,11 @@ class Document(BaseDocument):
 				self.check_docstatus_transition(tmp.docstatus)
 
 			if conflict:
-				frappe.msgprint(
+				capkpi.msgprint(
 					_("Error: Document has been modified after you have opened it")
 					+ (" (%s, %s). " % (modified, self.modified))
 					+ _("Please refresh to get the latest document."),
-					raise_exception=frappe.TimestampMismatchError,
+					raise_exception=capkpi.TimestampMismatchError,
 				)
 		else:
 			self.check_docstatus_transition(0)
@@ -820,11 +820,11 @@ class Document(BaseDocument):
 				self._action = "submit"
 				self.check_permission("submit")
 			elif self.docstatus == 2:
-				raise frappe.DocstatusTransitionError(
+				raise capkpi.DocstatusTransitionError(
 					_("Cannot change docstatus from 0 (Draft) to 2 (Cancelled)")
 				)
 			else:
-				raise frappe.ValidationError(_("Invalid docstatus"), self.docstatus)
+				raise capkpi.ValidationError(_("Invalid docstatus"), self.docstatus)
 
 		elif docstatus == 1:
 			if self.docstatus == 1:
@@ -834,14 +834,14 @@ class Document(BaseDocument):
 				self._action = "cancel"
 				self.check_permission("cancel")
 			elif self.docstatus == 0:
-				raise frappe.DocstatusTransitionError(
+				raise capkpi.DocstatusTransitionError(
 					_("Cannot change docstatus from 1 (Submitted) to 0 (Draft)")
 				)
 			else:
-				raise frappe.ValidationError(_("Invalid docstatus"), self.docstatus)
+				raise capkpi.ValidationError(_("Invalid docstatus"), self.docstatus)
 
 		elif docstatus == 2:
-			raise frappe.ValidationError(_("Cannot edit cancelled document"))
+			raise capkpi.ValidationError(_("Cannot edit cancelled document"))
 
 	def set_parent_in_children(self):
 		"""Updates `parent` and `parenttype` property in all children."""
@@ -883,10 +883,10 @@ class Document(BaseDocument):
 		for fieldname, msg in missing:
 			msgprint(msg)
 
-		if frappe.flags.print_messages:
+		if capkpi.flags.print_messages:
 			print(self.as_json().encode("utf-8"))
 
-		raise frappe.MandatoryError(
+		raise capkpi.MandatoryError(
 			"[{doctype}, {name}]: {fields}".format(
 				fields=", ".join((each[0] for each in missing)), doctype=self.doctype, name=self.name
 			)
@@ -905,11 +905,11 @@ class Document(BaseDocument):
 
 		if invalid_links:
 			msg = ", ".join((each[2] for each in invalid_links))
-			frappe.throw(_("Could not find {0}").format(msg), frappe.LinkValidationError)
+			capkpi.throw(_("Could not find {0}").format(msg), capkpi.LinkValidationError)
 
 		if cancelled_links:
 			msg = ", ".join((each[2] for each in cancelled_links))
-			frappe.throw(_("Cannot link cancelled document: {0}").format(msg), frappe.CancelledLinkError)
+			capkpi.throw(_("Cannot link cancelled document: {0}").format(msg), capkpi.CancelledLinkError)
 
 	def get_all_children(self, parenttype=None):
 		"""Returns all children documents from **Table** type fields in a list."""
@@ -952,26 +952,26 @@ class Document(BaseDocument):
 	def run_notifications(self, method):
 		"""Run notifications for this method"""
 		if (
-			(frappe.flags.in_import and frappe.flags.mute_emails)
-			or frappe.flags.in_patch
-			or frappe.flags.in_install
+			(capkpi.flags.in_import and capkpi.flags.mute_emails)
+			or capkpi.flags.in_patch
+			or capkpi.flags.in_install
 		):
 			return
 
 		if self.flags.notifications_executed == None:
 			self.flags.notifications_executed = []
 
-		from frappe.email.doctype.notification.notification import evaluate_alert
+		from capkpi.email.doctype.notification.notification import evaluate_alert
 
 		if self.flags.notifications == None:
-			alerts = frappe.cache().hget("notifications", self.doctype)
+			alerts = capkpi.cache().hget("notifications", self.doctype)
 			if alerts == None:
-				alerts = frappe.get_all(
+				alerts = capkpi.get_all(
 					"Notification",
 					fields=["name", "event", "method"],
 					filters={"enabled": 1, "document_type": self.doctype},
 				)
-				frappe.cache().hset("notifications", self.doctype, alerts)
+				capkpi.cache().hset("notifications", self.doctype, alerts)
 			self.flags.notifications = alerts
 
 		if not self.flags.notifications:
@@ -1024,7 +1024,7 @@ class Document(BaseDocument):
 
 	def delete(self, ignore_permissions=False):
 		"""Delete document."""
-		frappe.delete_doc(
+		capkpi.delete_doc(
 			self.doctype, self.name, ignore_permissions=ignore_permissions, flags=self.flags
 		)
 
@@ -1066,10 +1066,10 @@ class Document(BaseDocument):
 		self._doc_before_save = None
 		if not self.is_new():
 			try:
-				self._doc_before_save = frappe.get_doc(self.doctype, self.name)
-			except frappe.DoesNotExistError:
+				self._doc_before_save = capkpi.get_doc(self.doctype, self.name)
+			except capkpi.DoesNotExistError:
 				self._doc_before_save = None
-				frappe.clear_last_message()
+				capkpi.clear_last_message()
 
 	def run_post_save_methods(self):
 		"""Run standard methods after `INSERT` or `UPDATE`. Standard Methods are:
@@ -1103,27 +1103,27 @@ class Document(BaseDocument):
 
 		self.run_method("on_change")
 
-		if (self.doctype, self.name) in frappe.flags.currently_saving:
-			frappe.flags.currently_saving.remove((self.doctype, self.name))
+		if (self.doctype, self.name) in capkpi.flags.currently_saving:
+			capkpi.flags.currently_saving.remove((self.doctype, self.name))
 
 		self.latest = None
 
 	def clear_cache(self):
-		frappe.clear_document_cache(self.doctype, self.name)
+		capkpi.clear_document_cache(self.doctype, self.name)
 
 	def reset_seen(self):
 		"""Clear _seen property and set current user as seen"""
 		if getattr(self.meta, "track_seen", False):
-			frappe.db.set_value(
-				self.doctype, self.name, "_seen", json.dumps([frappe.session.user]), update_modified=False
+			capkpi.db.set_value(
+				self.doctype, self.name, "_seen", json.dumps([capkpi.session.user]), update_modified=False
 			)
 
 	def notify_update(self):
 		"""Publish realtime that the current document is modified"""
-		if frappe.flags.in_patch:
+		if capkpi.flags.in_patch:
 			return
 
-		frappe.publish_realtime(
+		capkpi.publish_realtime(
 			"doc_update",
 			{"modified": self.modified, "doctype": self.doctype, "name": self.name},
 			doctype=self.doctype,
@@ -1136,8 +1136,8 @@ class Document(BaseDocument):
 			and not self.meta.get("issingle")
 			and not self.meta.get("istable")
 		):
-			data = {"doctype": self.doctype, "name": self.name, "user": frappe.session.user}
-			frappe.publish_realtime("list_update", data, after_commit=True)
+			data = {"doctype": self.doctype, "name": self.name, "user": capkpi.session.user}
+			capkpi.publish_realtime("list_update", data, after_commit=True)
 
 	def db_set(self, fieldname, value=None, update_modified=True, notify=False, commit=False):
 		"""Set a value in the document object, update the timestamp and update the database.
@@ -1149,18 +1149,18 @@ class Document(BaseDocument):
 		:param value: value of the property to be updated
 		:param update_modified: default True. updates the `modified` and `modified_by` properties
 		:param notify: default False. run doc.notify_update() to send updates via socketio
-		:param commit: default False. run frappe.db.commit()
+		:param commit: default False. run capkpi.db.commit()
 		"""
 		if isinstance(fieldname, dict):
 			self.update(fieldname)
 		else:
 			self.set(fieldname, value)
 
-		if update_modified and (self.doctype, self.name) not in frappe.flags.currently_saving:
+		if update_modified and (self.doctype, self.name) not in capkpi.flags.currently_saving:
 			# don't update modified timestamp if called from post save methods
 			# like on_update or on_submit
 			self.set("modified", now())
-			self.set("modified_by", frappe.session.user)
+			self.set("modified_by", capkpi.session.user)
 
 		# load but do not reload doc_before_save because before_change or on_change might expect it
 		if not self.get_doc_before_save():
@@ -1169,7 +1169,7 @@ class Document(BaseDocument):
 		# to trigger notification on value change
 		self.run_method("before_change")
 
-		frappe.db.set_value(
+		capkpi.db.set_value(
 			self.doctype,
 			self.name,
 			fieldname,
@@ -1186,15 +1186,15 @@ class Document(BaseDocument):
 
 		self.clear_cache()
 		if commit:
-			frappe.db.commit()
+			capkpi.db.commit()
 
 	def db_get(self, fieldname):
 		"""get database value for this fieldname"""
-		return frappe.db.get_value(self.doctype, self.name, fieldname)
+		return capkpi.db.get_value(self.doctype, self.name, fieldname)
 
 	def check_no_back_links_exist(self):
 		"""Check if document links to any active document before Cancel."""
-		from frappe.model.delete_doc import check_if_doc_is_dynamically_linked, check_if_doc_is_linked
+		from capkpi.model.delete_doc import check_if_doc_is_dynamically_linked, check_if_doc_is_linked
 
 		if not self.flags.ignore_links:
 			check_if_doc_is_linked(self, method="Cancel")
@@ -1208,19 +1208,19 @@ class Document(BaseDocument):
 			not getattr(self.meta, "track_changes", False)
 			or self.doctype == "Version"
 			or self.flags.ignore_version
-			or frappe.flags.in_install
-			or (not self._doc_before_save and frappe.flags.in_patch)
+			or capkpi.flags.in_install
+			or (not self._doc_before_save and capkpi.flags.in_patch)
 		):
 			return
 
-		version = frappe.new_doc("Version")
+		version = capkpi.new_doc("Version")
 
 		if version.update_version_info(self._doc_before_save, self):
 			version.insert(ignore_permissions=True)
 
-			if not frappe.flags.in_migrate:
+			if not capkpi.flags.in_migrate:
 				# follow since you made a change?
-				follow_document(self.doctype, self.name, frappe.session.user)
+				follow_document(self.doctype, self.name, capkpi.session.user)
 
 	@staticmethod
 	def hook(f):
@@ -1251,11 +1251,11 @@ class Document(BaseDocument):
 		def composer(self, *args, **kwargs):
 			hooks = []
 			method = f.__name__
-			doc_events = frappe.get_doc_hooks()
+			doc_events = capkpi.get_doc_hooks()
 			for handler in doc_events.get(self.doctype, {}).get(method, []) + doc_events.get("*", {}).get(
 				method, []
 			):
-				hooks.append(frappe.get_attr(handler))
+				hooks.append(capkpi.get_attr(handler))
 
 			composed = compose(f, *hooks)
 			return composed(self, method, *args, **kwargs)
@@ -1286,7 +1286,7 @@ class Document(BaseDocument):
 		df = doc.meta.get_field(fieldname)
 		val2 = doc.cast(val2, df)
 
-		if not frappe.compare(val1, condition, val2):
+		if not capkpi.compare(val1, condition, val2):
 			label = doc.meta.get_label(fieldname)
 			condition_str = error_condition_map.get(condition, condition)
 			if doc.parentfield:
@@ -1303,8 +1303,8 @@ class Document(BaseDocument):
 		"""Raise exception if Table field is empty."""
 		if not (isinstance(self.get(parentfield), list) and len(self.get(parentfield)) > 0):
 			label = self.meta.get_label(parentfield)
-			frappe.throw(
-				_("Table {0} cannot be empty").format(label), raise_exception or frappe.EmptyTableError
+			capkpi.throw(
+				_("Table {0} cannot be empty").format(label), raise_exception or capkpi.EmptyTableError
 			)
 
 	def round_floats_in(self, doc, fieldnames=None):
@@ -1338,11 +1338,11 @@ class Document(BaseDocument):
 
 		:param comment_type: e.g. `Comment`. See Communication for more info."""
 
-		out = frappe.get_doc(
+		out = capkpi.get_doc(
 			{
 				"doctype": "Comment",
 				"comment_type": comment_type,
-				"comment_email": comment_email or frappe.session.user,
+				"comment_email": comment_email or capkpi.session.user,
 				"comment_by": comment_by,
 				"reference_doctype": self.doctype,
 				"reference_name": self.name,
@@ -1356,32 +1356,32 @@ class Document(BaseDocument):
 	def add_seen(self, user=None):
 		"""add the given/current user to list of users who have seen this document (_seen)"""
 		if not user:
-			user = frappe.session.user
+			user = capkpi.session.user
 
 		if self.meta.track_seen:
 			_seen = self.get("_seen") or []
-			_seen = frappe.parse_json(_seen)
+			_seen = capkpi.parse_json(_seen)
 
 			if user not in _seen:
 				_seen.append(user)
-				frappe.db.set_value(self.doctype, self.name, "_seen", json.dumps(_seen), update_modified=False)
-				frappe.local.flags.commit = True
+				capkpi.db.set_value(self.doctype, self.name, "_seen", json.dumps(_seen), update_modified=False)
+				capkpi.local.flags.commit = True
 
 	def add_viewed(self, user=None):
 		"""add log to communication when a user views a document"""
 		if not user:
-			user = frappe.session.user
+			user = capkpi.session.user
 
 		if hasattr(self.meta, "track_views") and self.meta.track_views:
-			frappe.get_doc(
+			capkpi.get_doc(
 				{
 					"doctype": "View Log",
-					"viewed_by": frappe.session.user,
+					"viewed_by": capkpi.session.user,
 					"reference_doctype": self.doctype,
 					"reference_name": self.name,
 				}
 			).insert(ignore_permissions=True)
-			frappe.local.flags.commit = True
+			capkpi.local.flags.commit = True
 
 	def get_signature(self):
 		"""Returns signature (hash) for private URL."""
@@ -1391,7 +1391,7 @@ class Document(BaseDocument):
 		if no_expiry:
 			expires_on = None
 
-		existing_key = frappe.db.exists(
+		existing_key = capkpi.db.exists(
 			"Document Share Key",
 			{
 				"reference_doctype": self.doctype,
@@ -1400,9 +1400,9 @@ class Document(BaseDocument):
 			},
 		)
 		if existing_key:
-			doc = frappe.get_doc("Document Share Key", existing_key)
+			doc = capkpi.get_doc("Document Share Key", existing_key)
 		else:
-			doc = frappe.new_doc("Document Share Key")
+			doc = capkpi.new_doc("Document Share Key")
 			doc.reference_doctype = self.doctype
 			doc.reference_docname = self.name
 			doc.expires_on = expires_on
@@ -1420,12 +1420,12 @@ class Document(BaseDocument):
 
 	def set_onload(self, key, value):
 		if not self.get("__onload"):
-			self.set("__onload", frappe._dict())
+			self.set("__onload", capkpi._dict())
 		self.get("__onload")[key] = value
 
 	def get_onload(self, key=None):
 		if not key:
-			return self.get("__onload", frappe._dict())
+			return self.get("__onload", capkpi._dict())
 
 		return self.get("__onload")[key]
 
@@ -1435,20 +1435,20 @@ class Document(BaseDocument):
 		# call _submit instead of submit, so you can override submit to call
 		# run_delayed based on some action
 		# See: Stock Reconciliation
-		from frappe.utils.background_jobs import enqueue
+		from capkpi.utils.background_jobs import enqueue
 
 		if hasattr(self, "_" + action):
 			action = "_" + action
 
 		if file_lock.lock_exists(self.get_signature()):
-			frappe.throw(
+			capkpi.throw(
 				_("This document is currently queued for execution. Please try again"),
 				title=_("Document Queued"),
 			)
 
 		self.lock()
 		enqueue(
-			"frappe.model.document.execute_action",
+			"capkpi.model.document.execute_action",
 			doctype=self.doctype,
 			name=self.name,
 			action=action,
@@ -1470,7 +1470,7 @@ class Document(BaseDocument):
 						lock_exists = False
 						break
 			if lock_exists:
-				raise frappe.DocumentLockedError
+				raise capkpi.DocumentLockedError
 		file_lock.create_lock(signature)
 
 	def unlock(self):
@@ -1483,16 +1483,16 @@ class Document(BaseDocument):
 		Generic validation to verify date sequence
 		"""
 		if date_diff(self.get(to_date_field), self.get(from_date_field)) < 0:
-			frappe.throw(
+			capkpi.throw(
 				_("{0} must be after {1}").format(
-					frappe.bold(self.meta.get_label(to_date_field)),
-					frappe.bold(self.meta.get_label(from_date_field)),
+					capkpi.bold(self.meta.get_label(to_date_field)),
+					capkpi.bold(self.meta.get_label(from_date_field)),
 				),
-				frappe.exceptions.InvalidDates,
+				capkpi.exceptions.InvalidDates,
 			)
 
 	def get_assigned_users(self):
-		assignments = frappe.get_all(
+		assignments = capkpi.get_all(
 			"ToDo",
 			fields=["owner"],
 			filters={
@@ -1507,22 +1507,22 @@ class Document(BaseDocument):
 
 	def add_tag(self, tag):
 		"""Add a Tag to this document"""
-		from frappe.desk.doctype.tag.tag import DocTags
+		from capkpi.desk.doctype.tag.tag import DocTags
 
 		DocTags(self.doctype).add(self.name, tag)
 
 	def get_tags(self):
 		"""Return a list of Tags attached to this document"""
-		from frappe.desk.doctype.tag.tag import DocTags
+		from capkpi.desk.doctype.tag.tag import DocTags
 
 		return DocTags(self.doctype).get_tags(self.name).split(",")[1:]
 
 	def _rename_doc_on_cancel(self):
-		if frappe.get_system_settings(
+		if capkpi.get_system_settings(
 			"use_original_name_for_amended_document", ignore_if_not_exists=True
 		):
 			new_name = gen_new_name_for_cancelled_doc(self)
-			frappe.rename_doc(self.doctype, self.name, new_name, force=True, show_alert=False)
+			capkpi.rename_doc(self.doctype, self.name, new_name, force=True, show_alert=False)
 			self.name = new_name
 
 	def __repr__(self):
@@ -1543,18 +1543,18 @@ class Document(BaseDocument):
 
 def execute_action(doctype, name, action, **kwargs):
 	"""Execute an action on a document (called by background worker)"""
-	doc = frappe.get_doc(doctype, name)
+	doc = capkpi.get_doc(doctype, name)
 	doc.unlock()
 	try:
 		getattr(doc, action)(**kwargs)
 	except Exception:
-		frappe.db.rollback()
+		capkpi.db.rollback()
 
 		# add a comment (?)
-		if frappe.local.message_log:
-			msg = json.loads(frappe.local.message_log[-1]).get("message")
+		if capkpi.local.message_log:
+			msg = json.loads(capkpi.local.message_log[-1]).get("message")
 		else:
-			msg = "<pre><code>" + frappe.get_traceback() + "</pre></code>"
+			msg = "<pre><code>" + capkpi.get_traceback() + "</pre></code>"
 
 		doc.add_comment("Comment", _("Action Failed") + "<br><br>" + msg)
 		doc.notify_update()

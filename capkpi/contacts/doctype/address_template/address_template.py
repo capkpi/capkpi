@@ -4,11 +4,11 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
-from frappe.utils import cint
-from frappe.utils.jinja import validate_template
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
+from capkpi.utils import cint
+from capkpi.utils.jinja import validate_template
 
 
 class AddressTemplate(Document):
@@ -16,28 +16,28 @@ class AddressTemplate(Document):
 		if not self.template:
 			self.template = get_default_address_template()
 
-		self.defaults = frappe.db.get_values(
+		self.defaults = capkpi.db.get_values(
 			"Address Template", {"is_default": 1, "name": ("!=", self.name)}
 		)
 		if not self.is_default:
 			if not self.defaults:
 				self.is_default = 1
-				if cint(frappe.db.get_single_value("System Settings", "setup_complete")):
-					frappe.msgprint(_("Setting this Address Template as default as there is no other default"))
+				if cint(capkpi.db.get_single_value("System Settings", "setup_complete")):
+					capkpi.msgprint(_("Setting this Address Template as default as there is no other default"))
 
 		validate_template(self.template)
 
 	def on_update(self):
 		if self.is_default and self.defaults:
 			for d in self.defaults:
-				frappe.db.set_value("Address Template", d[0], "is_default", 0)
+				capkpi.db.set_value("Address Template", d[0], "is_default", 0)
 
 	def on_trash(self):
 		if self.is_default:
-			frappe.throw(_("Default Address Template cannot be deleted"))
+			capkpi.throw(_("Default Address Template cannot be deleted"))
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_default_address_template():
 	"""Get default address template (translated)"""
 	return (

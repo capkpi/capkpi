@@ -1,9 +1,9 @@
-import frappe
+import capkpi
 
 
 def execute():
 	"""
 	Remove GSuite Template and GSuite Settings
 	"""
-	frappe.delete_doc_if_exists("DocType", "GSuite Settings")
-	frappe.delete_doc_if_exists("DocType", "GSuite Templates")
+	capkpi.delete_doc_if_exists("DocType", "GSuite Settings")
+	capkpi.delete_doc_if_exists("DocType", "GSuite Templates")

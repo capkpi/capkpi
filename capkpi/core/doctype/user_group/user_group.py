@@ -4,15 +4,15 @@
 
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
-# import frappe
-from frappe.model.document import Document
+# import capkpi
+from capkpi.model.document import Document
 
 
 class UserGroup(Document):
 	def after_insert(self):
-		frappe.cache().delete_key("user_groups")
+		capkpi.cache().delete_key("user_groups")
 
 	def on_trash(self):
-		frappe.cache().delete_key("user_groups")
+		capkpi.cache().delete_key("user_groups")

@@ -6,20 +6,20 @@ from random import choice
 from typing import Union
 from unittest.mock import MagicMock, PropertyMock, patch
 
-import frappe
-from frappe.desk.form.load import run_onload
-from frappe.email.doctype.newsletter.exceptions import (
+import capkpi
+from capkpi.desk.form.load import run_onload
+from capkpi.email.doctype.newsletter.exceptions import (
 	NewsletterAlreadySentError,
 	NoRecipientFoundError,
 )
-from frappe.email.doctype.newsletter.newsletter import (
+from capkpi.email.doctype.newsletter.newsletter import (
 	Newsletter,
 	confirmed_unsubscribe,
 	get_newsletter_list,
 	send_scheduled_email,
 )
-from frappe.email.queue import flush
-from frappe.utils import add_days, getdate
+from capkpi.email.queue import flush
+from capkpi.utils import add_days, getdate
 
 test_dependencies = ["Email Group"]
 emails = [
@@ -41,44 +41,44 @@ def get_dotted_path(obj: type) -> str:
 
 class TestNewsletterMixin:
 	def setUp(self):
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 		self.setup_email_group()
 
 	def tearDown(self):
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 		for newsletter in newsletters:
-			frappe.db.delete(
+			capkpi.db.delete(
 				"Email Queue",
 				{
 					"reference_doctype": "Newsletter",
 					"reference_name": newsletter,
 				},
 			)
-			frappe.delete_doc("Newsletter", newsletter)
-			frappe.db.delete("Newsletter Email Group", newsletter)
+			capkpi.delete_doc("Newsletter", newsletter)
+			capkpi.db.delete("Newsletter Email Group", newsletter)
 			newsletters.remove(newsletter)
 
 	def setup_email_group(self):
-		if not frappe.db.exists("Email Group", "_Test Email Group"):
-			frappe.get_doc({"doctype": "Email Group", "title": "_Test Email Group"}).insert()
+		if not capkpi.db.exists("Email Group", "_Test Email Group"):
+			capkpi.get_doc({"doctype": "Email Group", "title": "_Test Email Group"}).insert()
 
 		for email in emails:
 			doctype = "Email Group Member"
 			email_filters = {"email": email, "email_group": "_Test Email Group"}
 			try:
-				frappe.get_doc(
+				capkpi.get_doc(
 					{
 						"doctype": doctype,
 						**email_filters,
 					}
 				).insert()
 			except Exception:
-				frappe.db.update(doctype, email_filters, "unsubscribed", 0)
+				capkpi.db.update(doctype, email_filters, "unsubscribed", 0)
 
 	def send_newsletter(self, published=0, schedule_send=None) -> Union[str, None]:
-		frappe.db.delete("Email Queue")
-		frappe.db.delete("Email Queue Recipient")
-		frappe.db.delete("Newsletter")
+		capkpi.db.delete("Email Queue")
+		capkpi.db.delete("Email Queue Recipient")
+		capkpi.db.delete("Newsletter")
 
 		newsletter_options = {
 			"published": published,
@@ -103,18 +103,18 @@ class TestNewsletterMixin:
 			"content_type": "Rich Text",
 			"message": "Testing my news.",
 		}
-		similar_newsletters = frappe.db.get_all(doctype, newsletter_content, pluck="name")
+		similar_newsletters = capkpi.db.get_all(doctype, newsletter_content, pluck="name")
 
 		for similar_newsletter in similar_newsletters:
-			frappe.delete_doc(doctype, similar_newsletter)
+			capkpi.delete_doc(doctype, similar_newsletter)
 
-		newsletter = frappe.get_doc({"doctype": doctype, **newsletter_content, **kwargs})
+		newsletter = capkpi.get_doc({"doctype": doctype, **newsletter_content, **kwargs})
 		newsletter.append("email_group", {"email_group": "_Test Email Group"})
 		newsletter.save(ignore_permissions=True)
 		newsletter.reload()
 		newsletters.append(newsletter.name)
 
-		attached_files = frappe.get_all(
+		attached_files = capkpi.get_all(
 			"File",
 			{
 				"attached_to_doctype": newsletter.doctype,
@@ -123,7 +123,7 @@ class TestNewsletterMixin:
 			pluck="name",
 		)
 		for file in attached_files:
-			frappe.delete_doc("File", file)
+			capkpi.delete_doc("File", file)
 
 		return newsletter
 
@@ -132,7 +132,7 @@ class TestNewsletter(TestNewsletterMixin, unittest.TestCase):
 	def test_send(self):
 		self.send_newsletter()
 
-		email_queue_list = [frappe.get_doc("Email Queue", e.name) for e in frappe.get_all("Email Queue")]
+		email_queue_list = [capkpi.get_doc("Email Queue", e.name) for e in capkpi.get_all("Email Queue")]
 		self.assertEqual(len(email_queue_list), 4)
 
 		recipients = set([e.recipients[0].recipient for e in email_queue_list])
@@ -141,7 +141,7 @@ class TestNewsletter(TestNewsletterMixin, unittest.TestCase):
 	def test_unsubscribe(self):
 		name = self.send_newsletter()
 		to_unsubscribe = choice(emails)
-		group = frappe.get_all(
+		group = capkpi.get_all(
 			"Newsletter Email Group", filters={"parent": name}, fields=["email_group"]
 		)
 
@@ -149,7 +149,7 @@ class TestNewsletter(TestNewsletterMixin, unittest.TestCase):
 		confirmed_unsubscribe(to_unsubscribe, group[0].email_group)
 
 		name = self.send_newsletter()
-		email_queue_list = [frappe.get_doc("Email Queue", e.name) for e in frappe.get_all("Email Queue")]
+		email_queue_list = [capkpi.get_doc("Email Queue", e.name) for e in capkpi.get_all("Email Queue")]
 		self.assertEqual(len(email_queue_list), 3)
 		recipients = [e.recipients[0].recipient for e in email_queue_list]
 
@@ -159,15 +159,15 @@ class TestNewsletter(TestNewsletterMixin, unittest.TestCase):
 
 	def test_portal(self):
 		self.send_newsletter(published=1)
-		frappe.set_user("test1@example.com")
+		capkpi.set_user("test1@example.com")
 		newsletter_list = get_newsletter_list("Newsletter", None, None, 0)
 		self.assertEqual(len(newsletter_list), 1)
 
 	def test_newsletter_context(self):
-		context = frappe._dict()
+		context = capkpi._dict()
 		newsletter_name = self.send_newsletter(published=1)
-		frappe.set_user("test2@example.com")
-		doc = frappe.get_doc("Newsletter", newsletter_name)
+		capkpi.set_user("test2@example.com")
+		doc = capkpi.get_doc("Newsletter", newsletter_name)
 		doc.get_context(context)
 		self.assertEqual(context.no_cache, 1)
 		self.assertTrue("attachments" not in list(context))
@@ -175,7 +175,7 @@ class TestNewsletter(TestNewsletterMixin, unittest.TestCase):
 	def test_schedule_send(self):
 		self.send_newsletter(schedule_send=add_days(getdate(), -1))
 
-		email_queue_list = [frappe.get_doc("Email Queue", e.name) for e in frappe.get_all("Email Queue")]
+		email_queue_list = [capkpi.get_doc("Email Queue", e.name) for e in capkpi.get_all("Email Queue")]
 		self.assertEqual(len(email_queue_list), 4)
 		recipients = [e.recipients[0].recipient for e in email_queue_list]
 		for email in emails:
@@ -219,13 +219,13 @@ class TestNewsletter(TestNewsletterMixin, unittest.TestCase):
 	def test_send_newsletter_with_attachments(self):
 		newsletter = self.get_newsletter()
 		newsletter.reload()
-		file_attachment = frappe.get_doc(
+		file_attachment = capkpi.get_doc(
 			{
 				"doctype": "File",
 				"file_name": "test1.txt",
 				"attached_to_doctype": newsletter.doctype,
 				"attached_to_name": newsletter.name,
-				"content": frappe.mock("paragraph"),
+				"content": capkpi.mock("paragraph"),
 			}
 		)
 		file_attachment.save()
@@ -236,10 +236,10 @@ class TestNewsletter(TestNewsletterMixin, unittest.TestCase):
 
 	def test_send_scheduled_email_error_handling(self):
 		newsletter = self.get_newsletter(schedule_send=add_days(getdate(), -1))
-		job_path = "frappe.email.doctype.newsletter.newsletter.Newsletter.queue_all"
-		m = MagicMock(side_effect=frappe.OutgoingEmailError)
+		job_path = "capkpi.email.doctype.newsletter.newsletter.Newsletter.queue_all"
+		m = MagicMock(side_effect=capkpi.OutgoingEmailError)
 
-		with self.assertRaises(frappe.OutgoingEmailError):
+		with self.assertRaises(capkpi.OutgoingEmailError):
 			with patch(job_path, new_callable=m):
 				send_scheduled_email()
 
@@ -247,13 +247,13 @@ class TestNewsletter(TestNewsletterMixin, unittest.TestCase):
 		self.assertEqual(newsletter.email_sent, 0)
 
 	def test_retry_partially_sent_newsletter(self):
-		frappe.db.delete("Email Queue")
-		frappe.db.delete("Email Queue Recipient")
-		frappe.db.delete("Newsletter")
+		capkpi.db.delete("Email Queue")
+		capkpi.db.delete("Email Queue Recipient")
+		capkpi.db.delete("Newsletter")
 
 		newsletter = self.get_newsletter()
 		newsletter.send_emails()
-		email_queue_list = [frappe.get_doc("Email Queue", e.name) for e in frappe.get_all("Email Queue")]
+		email_queue_list = [capkpi.get_doc("Email Queue", e.name) for e in capkpi.get_all("Email Queue")]
 		self.assertEqual(len(email_queue_list), 4)
 
 		# emulate partial send
@@ -264,5 +264,5 @@ class TestNewsletter(TestNewsletterMixin, unittest.TestCase):
 
 		# retry
 		newsletter.send_emails()
-		email_queue_list = [frappe.get_doc("Email Queue", e.name) for e in frappe.get_all("Email Queue")]
+		email_queue_list = [capkpi.get_doc("Email Queue", e.name) for e in capkpi.get_all("Email Queue")]
 		self.assertEqual(len(email_queue_list), 5)

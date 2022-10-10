@@ -2,7 +2,7 @@
 // For license information, please see license.txt
 /* eslint-disable */
 
-frappe.query_reports["{name}"] = {{
+capkpi.query_reports["{name}"] = {{
 	"filters": [
 
 	]

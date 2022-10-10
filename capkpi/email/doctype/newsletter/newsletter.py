@@ -5,12 +5,12 @@ from __future__ import unicode_literals
 
 from typing import Dict, List
 
-import frappe
-import frappe.utils
-from frappe import _
-from frappe.email.doctype.email_group.email_group import add_subscribers
-from frappe.utils.verified_command import get_signed_params, verify_request
-from frappe.website.website_generator import WebsiteGenerator
+import capkpi
+import capkpi.utils
+from capkpi import _
+from capkpi.email.doctype.email_group.email_group import add_subscribers
+from capkpi.utils.verified_command import get_signed_params, verify_request
+from capkpi.website.website_generator import WebsiteGenerator
 
 from .exceptions import NewsletterAlreadySentError, NewsletterNotSavedError, NoRecipientFoundError
 
@@ -30,22 +30,22 @@ class Newsletter(WebsiteGenerator):
 			self._recipients = self.get_recipients()
 		return self._recipients
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def test_send(self):
-		test_emails = frappe.utils.split_emails(self.test_email_id)
+		test_emails = capkpi.utils.split_emails(self.test_email_id)
 		self.queue_all(test_emails=test_emails)
-		frappe.msgprint(_("Test email sent to {0}").format(self.test_email_id))
+		capkpi.msgprint(_("Test email sent to {0}").format(self.test_email_id))
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def send_emails(self):
 		"""send emails to leads and customers"""
 		self.queue_all()
-		frappe.msgprint(_("Email queued to {0} recipients").format(len(self.newsletter_recipients)))
+		capkpi.msgprint(_("Email queued to {0} recipients").format(len(self.newsletter_recipients)))
 
 	def setup_newsletter_status(self):
 		"""Setup analytical status for current Newsletter. Can be accessible from desk."""
 		if self.email_sent:
-			status_count = frappe.get_all(
+			status_count = capkpi.get_all(
 				"Email Queue",
 				filters={"reference_doctype": self.doctype, "reference_name": self.name},
 				fields=["status", "count(name)"],
@@ -62,29 +62,29 @@ class Newsletter(WebsiteGenerator):
 
 	def validate_newsletter_status(self):
 		if self.email_sent:
-			frappe.throw(_("Newsletter has already been sent"), exc=NewsletterAlreadySentError)
+			capkpi.throw(_("Newsletter has already been sent"), exc=NewsletterAlreadySentError)
 
 		if self.get("__islocal"):
-			frappe.throw(_("Please save the Newsletter before sending"), exc=NewsletterNotSavedError)
+			capkpi.throw(_("Please save the Newsletter before sending"), exc=NewsletterNotSavedError)
 
 	def validate_newsletter_recipients(self):
 		if not self.newsletter_recipients:
-			frappe.throw(_("Newsletter should have atleast one recipient"), exc=NoRecipientFoundError)
+			capkpi.throw(_("Newsletter should have atleast one recipient"), exc=NoRecipientFoundError)
 		self.validate_recipient_address()
 
 	def validate_sender_address(self):
 		"""Validate self.send_from is a valid email address or not."""
 		if self.send_from:
-			frappe.utils.validate_email_address(self.send_from, throw=True)
+			capkpi.utils.validate_email_address(self.send_from, throw=True)
 
 	def validate_recipient_address(self):
 		"""Validate if self.newsletter_recipients are all valid email addresses or not."""
 		for recipient in self.newsletter_recipients:
-			frappe.utils.validate_email_address(recipient, throw=True)
+			capkpi.utils.validate_email_address(recipient, throw=True)
 
 	def get_linked_email_queue(self) -> List[str]:
 		"""Get list of email queue linked to this newsletter."""
-		return frappe.get_all(
+		return capkpi.get_all(
 			"Email Queue",
 			filters={
 				"reference_doctype": self.doctype,
@@ -98,7 +98,7 @@ class Newsletter(WebsiteGenerator):
 
 		Couldn't think of a better name ;)
 		"""
-		return frappe.get_all(
+		return capkpi.get_all(
 			"Email Queue Recipient",
 			filters={
 				"status": ("in", ["Not Sent", "Sending", "Sent"]),
@@ -123,7 +123,7 @@ class Newsletter(WebsiteGenerator):
 		"""
 		if test_emails:
 			for test_email in test_emails:
-				frappe.utils.validate_email_address(test_email, throw=True)
+				capkpi.utils.validate_email_address(test_email, throw=True)
 		else:
 			self.validate()
 			self.validate_send()
@@ -133,7 +133,7 @@ class Newsletter(WebsiteGenerator):
 
 		if not test_emails:
 			self.email_sent = True
-			self.schedule_send = frappe.utils.now_datetime()
+			self.schedule_send = capkpi.utils.now_datetime()
 			self.scheduled_to_send = len(newsletter_recipients)
 			self.save()
 
@@ -142,7 +142,7 @@ class Newsletter(WebsiteGenerator):
 		attachments = []
 
 		if self.send_attachments:
-			files = frappe.get_all(
+			files = capkpi.get_all(
 				"File",
 				filters={"attached_to_doctype": "Newsletter", "attached_to_name": self.name},
 				order_by="creation desc",
@@ -155,14 +155,14 @@ class Newsletter(WebsiteGenerator):
 	def send_newsletter(self, emails: List[str]):
 		"""Trigger email generation for `emails` and add it in Email Queue."""
 		attachments = self.get_newsletter_attachments()
-		sender = self.send_from or frappe.utils.get_formatted_email(self.owner)
+		sender = self.send_from or capkpi.utils.get_formatted_email(self.owner)
 		args = self.as_dict()
 		args["message"] = self.get_message()
 
-		is_auto_commit_set = bool(frappe.db.auto_commit_on_many_writes)
-		frappe.db.auto_commit_on_many_writes = not frappe.flags.in_test
+		is_auto_commit_set = bool(capkpi.db.auto_commit_on_many_writes)
+		capkpi.db.auto_commit_on_many_writes = not capkpi.flags.in_test
 
-		frappe.sendmail(
+		capkpi.sendmail(
 			subject=self.subject,
 			sender=sender,
 			recipients=emails,
@@ -178,19 +178,19 @@ class Newsletter(WebsiteGenerator):
 			args=args,
 		)
 
-		frappe.db.auto_commit_on_many_writes = is_auto_commit_set
+		capkpi.db.auto_commit_on_many_writes = is_auto_commit_set
 
 	def get_message(self) -> str:
 		if self.content_type == "HTML":
-			return frappe.render_template(self.message_html, {"doc": self.as_dict()})
+			return capkpi.render_template(self.message_html, {"doc": self.as_dict()})
 		if self.content_type == "Markdown":
-			return frappe.utils.markdown(self.message_md)
+			return capkpi.utils.markdown(self.message_md)
 		# fallback to Rich Text
 		return self.message
 
 	def get_recipients(self) -> List[str]:
 		"""Get recipients from Email Group"""
-		emails = frappe.get_all(
+		emails = capkpi.get_all(
 			"Email Group Member",
 			filters={"unsubscribed": 0, "email_group": ("in", self.get_email_groups())},
 			pluck="email",
@@ -199,14 +199,14 @@ class Newsletter(WebsiteGenerator):
 
 	def get_email_groups(self) -> List[str]:
 		# wondering why the 'or'? i can't figure out why both aren't equivalent - @gavin
-		return [x.email_group for x in self.email_group] or frappe.get_all(
+		return [x.email_group for x in self.email_group] or capkpi.get_all(
 			"Newsletter Email Group",
 			filters={"parent": self.name, "parenttype": "Newsletter"},
 			pluck="email_group",
 		)
 
 	def get_attachments(self) -> List[Dict[str, str]]:
-		return frappe.get_all(
+		return capkpi.get_all(
 			"File",
 			fields=["name", "file_name", "file_url", "is_private"],
 			filters={
@@ -221,49 +221,49 @@ class Newsletter(WebsiteGenerator):
 		if newsletters:
 			newsletter_list = [d.name for d in newsletters]
 			if self.name not in newsletter_list:
-				frappe.redirect_to_message(
+				capkpi.redirect_to_message(
 					_("Permission Error"), _("You are not permitted to view the newsletter.")
 				)
-				frappe.local.flags.redirect_location = frappe.local.response.location
-				raise frappe.Redirect
+				capkpi.local.flags.redirect_location = capkpi.local.response.location
+				raise capkpi.Redirect
 			else:
 				context.attachments = self.get_attachments()
 		context.no_cache = 1
 		context.show_sidebar = True
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def confirmed_unsubscribe(email, group):
 	"""unsubscribe the email(user) from the mailing list(email_group)"""
-	frappe.flags.ignore_permissions = True
-	doc = frappe.get_doc("Email Group Member", {"email": email, "email_group": group})
+	capkpi.flags.ignore_permissions = True
+	doc = capkpi.get_doc("Email Group Member", {"email": email, "email_group": group})
 	if not doc.unsubscribed:
 		doc.unsubscribed = 1
 		doc.save(ignore_permissions=True)
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def subscribe(email, email_group=_("Website")):
 	"""API endpoint to subscribe an email to a particular email group. Triggers a confirmation email."""
 
 	# build subscription confirmation URL
-	api_endpoint = frappe.utils.get_url(
-		"/api/method/frappe.email.doctype.newsletter.newsletter.confirm_subscription"
+	api_endpoint = capkpi.utils.get_url(
+		"/api/method/capkpi.email.doctype.newsletter.newsletter.confirm_subscription"
 	)
 	signed_params = get_signed_params({"email": email, "email_group": email_group})
 	confirm_subscription_url = f"{api_endpoint}?{signed_params}"
 
 	# fetch custom template if available
-	email_confirmation_template = frappe.db.get_value(
+	email_confirmation_template = capkpi.db.get_value(
 		"Email Group", email_group, "confirmation_email_template"
 	)
 
 	# build email and send
 	if email_confirmation_template:
 		args = {"email": email, "confirmation_url": confirm_subscription_url, "email_group": email_group}
-		email_template = frappe.get_doc("Email Template", email_confirmation_template)
+		email_template = capkpi.get_doc("Email Template", email_confirmation_template)
 		email_subject = email_template.subject
-		content = frappe.render_template(email_template.response, args)
+		content = capkpi.render_template(email_template.response, args)
 	else:
 		email_subject = _("Confirm Your Email")
 		translatable_content = (
@@ -279,7 +279,7 @@ def subscribe(email, email_group=_("Website")):
 			*translatable_content
 		)
 
-	frappe.sendmail(
+	capkpi.sendmail(
 		email,
 		subject=email_subject,
 		content=content,
@@ -287,7 +287,7 @@ def subscribe(email, email_group=_("Website")):
 	)
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def confirm_subscription(email, email_group=_("Website")):
 	"""API endpoint to confirm email subscription.
 	This endpoint is called when user clicks on the link sent to their mail.
@@ -295,15 +295,15 @@ def confirm_subscription(email, email_group=_("Website")):
 	if not verify_request():
 		return
 
-	if not frappe.db.exists("Email Group", email_group):
-		frappe.get_doc({"doctype": "Email Group", "title": email_group}).insert(ignore_permissions=True)
+	if not capkpi.db.exists("Email Group", email_group):
+		capkpi.get_doc({"doctype": "Email Group", "title": email_group}).insert(ignore_permissions=True)
 
-	frappe.flags.ignore_permissions = True
+	capkpi.flags.ignore_permissions = True
 
 	add_subscribers(email_group, email)
-	frappe.db.commit()
+	capkpi.db.commit()
 
-	frappe.respond_as_web_page(
+	capkpi.respond_as_web_page(
 		_("Confirmed"),
 		_("{0} has been successfully added to the Email Group.").format(email),
 		indicator_color="green",
@@ -326,18 +326,18 @@ def get_list_context(context=None):
 def get_newsletter_list(
 	doctype, txt, filters, limit_start, limit_page_length=20, order_by="modified"
 ):
-	email_group_list = frappe.db.sql(
+	email_group_list = capkpi.db.sql(
 		"""SELECT eg.name
 		FROM `tabEmail Group` eg, `tabEmail Group Member` egm
 		WHERE egm.unsubscribed=0
 		AND eg.name=egm.email_group
 		AND egm.email = %s""",
-		frappe.session.user,
+		capkpi.session.user,
 	)
 	email_group_list = [d[0] for d in email_group_list]
 
 	if email_group_list:
-		return frappe.db.sql(
+		return capkpi.db.sql(
 			"""SELECT n.name, n.subject, n.message, n.modified
 			FROM `tabNewsletter` n, `tabNewsletter Email Group` neg
 			WHERE n.name = neg.parent
@@ -355,10 +355,10 @@ def get_newsletter_list(
 
 def send_scheduled_email():
 	"""Send scheduled newsletter to the recipients."""
-	scheduled_newsletter = frappe.get_all(
+	scheduled_newsletter = capkpi.get_all(
 		"Newsletter",
 		filters={
-			"schedule_send": ("<=", frappe.utils.now_datetime()),
+			"schedule_send": ("<=", capkpi.utils.now_datetime()),
 			"email_sent": False,
 			"schedule_sending": True,
 		},
@@ -368,17 +368,17 @@ def send_scheduled_email():
 
 	for newsletter in scheduled_newsletter:
 		try:
-			frappe.get_doc("Newsletter", newsletter).queue_all()
+			capkpi.get_doc("Newsletter", newsletter).queue_all()
 
 		except Exception:
-			frappe.db.rollback()
+			capkpi.db.rollback()
 
 			# wasn't able to send emails :(
-			frappe.db.set_value("Newsletter", newsletter, "email_sent", 0)
+			capkpi.db.set_value("Newsletter", newsletter, "email_sent", 0)
 			message = (
-				f"Newsletter {newsletter} failed to send" "\n\n" f"Traceback: {frappe.get_traceback()}"
+				f"Newsletter {newsletter} failed to send" "\n\n" f"Traceback: {capkpi.get_traceback()}"
 			)
-			frappe.log_error(title="Send Newsletter", message=message)
+			capkpi.log_error(title="Send Newsletter", message=message)
 
-		if not frappe.flags.in_test:
-			frappe.db.commit()
+		if not capkpi.flags.in_test:
+			capkpi.db.commit()

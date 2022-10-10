@@ -1,17 +1,17 @@
-frappe.ui.form.on("System Settings", {
+capkpi.ui.form.on("System Settings", {
 	refresh: function(frm) {
-		frappe.call({
-			method: "frappe.core.doctype.system_settings.system_settings.load",
+		capkpi.call({
+			method: "capkpi.core.doctype.system_settings.system_settings.load",
 			callback: function(data) {
-				frappe.all_timezones = data.message.timezones;
-				frm.set_df_property("time_zone", "options", frappe.all_timezones);
+				capkpi.all_timezones = data.message.timezones;
+				frm.set_df_property("time_zone", "options", capkpi.all_timezones);
 
 				$.each(data.message.defaults, function(key, val) {
 					frm.set_value(key, val, null, true);
-					frappe.sys_defaults[key] = val;
+					capkpi.sys_defaults[key] = val;
 				});
 				if (frm.re_setup_moment) {
-					frappe.app.setup_moment();
+					capkpi.app.setup_moment();
 					delete frm.re_setup_moment;
 				}
 			}
@@ -38,9 +38,9 @@ frappe.ui.form.on("System Settings", {
 		}
 	},
 	on_update: function(frm) {
-		if (frappe.boot.time_zone && frappe.boot.time_zone.system !== frm.doc.time_zone) {
+		if (capkpi.boot.time_zone && capkpi.boot.time_zone.system !== frm.doc.time_zone) {
 			// Clear cache after saving to refresh the values of boot.
-			frappe.ui.toolbar.clear_cache();
+			capkpi.ui.toolbar.clear_cache();
 		}
 	},
 	first_day_of_the_week(frm) {

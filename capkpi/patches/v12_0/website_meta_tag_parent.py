@@ -1,9 +1,9 @@
-import frappe
+import capkpi
 
 
 def execute():
 	# convert all /path to path
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""
 		UPDATE `tabWebsite Meta Tag`
 		SET parent = SUBSTR(parent, 2)

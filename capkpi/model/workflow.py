@@ -7,46 +7,46 @@ import json
 
 from six import string_types
 
-import frappe
-from frappe import _
-from frappe.utils import cint
+import capkpi
+from capkpi import _
+from capkpi.utils import cint
 
 
-class WorkflowStateError(frappe.ValidationError):
+class WorkflowStateError(capkpi.ValidationError):
 	pass
 
 
-class WorkflowTransitionError(frappe.ValidationError):
+class WorkflowTransitionError(capkpi.ValidationError):
 	pass
 
 
-class WorkflowPermissionError(frappe.ValidationError):
+class WorkflowPermissionError(capkpi.ValidationError):
 	pass
 
 
 def get_workflow_name(doctype):
-	workflow_name = frappe.cache().hget("workflow", doctype)
+	workflow_name = capkpi.cache().hget("workflow", doctype)
 	if workflow_name is None:
-		workflow_name = frappe.db.get_value(
+		workflow_name = capkpi.db.get_value(
 			"Workflow", {"document_type": doctype, "is_active": 1}, "name"
 		)
-		frappe.cache().hset("workflow", doctype, workflow_name or "")
+		capkpi.cache().hset("workflow", doctype, workflow_name or "")
 
 	return workflow_name
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_transitions(doc, workflow=None, raise_exception=False):
 	"""Return list of possible transitions for the given doc"""
-	doc = frappe.get_doc(frappe.parse_json(doc))
+	doc = capkpi.get_doc(capkpi.parse_json(doc))
 
 	if doc.is_new():
 		return []
 
 	doc.load_from_db()
 
-	frappe.has_permission(doc, "read", throw=True)
-	roles = frappe.get_roles()
+	capkpi.has_permission(doc, "read", throw=True)
+	roles = capkpi.get_roles()
 
 	if not workflow:
 		workflow = get_workflow(doc.doctype)
@@ -56,7 +56,7 @@ def get_transitions(doc, workflow=None, raise_exception=False):
 		if raise_exception:
 			raise WorkflowStateError
 		else:
-			frappe.throw(_("Workflow State not set"), WorkflowStateError)
+			capkpi.throw(_("Workflow State not set"), WorkflowStateError)
 
 	transitions = []
 	for transition in workflow.transitions:
@@ -68,16 +68,16 @@ def get_transitions(doc, workflow=None, raise_exception=False):
 
 
 def get_workflow_safe_globals():
-	# access to frappe.db.get_value, frappe.db.get_list, and date time utils.
+	# access to capkpi.db.get_value, capkpi.db.get_list, and date time utils.
 	return dict(
-		frappe=frappe._dict(
-			db=frappe._dict(get_value=frappe.db.get_value, get_list=frappe.db.get_list),
-			session=frappe.session,
-			utils=frappe._dict(
-				now_datetime=frappe.utils.now_datetime,
-				add_to_date=frappe.utils.add_to_date,
-				get_datetime=frappe.utils.get_datetime,
-				now=frappe.utils.now,
+		capkpi=capkpi._dict(
+			db=capkpi._dict(get_value=capkpi.db.get_value, get_list=capkpi.db.get_list),
+			session=capkpi.session,
+			utils=capkpi._dict(
+				now_datetime=capkpi.utils.now_datetime,
+				add_to_date=capkpi.utils.add_to_date,
+				get_datetime=capkpi.utils.get_datetime,
+				now=capkpi.utils.now,
 			),
 		)
 	)
@@ -87,18 +87,18 @@ def is_transition_condition_satisfied(transition, doc):
 	if not transition.condition:
 		return True
 	else:
-		return frappe.safe_eval(
+		return capkpi.safe_eval(
 			transition.condition, get_workflow_safe_globals(), dict(doc=doc.as_dict())
 		)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def apply_workflow(doc, action):
 	"""Allow workflow action on the current doc"""
-	doc = frappe.get_doc(frappe.parse_json(doc))
+	doc = capkpi.get_doc(capkpi.parse_json(doc))
 	workflow = get_workflow(doc.doctype)
 	transitions = get_transitions(doc, workflow)
-	user = frappe.session.user
+	user = capkpi.session.user
 
 	# find the transition
 	transition = None
@@ -107,10 +107,10 @@ def apply_workflow(doc, action):
 			transition = t
 
 	if not transition:
-		frappe.throw(_("Not a valid Workflow Action"), WorkflowTransitionError)
+		capkpi.throw(_("Not a valid Workflow Action"), WorkflowTransitionError)
 
 	if not has_approval_access(user, doc, transition):
-		frappe.throw(_("Self approval is not allowed"))
+		capkpi.throw(_("Self approval is not allowed"))
 
 	# update workflow state field
 	doc.set(workflow.workflow_state_field, transition.next_state)
@@ -132,14 +132,14 @@ def apply_workflow(doc, action):
 	elif doc.docstatus == 1 and new_docstatus == 2:
 		doc.cancel()
 	else:
-		frappe.throw(_("Illegal Document Status for {0}").format(next_state.state))
+		capkpi.throw(_("Illegal Document Status for {0}").format(next_state.state))
 
 	doc.add_comment("Workflow", _(next_state.state))
 
 	return doc
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def can_cancel_document(doctype):
 	workflow = get_workflow(doctype)
 	for state_doc in workflow.states:
@@ -173,22 +173,22 @@ def validate_workflow(doc):
 
 	state_row = [d for d in workflow.states if d.state == current_state]
 	if not state_row:
-		frappe.throw(
+		capkpi.throw(
 			_("{0} is not a valid Workflow State. Please update your Workflow and try again.").format(
-				frappe.bold(current_state)
+				capkpi.bold(current_state)
 			)
 		)
 	state_row = state_row[0]
 
 	# if transitioning, check if user is allowed to transition
 	if current_state != next_state:
-		bold_current = frappe.bold(current_state)
-		bold_next = frappe.bold(next_state)
+		bold_current = capkpi.bold(current_state)
+		bold_next = capkpi.bold(next_state)
 
 		if not doc._doc_before_save:
 			# transitioning directly to a state other than the first
 			# e.g from data import
-			frappe.throw(
+			capkpi.throw(
 				_("Workflow State transition not allowed from {0} to {1}").format(bold_current, bold_next),
 				WorkflowPermissionError,
 			)
@@ -196,14 +196,14 @@ def validate_workflow(doc):
 		transitions = get_transitions(doc._doc_before_save)
 		transition = [d for d in transitions if d.next_state == next_state]
 		if not transition:
-			frappe.throw(
+			capkpi.throw(
 				_("Workflow State transition not allowed from {0} to {1}").format(bold_current, bold_next),
 				WorkflowPermissionError,
 			)
 
 
 def get_workflow(doctype):
-	return frappe.get_doc("Workflow", get_workflow_name(doctype))
+	return capkpi.get_doc("Workflow", get_workflow_name(doctype))
 
 
 def has_approval_access(user, doc, transition):
@@ -221,14 +221,14 @@ def send_email_alert(workflow_name):
 
 
 def get_workflow_field_value(workflow_name, field):
-	value = frappe.cache().hget("workflow_" + workflow_name, field)
+	value = capkpi.cache().hget("workflow_" + workflow_name, field)
 	if value is None:
-		value = frappe.db.get_value("Workflow", workflow_name, field)
-		frappe.cache().hset("workflow_" + workflow_name, field, value)
+		value = capkpi.db.get_value("Workflow", workflow_name, field)
+		capkpi.cache().hset("workflow_" + workflow_name, field, value)
 	return value
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def bulk_workflow_approval(docnames, doctype, action):
 	from collections import defaultdict
 
@@ -237,18 +237,18 @@ def bulk_workflow_approval(docnames, doctype, action):
 	successful_transactions = defaultdict(list)
 
 	# WARN: message log is cleared
-	print("Clearing frappe.message_log...")
-	frappe.clear_messages()
+	print("Clearing capkpi.message_log...")
+	capkpi.clear_messages()
 
 	docnames = json.loads(docnames)
 	for (idx, docname) in enumerate(docnames, 1):
 		message_dict = {}
 		try:
 			show_progress(docnames, _("Applying: {0}").format(action), idx, docname)
-			apply_workflow(frappe.get_doc(doctype, docname), action)
-			frappe.db.commit()
+			apply_workflow(capkpi.get_doc(doctype, docname), action)
+			capkpi.db.commit()
 		except Exception as e:
-			if not frappe.message_log:
+			if not capkpi.message_log:
 				# Exception is  raised manually and not from msgprint or throw
 				message = "{0}".format(e.__class__.__name__)
 				if e.args:
@@ -256,17 +256,17 @@ def bulk_workflow_approval(docnames, doctype, action):
 				message_dict = {"docname": docname, "message": message}
 				failed_transactions[docname].append(message_dict)
 
-			frappe.db.rollback()
-			frappe.log_error(
-				frappe.get_traceback(),
+			capkpi.db.rollback()
+			capkpi.log_error(
+				capkpi.get_traceback(),
 				"Workflow {0} threw an error for {1} {2}".format(action, doctype, docname),
 			)
 		finally:
 			if not message_dict:
-				if frappe.message_log:
-					messages = frappe.get_message_log()
+				if capkpi.message_log:
+					messages = capkpi.get_message_log()
 					for message in messages:
-						frappe.message_log.pop()
+						capkpi.message_log.pop()
 						message_dict = {"docname": docname, "message": message.get("message")}
 
 						if message.get("raise_exception", False):
@@ -293,7 +293,7 @@ def print_workflow_log(messages, title, doctype, indicator):
 
 		for doc in messages.keys():
 			if len(messages[doc]):
-				html = "<details><summary>{0}</summary>".format(frappe.utils.get_link_to_form(doctype, doc))
+				html = "<details><summary>{0}</summary>".format(capkpi.utils.get_link_to_form(doctype, doc))
 				for log in messages[doc]:
 					if log.get("message"):
 						html += "<div class='small text-muted' style='padding:2.5px'>{0}</div>".format(
@@ -304,10 +304,10 @@ def print_workflow_log(messages, title, doctype, indicator):
 				html = "<div>{0}</div>".format(doc)
 			msg += html
 
-		frappe.msgprint(msg, title=_("Workflow Status"), indicator=indicator, is_minimizable=True)
+		capkpi.msgprint(msg, title=_("Workflow Status"), indicator=indicator, is_minimizable=True)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_common_transition_actions(docs, doctype):
 	common_actions = []
 	if isinstance(docs, string_types):
@@ -319,7 +319,7 @@ def get_common_transition_actions(docs, doctype):
 			actions = [
 				t.get("action")
 				for t in get_transitions(doc, raise_exception=True)
-				if has_approval_access(frappe.session.user, doc, t)
+				if has_approval_access(capkpi.session.user, doc, t)
 			]
 			if not actions:
 				return []
@@ -335,11 +335,11 @@ def get_common_transition_actions(docs, doctype):
 def show_progress(docnames, message, i, description):
 	n = len(docnames)
 	if n >= 5:
-		frappe.publish_progress(float(i) * 100 / n, title=message, description=description)
+		capkpi.publish_progress(float(i) * 100 / n, title=message, description=description)
 
 
 def set_workflow_state_on_action(doc, workflow_name, action):
-	workflow = frappe.get_doc("Workflow", workflow_name)
+	workflow = capkpi.get_doc("Workflow", workflow_name)
 	workflow_state_field = workflow.workflow_state_field
 
 	# If workflow state of doc is already correct, don't set workflow state

@@ -19,10 +19,10 @@ jobs:
         uses: pre-commit/action@v3.0.0
 
       - name: Download Semgrep rules
-        run: git clone --depth 1 https://github.com/frappe/semgrep-rules.git frappe-semgrep-rules
+        run: git clone --depth 1 https://github.com/capkpi/semgrep-rules.git capkpi-semgrep-rules
 
       - name: Download semgrep
         run: pip install semgrep==0.97.0
 
       - name: Run Semgrep rules
-        run: semgrep ci --config ./frappe-semgrep-rules/rules --config r/python.lang.correctness
+        run: semgrep ci --config ./capkpi-semgrep-rules/rules --config r/python.lang.correctness

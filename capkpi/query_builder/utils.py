@@ -6,8 +6,8 @@ from pypika import Query
 from pypika.queries import Column
 from pypika.terms import PseudoColumn
 
-import frappe
-from frappe.query_builder.terms import NamedParameterWrapper
+import capkpi
+from capkpi.query_builder.terms import NamedParameterWrapper
 
 from .builder import MariaDB, Postgres
 
@@ -22,7 +22,7 @@ class ImportMapper:
 		self.func_map = func_map
 
 	def __call__(self, *args: Any, **kwds: Any) -> Callable:
-		db = db_type_is(frappe.conf.db_type or "mariadb")
+		db = db_type_is(capkpi.conf.db_type or "mariadb")
 		return self.func_map[db](*args, **kwds)
 
 
@@ -52,25 +52,25 @@ def get_attr(method_string):
 
 
 def DocType(*args, **kwargs):
-	return frappe.qb.DocType(*args, **kwargs)
+	return capkpi.qb.DocType(*args, **kwargs)
 
 
 def patch_query_execute():
 	"""Patch the Query Builder with helper execute method
-	This excludes the use of `frappe.db.sql` method while
+	This excludes the use of `capkpi.db.sql` method while
 	executing the query object
 	"""
 
 	def execute_query(query, *args, **kwargs):
 		query, params = prepare_query(query)
-		return frappe.db.sql(query, params, *args, **kwargs)  # nosemgrep
+		return capkpi.db.sql(query, params, *args, **kwargs)  # nosemgrep
 
 	def prepare_query(query):
 		import inspect
 
 		param_collector = NamedParameterWrapper()
 		query = query.get_sql(param_wrapper=param_collector)
-		if frappe.flags.in_safe_exec and not query.lower().strip().startswith("select"):
+		if capkpi.flags.in_safe_exec and not query.lower().strip().startswith("select"):
 			callstack = inspect.stack()
 			if len(callstack) >= 3 and ".py" in callstack[2].filename:
 				# ignore any query builder methods called from python files
@@ -87,10 +87,10 @@ def patch_query_execute():
 				# ps. stack() returns `"<unknown>"` as filename.
 				pass
 			else:
-				raise frappe.PermissionError("Only SELECT SQL allowed in scripting")
+				raise capkpi.PermissionError("Only SELECT SQL allowed in scripting")
 		return query, param_collector.get_parameters()
 
-	query_class = get_attr(str(frappe.qb).split("'")[1])
+	query_class = get_attr(str(capkpi.qb).split("'")[1])
 	builder_class = get_type_hints(query_class._builder).get("return")
 
 	if not builder_class:

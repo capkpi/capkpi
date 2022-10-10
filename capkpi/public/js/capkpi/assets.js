@@ -3,44 +3,44 @@
 
 // library to mange assets (js, css, models, html) etc in the app.
 // will try and get from localStorage if latest are available
-// depends on frappe.versions to manage versioning
+// depends on capkpi.versions to manage versioning
 
-frappe.require = function(items, callback) {
+capkpi.require = function(items, callback) {
 	if(typeof items === "string") {
 		items = [items];
 	}
 	return new Promise(resolve => {
-		frappe.assets.execute(items, () => {
+		capkpi.assets.execute(items, () => {
 			resolve();
 			callback && callback();
 		});
 	});
 };
 
-frappe.assets = {
+capkpi.assets = {
 	check: function() {
 		// if version is different then clear localstorage
 		if(window._version_number != localStorage.getItem("_version_number")) {
-			frappe.assets.clear_local_storage();
+			capkpi.assets.clear_local_storage();
 			console.log("Cleared App Cache.");
 		}
 
 		if(localStorage._last_load) {
 			var not_updated_since = new Date() - new Date(localStorage._last_load);
 			if(not_updated_since < 10000 || not_updated_since > 86400000) {
-				frappe.assets.clear_local_storage();
+				capkpi.assets.clear_local_storage();
 			}
 		} else {
-			frappe.assets.clear_local_storage();
+			capkpi.assets.clear_local_storage();
 		}
 
-		frappe.assets.init_local_storage();
+		capkpi.assets.init_local_storage();
 	},
 
 	init_local_storage: function() {
 		localStorage._last_load = new Date();
 		localStorage._version_number = window._version_number;
-		if(frappe.boot) localStorage.metadata_version = frappe.boot.metadata_version;
+		if(capkpi.boot) localStorage.metadata_version = capkpi.boot.metadata_version;
 	},
 
 	clear_local_storage: function() {
@@ -67,16 +67,16 @@ frappe.assets = {
 	execute: function(items, callback) {
 		var to_fetch = []
 		for(var i=0, l=items.length; i<l; i++) {
-			if(!frappe.assets.exists(items[i])) {
+			if(!capkpi.assets.exists(items[i])) {
 				to_fetch.push(items[i]);
 			}
 		}
 		if(to_fetch.length) {
-			frappe.assets.fetch(to_fetch, function() {
-				frappe.assets.eval_assets(items, callback);
+			capkpi.assets.fetch(to_fetch, function() {
+				capkpi.assets.eval_assets(items, callback);
 			});
 		} else {
-			frappe.assets.eval_assets(items, callback);
+			capkpi.assets.eval_assets(items, callback);
 		}
 	},
 
@@ -84,10 +84,10 @@ frappe.assets = {
 		for(var i=0, l=items.length; i<l; i++) {
 			// execute js/css if not already.
 			var path = items[i];
-			if(frappe.assets.executed_.indexOf(path)===-1) {
+			if(capkpi.assets.executed_.indexOf(path)===-1) {
 				// execute
-				frappe.assets.handler[frappe.assets.extn(path)](frappe.assets.get(path), path);
-				frappe.assets.executed_.push(path)
+				capkpi.assets.handler[capkpi.assets.extn(path)](capkpi.assets.get(path), path);
+				capkpi.assets.executed_.push(path)
 			}
 		}
 		callback && callback();
@@ -96,13 +96,13 @@ frappe.assets = {
 	// check if the asset exists in
 	// localstorage
 	exists: function(src) {
-		if(frappe.assets.executed_.indexOf(src)!== -1) {
+		if(capkpi.assets.executed_.indexOf(src)!== -1) {
 			return true;
 		}
-		if(frappe.boot.developer_mode) {
+		if(capkpi.boot.developer_mode) {
 			return false;
 		}
-		if(frappe.assets.get(src)) {
+		if(capkpi.assets.get(src)) {
 			return true;
 		} else {
 			return false;
@@ -114,15 +114,15 @@ frappe.assets = {
 		// this is virtual page load, only get the the source
 		// *without* the template
 
-		frappe.call({
+		capkpi.call({
 			type: "GET",
-			method:"frappe.client.get_js",
+			method:"capkpi.client.get_js",
 			args: {
 				"items": items
 			},
 			callback: function(r) {
 				$.each(items, function(i, src) {
-					frappe.assets.add(src, r.message[i]);
+					capkpi.assets.add(src, r.message[i]);
 				});
 				callback();
 			},
@@ -133,11 +133,11 @@ frappe.assets = {
 	add: function(src, txt) {
 		if('localStorage' in window) {
 			try {
-				frappe.assets.set(src, txt);
+				capkpi.assets.set(src, txt);
 			} catch(e) {
 				// if quota is exceeded, clear local storage and set item
-				frappe.assets.clear_local_storage();
-				frappe.assets.set(src, txt);
+				capkpi.assets.clear_local_storage();
+				capkpi.assets.set(src, txt);
 			}
 		}
 	},
@@ -159,10 +159,10 @@ frappe.assets = {
 
 	handler: {
 		js: function(txt, src) {
-			frappe.dom.eval(txt);
+			capkpi.dom.eval(txt);
 		},
 		css: function(txt, src) {
-			frappe.dom.set_style(txt);
+			capkpi.dom.set_style(txt);
 		}
 	},
 

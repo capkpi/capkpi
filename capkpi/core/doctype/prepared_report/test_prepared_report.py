@@ -6,14 +6,14 @@ from __future__ import unicode_literals
 import json
 import unittest
 
-import frappe
+import capkpi
 
 
 class TestPreparedReport(unittest.TestCase):
 	def setUp(self):
-		self.report = frappe.get_doc({"doctype": "Report", "name": "Permitted Documents For User"})
+		self.report = capkpi.get_doc({"doctype": "Report", "name": "Permitted Documents For User"})
 		self.filters = {"user": "Administrator", "doctype": "Role"}
-		self.prepared_report_doc = frappe.get_doc(
+		self.prepared_report_doc = capkpi.get_doc(
 			{
 				"doctype": "Prepared Report",
 				"report_name": self.report.name,
@@ -23,7 +23,7 @@ class TestPreparedReport(unittest.TestCase):
 		).insert()
 
 	def tearDown(self):
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 		self.prepared_report_doc.delete()
 
 	def test_for_creation(self):

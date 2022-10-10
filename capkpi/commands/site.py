@@ -7,9 +7,9 @@ import sys
 import click
 
 # imports - module imports
-import frappe
-from frappe.commands import get_site, pass_context
-from frappe.exceptions import SiteNotSpecifiedError
+import capkpi
+from capkpi.commands import get_site, pass_context
+from capkpi.exceptions import SiteNotSpecifiedError
 
 
 @click.command("new-site")
@@ -67,9 +67,9 @@ def new_site(
 	set_default=False,
 ):
 	"Create a new site"
-	from frappe.installer import _new_site
+	from capkpi.installer import _new_site
 
-	frappe.init(site=site, new_site=True)
+	capkpi.init(site=site, new_site=True)
 
 	_new_site(
 		db_name,
@@ -133,7 +133,7 @@ def restore(
 	with_private_files=None,
 ):
 	"Restore site database from an sql file"
-	from frappe.installer import (
+	from capkpi.installer import (
 		_new_site,
 		extract_files,
 		extract_sql_from_archive,
@@ -160,9 +160,9 @@ def restore(
 	validate_database_sql(decompressed_file_name, _raise=not force)
 
 	site = get_site(context)
-	frappe.init(site=site)
+	capkpi.init(site=site)
 
-	# dont allow downgrading to older versions of frappe without force
+	# dont allow downgrading to older versions of capkpi without force
 	if not force and is_downgrade(decompressed_file_name, verbose=True):
 		warn_message = (
 			"This is not recommended and may lead to unexpected behaviour. "
@@ -171,7 +171,7 @@ def restore(
 		click.confirm(warn_message, abort=True)
 
 	_new_site(
-		frappe.conf.db_name,
+		capkpi.conf.db_name,
 		site,
 		db_root_username=db_root_username,
 		db_root_password=db_root_password,
@@ -180,7 +180,7 @@ def restore(
 		install_apps=install_app,
 		source_sql=decompressed_file_name,
 		force=True,
-		db_type=frappe.conf.db_type,
+		db_type=capkpi.conf.db_type,
 	)
 
 	# Extract public and/or private files to the restored site, if user has given the path
@@ -207,15 +207,15 @@ def restore(
 @click.option("--verbose", "-v", is_flag=True)
 @pass_context
 def partial_restore(context, sql_file_path, verbose):
-	from frappe.installer import partial_restore
+	from capkpi.installer import partial_restore
 
 	verbose = context.verbose or verbose
 
 	site = get_site(context)
-	frappe.init(site=site)
-	frappe.connect(site=site)
+	capkpi.init(site=site)
+	capkpi.connect(site=site)
 	partial_restore(sql_file_path, verbose)
-	frappe.destroy()
+	capkpi.destroy()
 
 
 @click.command("reinstall")
@@ -241,26 +241,26 @@ def reinstall(
 def _reinstall(
 	site, admin_password=None, db_root_username=None, db_root_password=None, yes=False, verbose=False
 ):
-	from frappe.installer import _new_site
+	from capkpi.installer import _new_site
 
 	if not yes:
 		click.confirm("This will wipe your database. Are you sure you want to reinstall?", abort=True)
 	try:
-		frappe.init(site=site)
-		frappe.connect()
-		frappe.clear_cache()
-		installed = frappe.get_installed_apps()
-		frappe.clear_cache()
+		capkpi.init(site=site)
+		capkpi.connect()
+		capkpi.clear_cache()
+		installed = capkpi.get_installed_apps()
+		capkpi.clear_cache()
 	except Exception:
 		installed = []
 	finally:
-		if frappe.db:
-			frappe.db.close()
-		frappe.destroy()
+		if capkpi.db:
+			capkpi.db.close()
+		capkpi.destroy()
 
-	frappe.init(site=site)
+	capkpi.init(site=site)
 	_new_site(
-		frappe.conf.db_name,
+		capkpi.conf.db_name,
 		site,
 		verbose=verbose,
 		force=True,
@@ -277,7 +277,7 @@ def _reinstall(
 @pass_context
 def install_app(context, apps):
 	"Install a new app to site, supports multiple apps"
-	from frappe.installer import install_app as _install_app
+	from capkpi.installer import install_app as _install_app
 
 	exit_code = 0
 
@@ -285,22 +285,22 @@ def install_app(context, apps):
 		raise SiteNotSpecifiedError
 
 	for site in context.sites:
-		frappe.init(site=site)
-		frappe.connect()
+		capkpi.init(site=site)
+		capkpi.connect()
 
 		for app in apps:
 			try:
 				_install_app(app, verbose=context.verbose)
-			except frappe.IncompatibleApp as err:
+			except capkpi.IncompatibleApp as err:
 				err_msg = ":\n{}".format(err) if str(err) else ""
 				print("App {} is Incompatible with Site {}{}".format(app, site, err_msg))
 				exit_code = 1
 			except Exception as err:
-				err_msg = ": {}\n{}".format(str(err), frappe.get_traceback())
+				err_msg = ": {}\n{}".format(str(err), capkpi.get_traceback())
 				print("An error occurred while installing {}{}".format(app, err_msg))
 				exit_code = 1
 
-		frappe.destroy()
+		capkpi.destroy()
 
 	sys.exit(exit_code)
 
@@ -321,10 +321,10 @@ def list_apps(context, format):
 		return text
 
 	for site in context.sites:
-		frappe.init(site=site)
-		frappe.connect()
+		capkpi.init(site=site)
+		capkpi.connect()
 		site_title = click.style(f"{site}", fg="green") if len(context.sites) > 1 else ""
-		apps = frappe.get_single("Installed Applications").installed_applications
+		apps = capkpi.get_single("Installed Applications").installed_applications
 
 		if apps:
 			name_len, ver_len = [max([len(x.get(y)) for x in apps]) for y in ["app_name", "app_version"]]
@@ -338,7 +338,7 @@ def list_apps(context, format):
 			summary_dict[site] = [app.app_name for app in apps]
 
 		else:
-			installed_applications = frappe.get_installed_apps()
+			installed_applications = capkpi.get_installed_apps()
 			applications_summary = "\n".join(installed_applications)
 			summary = f"{site_title}\n{applications_summary}\n"
 			summary_dict[site] = installed_applications
@@ -348,10 +348,10 @@ def list_apps(context, format):
 		if format == "text" and applications_summary and summary:
 			print(summary)
 
-		frappe.destroy()
+		capkpi.destroy()
 
 	if format == "json":
-		click.echo(frappe.as_json(summary_dict))
+		click.echo(capkpi.as_json(summary_dict))
 
 
 @click.command("add-system-manager")
@@ -363,15 +363,15 @@ def list_apps(context, format):
 @pass_context
 def add_system_manager(context, email, first_name, last_name, send_welcome_email, password):
 	"Add a new system manager to a site"
-	import frappe.utils.user
+	import capkpi.utils.user
 
 	for site in context.sites:
-		frappe.connect(site=site)
+		capkpi.connect(site=site)
 		try:
-			frappe.utils.user.add_system_manager(email, first_name, last_name, send_welcome_email, password)
-			frappe.db.commit()
+			capkpi.utils.user.add_system_manager(email, first_name, last_name, send_welcome_email, password)
+			capkpi.db.commit()
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -389,15 +389,15 @@ def add_user_for_sites(
 	context, email, first_name, last_name, user_type, send_welcome_email, password, add_role
 ):
 	"Add user to a site"
-	import frappe.utils.user
+	import capkpi.utils.user
 
 	for site in context.sites:
-		frappe.connect(site=site)
+		capkpi.connect(site=site)
 		try:
 			add_new_user(email, first_name, last_name, user_type, send_welcome_email, password, add_role)
-			frappe.db.commit()
+			capkpi.db.commit()
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -407,12 +407,12 @@ def add_user_for_sites(
 @pass_context
 def disable_user(context, email):
 	site = get_site(context)
-	with frappe.init_site(site):
-		frappe.connect()
-		user = frappe.get_doc("User", email)
+	with capkpi.init_site(site):
+		capkpi.connect()
+		user = capkpi.get_doc("User", email)
 		user.enabled = 0
 		user.save(ignore_permissions=True)
-		frappe.db.commit()
+		capkpi.db.commit()
 
 
 @click.command("migrate")
@@ -423,33 +423,33 @@ def migrate(context, skip_failing=False, skip_search_index=False):
 	"Run patches, sync schema and rebuild files/translations"
 	import re
 
-	from frappe.migrate import migrate
+	from capkpi.migrate import migrate
 
 	for site in context.sites:
 		print("Migrating", site)
-		frappe.init(site=site)
-		frappe.connect()
+		capkpi.init(site=site)
+		capkpi.connect()
 		try:
 			migrate(context.verbose, skip_failing=skip_failing, skip_search_index=skip_search_index)
 		finally:
 			print()
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
 
 @click.command("migrate-to")
-@click.argument("frappe_provider")
+@click.argument("capkpi_provider")
 @pass_context
-def migrate_to(context, frappe_provider):
+def migrate_to(context, capkpi_provider):
 	"Migrates site to the specified provider"
-	from frappe.integrations.frappe_providers import migrate_to
+	from capkpi.integrations.capkpi_providers import migrate_to
 
 	for site in context.sites:
-		frappe.init(site=site)
-		frappe.connect()
-		migrate_to(site, frappe_provider)
-		frappe.destroy()
+		capkpi.init(site=site)
+		capkpi.connect()
+		migrate_to(site, capkpi_provider)
+		capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -460,15 +460,15 @@ def migrate_to(context, frappe_provider):
 @pass_context
 def run_patch(context, module, force):
 	"Run a particular patch"
-	import frappe.modules.patch_handler
+	import capkpi.modules.patch_handler
 
 	for site in context.sites:
-		frappe.init(site=site)
+		capkpi.init(site=site)
 		try:
-			frappe.connect()
-			frappe.modules.patch_handler.run_single(module, force=force or context.force)
+			capkpi.connect()
+			capkpi.modules.patch_handler.run_single(module, force=force or context.force)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -482,12 +482,12 @@ def reload_doc(context, module, doctype, docname):
 	"Reload schema for a DocType"
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
-			frappe.reload_doc(module, doctype, docname, force=context.force)
-			frappe.db.commit()
+			capkpi.init(site=site)
+			capkpi.connect()
+			capkpi.reload_doc(module, doctype, docname, force=context.force)
+			capkpi.db.commit()
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -499,12 +499,12 @@ def reload_doctype(context, doctype):
 	"Reload schema for a DocType"
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
-			frappe.reload_doctype(doctype, force=context.force)
-			frappe.db.commit()
+			capkpi.init(site=site)
+			capkpi.connect()
+			capkpi.reload_doctype(doctype, force=context.force)
+			capkpi.db.commit()
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -514,7 +514,7 @@ def reload_doctype(context, doctype):
 def add_to_hosts(context):
 	"Add site to hosts"
 	for site in context.sites:
-		frappe.commands.popen("echo 127.0.0.1\t{0} | sudo tee -a /etc/hosts".format(site))
+		capkpi.commands.popen("echo 127.0.0.1\t{0} | sudo tee -a /etc/hosts".format(site))
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -580,15 +580,15 @@ def backup(
 	exclude="",
 ):
 	"Backup"
-	from frappe.utils.backups import scheduled_backup
+	from capkpi.utils.backups import scheduled_backup
 
 	verbose = verbose or context.verbose
 	exit_code = 0
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 			odb = scheduled_backup(
 				ignore_files=not with_files,
 				backup_path=backup_path,
@@ -609,7 +609,7 @@ def backup(
 				fg="red",
 			)
 			if verbose:
-				print(frappe.get_traceback())
+				print(capkpi.get_traceback())
 			exit_code = 1
 			continue
 
@@ -620,7 +620,7 @@ def backup(
 			),
 			fg="green",
 		)
-		frappe.destroy()
+		capkpi.destroy()
 
 	if not context.sites:
 		raise SiteNotSpecifiedError
@@ -633,15 +633,15 @@ def backup(
 @pass_context
 def remove_from_installed_apps(context, app):
 	"Remove app from site's installed-apps list"
-	from frappe.installer import remove_from_installed_apps
+	from capkpi.installer import remove_from_installed_apps
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 			remove_from_installed_apps(app)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -664,15 +664,15 @@ def remove_from_installed_apps(context, app):
 @pass_context
 def uninstall(context, app, dry_run, yes, no_backup, force):
 	"Remove app and linked modules from site"
-	from frappe.installer import remove_app
+	from capkpi.installer import remove_app
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 			remove_app(app_name=app, dry_run=dry_run, yes=yes, no_backup=no_backup, force=force)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -716,11 +716,11 @@ def _drop_site(
 	no_backup=False,
 ):
 	"Remove site from database and filesystem"
-	from frappe.database import drop_user_and_database
-	from frappe.utils.backups import scheduled_backup
+	from capkpi.database import drop_user_and_database
+	from capkpi.utils.backups import scheduled_backup
 
-	frappe.init(site=site)
-	frappe.connect()
+	capkpi.init(site=site)
+	capkpi.connect()
 
 	try:
 		if not no_backup:
@@ -739,11 +739,11 @@ def _drop_site(
 			click.echo("\n".join(messages))
 			sys.exit(1)
 
-	drop_user_and_database(frappe.conf.db_name, db_root_username, db_root_password)
+	drop_user_and_database(capkpi.conf.db_name, db_root_username, db_root_password)
 
 	if not archived_sites_path:
 		archived_sites_path = os.path.join(
-			frappe.get_app_path("frappe"), "..", "..", "..", "archived_sites"
+			capkpi.get_app_path("capkpi"), "..", "..", "..", "archived_sites"
 		)
 
 	if not os.path.exists(archived_sites_path):
@@ -756,8 +756,8 @@ def move(dest_dir, site):
 	if not os.path.isdir(dest_dir):
 		raise Exception("destination is not a directory or does not exist")
 
-	frappe.init(site)
-	old_path = frappe.utils.get_site_path()
+	capkpi.init(site)
+	old_path = capkpi.utils.get_site_path()
 	new_path = os.path.join(dest_dir, site)
 
 	# check if site dump of same name already exists
@@ -769,7 +769,7 @@ def move(dest_dir, site):
 		count = int(count or 0) + 1
 
 	shutil.move(old_path, final_new_path)
-	frappe.destroy()
+	capkpi.destroy()
 	return final_new_path
 
 
@@ -783,23 +783,23 @@ def set_admin_password(context, admin_password, logout_all_sessions=False):
 	"Set Administrator password for a site"
 	import getpass
 
-	from frappe.utils.password import update_password
+	from capkpi.utils.password import update_password
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
+			capkpi.init(site=site)
 
 			while not admin_password:
 				admin_password = getpass.getpass("Administrator's password for {0}: ".format(site))
 
-			frappe.connect()
+			capkpi.connect()
 			update_password(
 				user="Administrator", pwd=admin_password, logout_all_sessions=logout_all_sessions
 			)
-			frappe.db.commit()
+			capkpi.db.commit()
 			admin_password = None
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -810,13 +810,13 @@ def set_admin_password(context, admin_password, logout_all_sessions=False):
 def set_last_active_for_user(context, user=None):
 	"Set users last active date to current datetime"
 
-	from frappe.core.doctype.user.user import get_system_users
-	from frappe.utils.user import set_last_active_to_now
+	from capkpi.core.doctype.user.user import get_system_users
+	from capkpi.utils.user import set_last_active_to_now
 
 	site = get_site(context)
 
-	with frappe.init_site(site):
-		frappe.connect()
+	with capkpi.init_site(site):
+		capkpi.connect()
 		if not user:
 			user = get_system_users(limit=1)
 			if len(user) > 0:
@@ -825,7 +825,7 @@ def set_last_active_for_user(context, user=None):
 				return
 
 		set_last_active_to_now(user)
-		frappe.db.commit()
+		capkpi.db.commit()
 
 
 @click.command("publish-realtime")
@@ -839,12 +839,12 @@ def set_last_active_for_user(context, user=None):
 @pass_context
 def publish_realtime(context, event, message, room, user, doctype, docname, after_commit):
 	"Publish realtime event from bench"
-	from frappe import publish_realtime
+	from capkpi import publish_realtime
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 			publish_realtime(
 				event,
 				message=message,
@@ -854,9 +854,9 @@ def publish_realtime(context, event, message, room, user, doctype, docname, afte
 				docname=docname,
 				after_commit=after_commit,
 			)
-			frappe.db.commit()
+			capkpi.db.commit()
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -878,8 +878,8 @@ def browse(context, site):
 
 	site = site.lower()
 
-	if site in frappe.utils.get_sites():
-		webbrowser.open(frappe.utils.get_site_url(site), new=2)
+	if site in capkpi.utils.get_sites():
+		webbrowser.open(capkpi.utils.get_site_url(site), new=2)
 	else:
 		click.echo("\nSite named \033[1m{}\033[0m doesn't exist\n".format(site))
 
@@ -887,12 +887,12 @@ def browse(context, site):
 @click.command("start-recording")
 @pass_context
 def start_recording(context):
-	import frappe.recorder
+	import capkpi.recorder
 
 	for site in context.sites:
-		frappe.init(site=site)
-		frappe.set_user("Administrator")
-		frappe.recorder.start()
+		capkpi.init(site=site)
+		capkpi.set_user("Administrator")
+		capkpi.recorder.start()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -900,12 +900,12 @@ def start_recording(context):
 @click.command("stop-recording")
 @pass_context
 def stop_recording(context):
-	import frappe.recorder
+	import capkpi.recorder
 
 	for site in context.sites:
-		frappe.init(site=site)
-		frappe.set_user("Administrator")
-		frappe.recorder.stop()
+		capkpi.init(site=site)
+		capkpi.set_user("Administrator")
+		capkpi.recorder.stop()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -916,9 +916,9 @@ def start_ngrok(context):
 	from pyngrok import ngrok
 
 	site = get_site(context)
-	frappe.init(site=site)
+	capkpi.init(site=site)
 
-	port = frappe.conf.http_port or frappe.conf.webserver_port
+	port = capkpi.conf.http_port or capkpi.conf.webserver_port
 	tunnel = ngrok.connect(addr=str(port), host_header=site)
 	print(f"Public URL: {tunnel.public_url}")
 	print("Inspect logs at http://localhost:4040")
@@ -929,26 +929,26 @@ def start_ngrok(context):
 		ngrok_process.proc.wait()
 	except KeyboardInterrupt:
 		print("Shutting down server...")
-		frappe.destroy()
+		capkpi.destroy()
 		ngrok.kill()
 
 
 @click.command("build-search-index")
 @pass_context
 def build_search_index(context):
-	from frappe.search.website_search import build_index_for_all_routes
+	from capkpi.search.website_search import build_index_for_all_routes
 
 	site = get_site(context)
 	if not site:
 		raise SiteNotSpecifiedError
 
 	print("Building search index for {}".format(site))
-	frappe.init(site=site)
-	frappe.connect()
+	capkpi.init(site=site)
+	capkpi.connect()
 	try:
 		build_index_for_all_routes()
 	finally:
-		frappe.destroy()
+		capkpi.destroy()
 
 
 def add_new_user(
@@ -960,7 +960,7 @@ def add_new_user(
 	password=None,
 	role=None,
 ):
-	user = frappe.new_doc("User")
+	user = capkpi.new_doc("User")
 	user.update(
 		{
 			"name": email,
@@ -975,7 +975,7 @@ def add_new_user(
 	user.insert()
 	user.add_roles(*role)
 	if password:
-		from frappe.utils.password import update_password
+		from capkpi.utils.password import update_password
 
 		update_password(user=user.name, pwd=password)
 

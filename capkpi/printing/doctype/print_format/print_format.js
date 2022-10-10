@@ -1,24 +1,24 @@
 // Copyright (c) 2017, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Print Format", "onload", function (frm) {
+capkpi.ui.form.on("Print Format", "onload", function (frm) {
 	frm.add_fetch("doc_type", "module", "module");
 });
 
-frappe.ui.form.on("Print Format", {
+capkpi.ui.form.on("Print Format", {
 	refresh: function (frm) {
 		frm.set_intro("");
 		frm.toggle_enable(["html", "doc_type", "module"], false);
-		if (frappe.session.user === "Administrator" || frm.doc.standard === "No") {
+		if (capkpi.session.user === "Administrator" || frm.doc.standard === "No") {
 			frm.toggle_enable(["html", "doc_type", "module"], true);
 			frm.enable_save();
 		}
 
-		if (frm.doc.standard === "Yes" && frappe.session.user !== "Administrator") {
+		if (frm.doc.standard === "Yes" && capkpi.session.user !== "Administrator") {
 			frm.set_intro(__("Please duplicate this to make changes"));
 		}
 		frm.trigger('render_buttons');
-		frm.toggle_display('standard', frappe.boot.developer_mode);
+		frm.toggle_display('standard', capkpi.boot.developer_mode);
 		frm.trigger('hide_absolute_value_field');
 	},
 	render_buttons: function (frm) {
@@ -27,21 +27,21 @@ frappe.ui.form.on("Print Format", {
 			if (!frm.doc.custom_format) {
 				frm.add_custom_button(__("Edit Format"), function () {
 					if (!frm.doc.doc_type) {
-						frappe.msgprint(__("Please select DocType first"));
+						capkpi.msgprint(__("Please select DocType first"));
 						return;
 					}
-					frappe.set_route("print-format-builder", frm.doc.name);
+					capkpi.set_route("print-format-builder", frm.doc.name);
 				});
 			}
 			else if (frm.doc.custom_format && !frm.doc.raw_printing) {
 				frm.set_df_property("html", "reqd", 1);
 			}
-			if (frappe.model.can_read(frm.doc.doc_type)) {
-				frappe.db.get_value('DocType', frm.doc.doc_type, 'default_print_format', (r) => {
+			if (capkpi.model.can_read(frm.doc.doc_type)) {
+				capkpi.db.get_value('DocType', frm.doc.doc_type, 'default_print_format', (r) => {
 					if (r.default_print_format != frm.doc.name) {
 						frm.add_custom_button(__("Set as Default"), function () {
-							frappe.call({
-								method: "frappe.printing.doctype.print_format.print_format.make_default",
+							capkpi.call({
+								method: "capkpi.printing.doctype.print_format.print_format.make_default",
 								args: {
 									name: frm.doc.name
 								},
@@ -70,8 +70,8 @@ frappe.ui.form.on("Print Format", {
 		// Problem: frm isn't updated in some random cases
 		const doctype = locals[frm.doc.doctype][frm.doc.name].doc_type;
 		if (doctype) {
-			frappe.model.with_doctype(doctype, () => {
-				const meta = frappe.get_meta(doctype);
+			capkpi.model.with_doctype(doctype, () => {
+				const meta = capkpi.get_meta(doctype);
 				const has_int_float_currency_field = meta.fields.filter(df => in_list(['Int', 'Float', 'Currency'], df.fieldtype));
 				frm.toggle_display('absolute_value', has_int_float_currency_field.length);
 			});

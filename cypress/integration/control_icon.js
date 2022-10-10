@@ -17,17 +17,17 @@ context('Control Icon', () => {
 
 	it('should set icon', () => {
 		get_dialog_with_icon().as('dialog');
-		cy.get('.frappe-control[data-fieldname=icon] input').first().click();
+		cy.get('.capkpi-control[data-fieldname=icon] input').first().click();
 
 		cy.get('.icon-picker .icon-wrapper[id=active]').first().click();
-		cy.get('.frappe-control[data-fieldname=icon] input').first().should('have.value', 'active');
+		cy.get('.capkpi-control[data-fieldname=icon] input').first().should('have.value', 'active');
 		cy.get('@dialog').then(dialog => {
 			let value = dialog.get_value('icon');
 			expect(value).to.equal('active');
 		});
 
 		cy.get('.icon-picker .icon-wrapper[id=resting]').first().click();
-		cy.get('.frappe-control[data-fieldname=icon] input').first().should('have.value', 'resting');
+		cy.get('.capkpi-control[data-fieldname=icon] input').first().should('have.value', 'resting');
 		cy.get('@dialog').then(dialog => {
 			let value = dialog.get_value('icon');
 			expect(value).to.equal('resting');

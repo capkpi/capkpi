@@ -1,9 +1,9 @@
-import frappe
+import capkpi
 
 
 def execute():
-	frappe.reload_doc("core", "doctype", "user")
-	frappe.db.sql(
+	capkpi.reload_doc("core", "doctype", "user")
+	capkpi.db.sql(
 		"""
 		UPDATE `tabUser`
 		SET `home_settings` = ''

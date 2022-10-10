@@ -8,7 +8,7 @@ Load metadata (DocType) class
 
 Example:
 
-	meta = frappe.get_meta('User')
+	meta = capkpi.get_meta('User')
 	if meta.has_field('first_name'):
 		print("DocType" table has field "first_name")
 
@@ -23,34 +23,34 @@ from datetime import datetime
 
 from six.moves import range
 
-import frappe
-from frappe import _
-from frappe.model import (
+import capkpi
+from capkpi import _
+from capkpi.model import (
 	data_fieldtypes,
 	default_fields,
 	no_value_fields,
 	optional_fields,
 	table_fields,
 )
-from frappe.model.base_document import BaseDocument
-from frappe.model.document import Document
-from frappe.model.workflow import get_workflow_name
-from frappe.modules import load_doctype_module
-from frappe.utils import cast, cint, cstr
+from capkpi.model.base_document import BaseDocument
+from capkpi.model.document import Document
+from capkpi.model.workflow import get_workflow_name
+from capkpi.modules import load_doctype_module
+from capkpi.utils import cast, cint, cstr
 
 
 def get_meta(doctype, cached=True):
 	if cached:
-		if not frappe.local.meta_cache.get(doctype):
-			meta = frappe.cache().hget("meta", doctype)
+		if not capkpi.local.meta_cache.get(doctype):
+			meta = capkpi.cache().hget("meta", doctype)
 			if meta:
 				meta = Meta(meta)
 			else:
 				meta = Meta(doctype)
-				frappe.cache().hset("meta", doctype, meta.as_dict())
-			frappe.local.meta_cache[doctype] = meta
+				capkpi.cache().hset("meta", doctype, meta.as_dict())
+			capkpi.local.meta_cache[doctype] = meta
 
-		return frappe.local.meta_cache[doctype]
+		return capkpi.local.meta_cache[doctype]
 	else:
 		return load_meta(doctype)
 
@@ -60,12 +60,12 @@ def load_meta(doctype):
 
 
 def get_table_columns(doctype):
-	return frappe.db.get_table_columns(doctype)
+	return capkpi.db.get_table_columns(doctype)
 
 
 def load_doctype_from_file(doctype):
-	fname = frappe.scrub(doctype)
-	with open(frappe.get_app_path("frappe", "core", "doctype", fname, fname + ".json"), "r") as f:
+	fname = capkpi.scrub(doctype)
+	with open(capkpi.get_app_path("capkpi", "core", "doctype", fname, fname + ".json"), "r") as f:
 		txt = json.loads(f.read())
 
 	for d in txt.get("fields", []):
@@ -109,7 +109,7 @@ class Meta(Document):
 	def load_from_db(self):
 		try:
 			super(Meta, self).load_from_db()
-		except frappe.DoesNotExistError:
+		except capkpi.DoesNotExistError:
 			if self.doctype == "DocType" and self.name in self.special_doctypes:
 				self.__dict__.update(load_doctype_from_file(self.name))
 			else:
@@ -141,7 +141,7 @@ class Meta(Document):
 						# non standard list object, skip
 						continue
 
-				if isinstance(value, (frappe.text_type, int, float, datetime, list, tuple)) or (
+				if isinstance(value, (capkpi.text_type, int, float, datetime, list, tuple)) or (
 					not no_nulls and value is None
 				):
 					out[key] = value
@@ -191,13 +191,13 @@ class Meta(Document):
 		"""Returns list of fields with `in_global_search` set and `name` if set"""
 		fields = self.get("fields", {"in_global_search": 1, "fieldtype": ["not in", no_value_fields]})
 		if getattr(self, "show_name_in_global_search", None):
-			fields.append(frappe._dict(fieldtype="Data", fieldname="name", label="Name"))
+			fields.append(capkpi._dict(fieldtype="Data", fieldname="name", label="Name"))
 
 		return fields
 
 	def get_valid_columns(self):
 		if not hasattr(self, "_valid_columns"):
-			table_exists = frappe.db.table_exists(self.name)
+			table_exists = capkpi.db.table_exists(self.name)
 			if self.name in self.special_doctypes and table_exists:
 				self._valid_columns = get_table_columns(self.name)
 			else:
@@ -326,10 +326,10 @@ class Meta(Document):
 		return get_workflow_name(self.name)
 
 	def add_custom_fields(self):
-		if not frappe.db.table_exists("Custom Field"):
+		if not capkpi.db.table_exists("Custom Field"):
 			return
 
-		custom_fields = frappe.db.sql(
+		custom_fields = capkpi.db.sql(
 			"""
 			SELECT * FROM `tabCustom Field`
 			WHERE dt = %s AND docstatus < 2
@@ -347,10 +347,10 @@ class Meta(Document):
 		of the doctype or its child properties like fields, links etc. This method
 		applies the customized properties over the standard meta object
 		"""
-		if not frappe.db.table_exists("Property Setter"):
+		if not capkpi.db.table_exists("Property Setter"):
 			return
 
-		property_setters = frappe.db.sql(
+		property_setters = capkpi.db.sql(
 			"""select * from `tabProperty Setter` where
 			doc_type=%s""",
 			(self.name,),
@@ -385,7 +385,7 @@ class Meta(Document):
 	def add_custom_links_and_actions(self):
 		for doctype, fieldname in (("DocType Link", "links"), ("DocType Action", "actions")):
 			# ignore_ddl because the `custom` column was added later via a patch
-			for d in frappe.get_all(
+			for d in capkpi.get_all(
 				doctype, fields="*", filters=dict(parent=self.name, custom=1), ignore_ddl=True
 			):
 				self.append(fieldname, d)
@@ -450,11 +450,11 @@ class Meta(Document):
 
 	def set_custom_permissions(self):
 		"""Reset `permissions` with Custom DocPerm if exists"""
-		if frappe.flags.in_patch or frappe.flags.in_install:
+		if capkpi.flags.in_patch or capkpi.flags.in_install:
 			return
 
 		if not self.istable and self.name not in ("DocType", "DocField", "DocPerm", "Custom DocPerm"):
-			custom_perms = frappe.get_all(
+			custom_perms = capkpi.get_all(
 				"Custom DocPerm",
 				fields="*",
 				filters=dict(parent=self.name),
@@ -482,7 +482,7 @@ class Meta(Document):
 		)
 
 		if self.name in user_permission_doctypes:
-			fields.append(frappe._dict({"label": "Name", "fieldname": "name", "options": self.name}))
+			fields.append(capkpi._dict({"label": "Name", "fieldname": "name", "options": self.name}))
 
 		return fields
 
@@ -498,7 +498,7 @@ class Meta(Document):
 
 	def get_permlevel_access(self, permission_type="read", parenttype=None):
 		has_access_to = []
-		roles = frappe.get_roles()
+		roles = capkpi.get_roles()
 		for perm in self.get_permissions(parenttype):
 			if perm.role in roles and perm.get(permission_type):
 				if perm.permlevel not in has_access_to:
@@ -509,7 +509,7 @@ class Meta(Document):
 	def get_permissions(self, parenttype=None):
 		if self.istable and parenttype:
 			# use parent permissions
-			permissions = frappe.get_meta(parenttype).permissions
+			permissions = capkpi.get_meta(parenttype).permissions
 		else:
 			permissions = self.get("permissions", [])
 
@@ -522,20 +522,20 @@ class Meta(Document):
 		file in the doctype's folder, along with any overrides or extensions
 		implemented in other CapKPI applications via hooks.
 		"""
-		data = frappe._dict()
+		data = capkpi._dict()
 		if not self.custom:
 			try:
 				module = load_doctype_module(self.name, suffix="_dashboard")
 				if hasattr(module, "get_data"):
-					data = frappe._dict(module.get_data())
+					data = capkpi._dict(module.get_data())
 			except ImportError:
 				pass
 
 		self.add_doctype_links(data)
 
 		if not self.custom:
-			for hook in frappe.get_hooks("override_doctype_dashboards", {}).get(self.name, []):
-				data = frappe._dict(frappe.get_attr(hook)(data=data))
+			for hook in capkpi.get_hooks("override_doctype_dashboards", {}).get(self.name, []):
+				data = capkpi._dict(capkpi.get_attr(hook)(data=data))
 
 		return data
 
@@ -562,7 +562,7 @@ class Meta(Document):
 				continue
 
 			for group in data.transactions:
-				group = frappe._dict(group)
+				group = capkpi._dict(group)
 
 				# For internal links parent doctype will be the key
 				doctype = link.parent_doctype or link.link_doctype
@@ -597,9 +597,9 @@ class Meta(Document):
 
 	def get_web_template(self, suffix=""):
 		"""Returns the relative path of the row template for this doctype"""
-		module_name = frappe.scrub(self.module)
-		doctype = frappe.scrub(self.name)
-		template_path = frappe.get_module_path(
+		module_name = capkpi.scrub(self.module)
+		doctype = capkpi.scrub(self.name)
+		template_path = capkpi.get_module_path(
 			module_name, "doctype", doctype, "templates", doctype + suffix + ".html"
 		)
 		if os.path.exists(template_path):
@@ -613,10 +613,10 @@ class Meta(Document):
 
 
 DOCTYPE_TABLE_FIELDS = [
-	frappe._dict({"fieldname": "fields", "options": "DocField"}),
-	frappe._dict({"fieldname": "permissions", "options": "DocPerm"}),
-	frappe._dict({"fieldname": "actions", "options": "DocType Action"}),
-	frappe._dict({"fieldname": "links", "options": "DocType Link"}),
+	capkpi._dict({"fieldname": "fields", "options": "DocField"}),
+	capkpi._dict({"fieldname": "permissions", "options": "DocPerm"}),
+	capkpi._dict({"fieldname": "actions", "options": "DocType Action"}),
+	capkpi._dict({"fieldname": "links", "options": "DocType Link"}),
 ]
 
 #######
@@ -624,20 +624,20 @@ DOCTYPE_TABLE_FIELDS = [
 
 def is_single(doctype):
 	try:
-		return frappe.db.get_value("DocType", doctype, "issingle")
+		return capkpi.db.get_value("DocType", doctype, "issingle")
 	except IndexError:
 		raise Exception("Cannot determine whether %s is single" % doctype)
 
 
 def get_parent_dt(dt):
-	parent_dt = frappe.db.get_all(
-		"DocField", "parent", dict(fieldtype=["in", frappe.model.table_fields], options=dt), limit=1
+	parent_dt = capkpi.db.get_all(
+		"DocField", "parent", dict(fieldtype=["in", capkpi.model.table_fields], options=dt), limit=1
 	)
 	return parent_dt and parent_dt[0].parent or ""
 
 
 def set_fieldname(field_id, fieldname):
-	frappe.db.set_value("DocField", field_id, "fieldname", fieldname)
+	capkpi.db.set_value("DocField", field_id, "fieldname", fieldname)
 
 
 def get_field_currency(df, doc=None):
@@ -650,13 +650,13 @@ def get_field_currency(df, doc=None):
 	if not doc:
 		return None
 
-	if not getattr(frappe.local, "field_currency", None):
-		frappe.local.field_currency = frappe._dict()
+	if not getattr(capkpi.local, "field_currency", None):
+		capkpi.local.field_currency = capkpi._dict()
 
 	if not (
-		frappe.local.field_currency.get((doc.doctype, doc.name), {}).get(df.fieldname)
+		capkpi.local.field_currency.get((doc.doctype, doc.name), {}).get(df.fieldname)
 		or (
-			doc.parent and frappe.local.field_currency.get((doc.doctype, doc.parent), {}).get(df.fieldname)
+			doc.parent and capkpi.local.field_currency.get((doc.doctype, doc.parent), {}).get(df.fieldname)
 		)
 	):
 
@@ -665,41 +665,41 @@ def get_field_currency(df, doc=None):
 		if ":" in cstr(df.get("options")):
 			split_opts = df.get("options").split(":")
 			if len(split_opts) == 3 and doc.get(split_opts[1]):
-				currency = frappe.get_cached_value(split_opts[0], doc.get(split_opts[1]), split_opts[2])
+				currency = capkpi.get_cached_value(split_opts[0], doc.get(split_opts[1]), split_opts[2])
 		else:
 			currency = doc.get(df.get("options"))
 			if doc.parent:
 				if currency:
 					ref_docname = doc.name
 				else:
-					if frappe.get_meta(doc.parenttype).has_field(df.get("options")):
+					if capkpi.get_meta(doc.parenttype).has_field(df.get("options")):
 						# only get_value if parent has currency field
-						currency = frappe.db.get_value(doc.parenttype, doc.parent, df.get("options"))
+						currency = capkpi.db.get_value(doc.parenttype, doc.parent, df.get("options"))
 
 		if currency:
-			frappe.local.field_currency.setdefault((doc.doctype, ref_docname), frappe._dict()).setdefault(
+			capkpi.local.field_currency.setdefault((doc.doctype, ref_docname), capkpi._dict()).setdefault(
 				df.fieldname, currency
 			)
 
-	return frappe.local.field_currency.get((doc.doctype, doc.name), {}).get(df.fieldname) or (
-		doc.parent and frappe.local.field_currency.get((doc.doctype, doc.parent), {}).get(df.fieldname)
+	return capkpi.local.field_currency.get((doc.doctype, doc.name), {}).get(df.fieldname) or (
+		doc.parent and capkpi.local.field_currency.get((doc.doctype, doc.parent), {}).get(df.fieldname)
 	)
 
 
 def get_field_precision(df, doc=None, currency=None):
 	"""get precision based on DocField options and fieldvalue in doc"""
-	from frappe.utils import get_number_format_info
+	from capkpi.utils import get_number_format_info
 
 	if df.precision:
 		precision = cint(df.precision)
 
 	elif df.fieldtype == "Currency":
-		precision = cint(frappe.db.get_default("currency_precision"))
+		precision = cint(capkpi.db.get_default("currency_precision"))
 		if not precision:
-			number_format = frappe.db.get_default("number_format") or "#,###.##"
+			number_format = capkpi.db.get_default("number_format") or "#,###.##"
 			decimal_str, comma_str, precision = get_number_format_info(number_format)
 	else:
-		precision = cint(frappe.db.get_default("float_precision")) or 3
+		precision = cint(capkpi.db.get_default("float_precision")) or 3
 
 	return precision
 
@@ -707,10 +707,10 @@ def get_field_precision(df, doc=None, currency=None):
 def get_default_df(fieldname):
 	if fieldname in default_fields:
 		if fieldname in ("creation", "modified"):
-			return frappe._dict(fieldname=fieldname, fieldtype="Datetime")
+			return capkpi._dict(fieldname=fieldname, fieldtype="Datetime")
 
 		else:
-			return frappe._dict(fieldname=fieldname, fieldtype="Data")
+			return capkpi._dict(fieldname=fieldname, fieldtype="Data")
 
 
 def trim_tables(doctype=None):
@@ -725,10 +725,10 @@ def trim_tables(doctype=None):
 	if doctype:
 		filters["name"] = doctype
 
-	for doctype in frappe.db.get_all("DocType", filters=filters):
+	for doctype in capkpi.db.get_all("DocType", filters=filters):
 		doctype = doctype.name
-		columns = frappe.db.get_table_columns(doctype)
-		fields = frappe.get_meta(doctype).get_fieldnames_with_value()
+		columns = capkpi.db.get_table_columns(doctype)
+		fields = capkpi.get_meta(doctype).get_fieldnames_with_value()
 		columns_to_remove = [
 			f for f in list(set(columns) - set(fields)) if f not in ignore_fields and not f.startswith("_")
 		]
@@ -738,4 +738,4 @@ def trim_tables(doctype=None):
 			query = """alter table `tab{doctype}` {columns}""".format(
 				doctype=doctype, columns=columns_to_remove
 			)
-			frappe.db.sql_ddl(query)
+			capkpi.db.sql_ddl(query)

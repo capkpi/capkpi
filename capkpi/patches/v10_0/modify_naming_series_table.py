@@ -5,8 +5,8 @@ from __future__ import unicode_literals
     to generate long Naming Series
 
 """
-import frappe
+import capkpi
 
 
 def execute():
-	frappe.db.sql(""" ALTER TABLE `tabSeries` MODIFY current BIGINT """)
+	capkpi.db.sql(""" ALTER TABLE `tabSeries` MODIFY current BIGINT """)

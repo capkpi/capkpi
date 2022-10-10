@@ -3,11 +3,11 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
+import capkpi
+from capkpi import _
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_all_nodes(doctype, label, parent, tree_method, **filters):
 	"""Recursively gets all data from tree nodes"""
 
@@ -15,10 +15,10 @@ def get_all_nodes(doctype, label, parent, tree_method, **filters):
 		del filters["cmd"]
 	filters.pop("data", None)
 
-	tree_method = frappe.get_attr(tree_method)
+	tree_method = capkpi.get_attr(tree_method)
 
-	if not tree_method in frappe.whitelisted:
-		frappe.throw(_("Not Permitted"), frappe.PermissionError)
+	if not tree_method in capkpi.whitelisted:
+		capkpi.throw(_("Not Permitted"), capkpi.PermissionError)
 
 	data = tree_method(doctype, parent, **filters)
 	out = [dict(parent=label, data=data)]
@@ -38,7 +38,7 @@ def get_all_nodes(doctype, label, parent, tree_method, **filters):
 	return out
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_children(doctype, parent="", **filters):
 	return _get_children(doctype, parent)
 
@@ -47,9 +47,9 @@ def _get_children(doctype, parent="", ignore_permissions=False):
 	parent_field = "parent_" + doctype.lower().replace(" ", "_")
 	filters = [['ifnull(`{0}`,"")'.format(parent_field), "=", parent], ["docstatus", "<", "2"]]
 
-	meta = frappe.get_meta(doctype)
+	meta = capkpi.get_meta(doctype)
 
-	return frappe.get_list(
+	return capkpi.get_list(
 		doctype,
 		fields=[
 			"name as value",
@@ -62,10 +62,10 @@ def _get_children(doctype, parent="", ignore_permissions=False):
 	)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def add_node():
-	args = make_tree_args(**frappe.form_dict)
-	doc = frappe.get_doc(args)
+	args = make_tree_args(**capkpi.form_dict)
+	doc = capkpi.get_doc(args)
 
 	doc.save()
 
@@ -83,4 +83,4 @@ def make_tree_args(**kwarg):
 
 	kwarg.update({parent_field: kwarg.get("parent") or kwarg.get(parent_field)})
 
-	return frappe._dict(kwarg)
+	return capkpi._dict(kwarg)

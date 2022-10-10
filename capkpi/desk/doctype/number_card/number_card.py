@@ -4,16 +4,16 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.boot import get_allowed_report_names
-from frappe.config import get_modules_from_all_apps_for_user
-from frappe.model.document import Document
-from frappe.model.naming import append_number_if_name_exists
-from frappe.modules.export_file import export_to_files
-from frappe.query_builder import Criterion
-from frappe.query_builder.utils import DocType
-from frappe.utils import cint
+import capkpi
+from capkpi import _
+from capkpi.boot import get_allowed_report_names
+from capkpi.config import get_modules_from_all_apps_for_user
+from capkpi.model.document import Document
+from capkpi.model.naming import append_number_if_name_exists
+from capkpi.modules.export_file import export_to_files
+from capkpi.query_builder import Criterion
+from capkpi.query_builder.utils import DocType
+from capkpi.utils import cint
 
 
 class NumberCard(Document):
@@ -21,41 +21,41 @@ class NumberCard(Document):
 		if not self.name:
 			self.name = self.label
 
-		if frappe.db.exists("Number Card", self.name):
+		if capkpi.db.exists("Number Card", self.name):
 			self.name = append_number_if_name_exists("Number Card", self.name)
 
 	def validate(self):
 		if self.type == "Document Type":
 			if not (self.document_type and self.function):
-				frappe.throw(_("Document Type and Function are required to create a number card"))
+				capkpi.throw(_("Document Type and Function are required to create a number card"))
 
 			if self.function != "Count" and not self.aggregate_function_based_on:
-				frappe.throw(_("Aggregate Field is required to create a number card"))
+				capkpi.throw(_("Aggregate Field is required to create a number card"))
 
-			if frappe.get_meta(self.document_type).istable and not self.parent_document_type:
-				frappe.throw(_("Parent Document Type is required to create a number card"))
+			if capkpi.get_meta(self.document_type).istable and not self.parent_document_type:
+				capkpi.throw(_("Parent Document Type is required to create a number card"))
 
 		elif self.type == "Report":
 			if not (self.report_name and self.report_field and self.function):
-				frappe.throw(_("Report Name, Report Field and Fucntion are required to create a number card"))
+				capkpi.throw(_("Report Name, Report Field and Fucntion are required to create a number card"))
 
 		elif self.type == "Custom":
 			if not self.method:
-				frappe.throw(_("Method is required to create a number card"))
+				capkpi.throw(_("Method is required to create a number card"))
 
 	def on_update(self):
-		if frappe.conf.developer_mode and self.is_standard:
+		if capkpi.conf.developer_mode and self.is_standard:
 			export_to_files(record_list=[["Number Card", self.name]], record_module=self.module)
 
 
 def get_permission_query_conditions(user=None):
 	if not user:
-		user = frappe.session.user
+		user = capkpi.session.user
 
 	if user == "Administrator":
 		return
 
-	roles = frappe.get_roles(user)
+	roles = capkpi.get_roles(user)
 	if "System Manager" in roles:
 		return None
 
@@ -63,10 +63,10 @@ def get_permission_query_conditions(user=None):
 	module_condition = False
 
 	allowed_doctypes = [
-		frappe.db.escape(doctype) for doctype in frappe.permissions.get_doctypes_with_read()
+		capkpi.db.escape(doctype) for doctype in capkpi.permissions.get_doctypes_with_read()
 	]
 	allowed_modules = [
-		frappe.db.escape(module.get("module_name")) for module in get_modules_from_all_apps_for_user()
+		capkpi.db.escape(module.get("module_name")) for module in get_modules_from_all_apps_for_user()
 	]
 
 	if allowed_doctypes:
@@ -89,7 +89,7 @@ def get_permission_query_conditions(user=None):
 
 
 def has_permission(doc, ptype, user):
-	roles = frappe.get_roles(user)
+	roles = capkpi.get_roles(user)
 	if "System Manager" in roles:
 		return True
 
@@ -97,16 +97,16 @@ def has_permission(doc, ptype, user):
 		if doc.report_name in get_allowed_report_names():
 			return True
 	else:
-		allowed_doctypes = tuple(frappe.permissions.get_doctypes_with_read())
+		allowed_doctypes = tuple(capkpi.permissions.get_doctypes_with_read())
 		if doc.document_type in allowed_doctypes:
 			return True
 
 	return False
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_result(doc, filters, to_date=None):
-	doc = frappe.parse_json(doc)
+	doc = capkpi.parse_json(doc)
 	fields = []
 	sql_function_map = {
 		"Count": "count",
@@ -127,7 +127,7 @@ def get_result(doc, filters, to_date=None):
 			)
 		]
 
-	filters = frappe.parse_json(filters)
+	filters = capkpi.parse_json(filters)
 
 	if not filters:
 		filters = []
@@ -135,18 +135,18 @@ def get_result(doc, filters, to_date=None):
 	if to_date:
 		filters.append([doc.document_type, "creation", "<", to_date])
 
-	res = frappe.db.get_list(doc.document_type, fields=fields, filters=filters)
+	res = capkpi.db.get_list(doc.document_type, fields=fields, filters=filters)
 	number = res[0]["result"] if res else 0
 
 	return cint(number)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_percentage_difference(doc, filters, result):
-	doc = frappe.parse_json(doc)
-	result = frappe.parse_json(result)
+	doc = capkpi.parse_json(doc)
+	result = capkpi.parse_json(result)
 
-	doc = frappe.get_doc("Number Card", doc.name)
+	doc = capkpi.get_doc("Number Card", doc.name)
 
 	if not doc.get("show_percentage_stats"):
 		return
@@ -162,9 +162,9 @@ def get_percentage_difference(doc, filters, result):
 
 
 def calculate_previous_result(doc, filters):
-	from frappe.utils import add_to_date
+	from capkpi.utils import add_to_date
 
-	current_date = frappe.utils.now()
+	current_date = capkpi.utils.now()
 	if doc.stats_time_interval == "Daily":
 		previous_date = add_to_date(current_date, days=-1)
 	elif doc.stats_time_interval == "Weekly":
@@ -178,24 +178,24 @@ def calculate_previous_result(doc, filters):
 	return number
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def create_number_card(args):
-	args = frappe.parse_json(args)
-	doc = frappe.new_doc("Number Card")
+	args = capkpi.parse_json(args)
+	doc = capkpi.new_doc("Number Card")
 
 	doc.update(args)
 	doc.insert(ignore_permissions=True)
 	return doc
 
 
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
+@capkpi.whitelist()
+@capkpi.validate_and_sanitize_search_inputs
 def get_cards_for_user(doctype, txt, searchfield, start, page_len, filters):
-	meta = frappe.get_meta(doctype)
+	meta = capkpi.get_meta(doctype)
 	searchfields = meta.get_search_fields()
 	search_conditions = []
 
-	if not frappe.db.exists("DocType", doctype):
+	if not capkpi.db.exists("DocType", doctype):
 		return
 
 	numberCard = DocType("Number Card")
@@ -203,34 +203,34 @@ def get_cards_for_user(doctype, txt, searchfield, start, page_len, filters):
 	if txt:
 		search_conditions = [numberCard[field].like("%{txt}%".format(txt=txt)) for field in searchfields]
 
-	condition_query = frappe.db.query.build_conditions(doctype, filters)
+	condition_query = capkpi.db.query.build_conditions(doctype, filters)
 
 	return (
 		condition_query.select(numberCard.name, numberCard.label, numberCard.document_type)
-		.where((numberCard.owner == frappe.session.user) | (numberCard.is_public == 1))
+		.where((numberCard.owner == capkpi.session.user) | (numberCard.is_public == 1))
 		.where(Criterion.any(search_conditions))
 	).run()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def create_report_number_card(args):
 	card = create_number_card(args)
-	args = frappe.parse_json(args)
+	args = capkpi.parse_json(args)
 	args.name = card.name
 	if args.dashboard:
-		add_card_to_dashboard(frappe.as_json(args))
+		add_card_to_dashboard(capkpi.as_json(args))
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def add_card_to_dashboard(args):
-	args = frappe.parse_json(args)
+	args = capkpi.parse_json(args)
 
-	dashboard = frappe.get_doc("Dashboard", args.dashboard)
-	dashboard_link = frappe.new_doc("Number Card Link")
+	dashboard = capkpi.get_doc("Dashboard", args.dashboard)
+	dashboard_link = capkpi.new_doc("Number Card Link")
 	dashboard_link.card = args.name
 
 	if args.set_standard and dashboard.is_standard:
-		card = frappe.get_doc("Number Card", dashboard_link.card)
+		card = capkpi.get_doc("Number Card", dashboard_link.card)
 		card.is_standard = 1
 		card.module = dashboard.module
 		card.save()

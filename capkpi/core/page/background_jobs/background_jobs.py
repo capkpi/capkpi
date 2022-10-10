@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING, Dict, List
 
 from rq import Queue, Worker
 
-import frappe
-from frappe import _
-from frappe.utils import convert_utc_to_user_timezone, format_datetime
-from frappe.utils.background_jobs import get_redis_conn
-from frappe.utils.scheduler import is_scheduler_inactive
+import capkpi
+from capkpi import _
+from capkpi.utils import convert_utc_to_user_timezone, format_datetime
+from capkpi.utils.background_jobs import get_redis_conn
+from capkpi.utils.scheduler import is_scheduler_inactive
 
 if TYPE_CHECKING:
 	from rq.job import Job
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 JOB_COLORS = {"queued": "orange", "failed": "red", "started": "blue", "finished": "green"}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_info(show_failed=False) -> List[Dict]:
 	if isinstance(show_failed, str):
 		show_failed = json.loads(show_failed)
@@ -29,7 +29,7 @@ def get_info(show_failed=False) -> List[Dict]:
 	jobs = []
 
 	def add_job(job: "Job", name: str) -> None:
-		if job.kwargs.get("site") == frappe.local.site:
+		if job.kwargs.get("site") == capkpi.local.site:
 			job_info = {
 				"job_name": job.kwargs.get("kwargs", {}).get("playbook_method")
 				or job.kwargs.get("kwargs", {}).get("job_type")
@@ -68,7 +68,7 @@ def get_info(show_failed=False) -> List[Dict]:
 	return jobs
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def remove_failed_jobs():
 	conn = get_redis_conn()
 	queues = Queue.all(conn)
@@ -79,7 +79,7 @@ def remove_failed_jobs():
 			fail_registry.remove(job, delete_job=True)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_scheduler_status():
 	if is_scheduler_inactive():
 		return [_("Inactive"), "red"]

@@ -8,29 +8,29 @@ import requests
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-import frappe
-from frappe import _
-from frappe.integrations.doctype.google_settings.google_settings import get_auth_url
-from frappe.model.document import Document
-from frappe.utils import get_request_site_address
+import capkpi
+from capkpi import _
+from capkpi.integrations.doctype.google_settings.google_settings import get_auth_url
+from capkpi.model.document import Document
+from capkpi.utils import get_request_site_address
 
 SCOPES = "https://www.googleapis.com/auth/contacts"
 
 
 class GoogleContacts(Document):
 	def validate(self):
-		if not frappe.db.get_single_value("Google Settings", "enable"):
-			frappe.throw(_("Enable Google API in Google Settings."))
+		if not capkpi.db.get_single_value("Google Settings", "enable"):
+			capkpi.throw(_("Enable Google API in Google Settings."))
 
 	def get_access_token(self):
-		google_settings = frappe.get_doc("Google Settings")
+		google_settings = capkpi.get_doc("Google Settings")
 
 		if not google_settings.enable:
-			frappe.throw(_("Google Contacts Integration is disabled."))
+			capkpi.throw(_("Google Contacts Integration is disabled."))
 
 		if not self.refresh_token:
-			button_label = frappe.bold(_("Allow Google Contacts Access"))
-			raise frappe.ValidationError(_("Click on {0} to generate Refresh Token.").format(button_label))
+			button_label = capkpi.bold(_("Allow Google Contacts Access"))
+			raise capkpi.ValidationError(_("Click on {0} to generate Refresh Token.").format(button_label))
 
 		data = {
 			"client_id": google_settings.client_id,
@@ -43,8 +43,8 @@ class GoogleContacts(Document):
 		try:
 			r = requests.post(get_auth_url(), data=data).json()
 		except requests.exceptions.HTTPError:
-			button_label = frappe.bold(_("Allow Google Contacts Access"))
-			frappe.throw(
+			button_label = capkpi.bold(_("Allow Google Contacts Access"))
+			capkpi.throw(
 				_(
 					"Something went wrong during the token generation. Click on {0} to generate a new one."
 				).format(button_label)
@@ -53,23 +53,23 @@ class GoogleContacts(Document):
 		return r.get("access_token")
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def authorize_access(g_contact, reauthorize=None):
 	"""
 	If no Authorization code get it from Google and then request for Refresh Token.
 	Google Contact Name is set to flags to set_value after Authorization Code is obtained.
 	"""
 
-	google_settings = frappe.get_doc("Google Settings")
-	google_contact = frappe.get_doc("Google Contacts", g_contact)
+	google_settings = capkpi.get_doc("Google Settings")
+	google_contact = capkpi.get_doc("Google Contacts", g_contact)
 
 	redirect_uri = (
 		get_request_site_address(True)
-		+ "?cmd=frappe.integrations.doctype.google_contacts.google_contacts.google_callback"
+		+ "?cmd=capkpi.integrations.doctype.google_contacts.google_contacts.google_callback"
 	)
 
 	if not google_contact.authorization_code or reauthorize:
-		frappe.cache().hset("google_contacts", "google_contact", google_contact.name)
+		capkpi.cache().hset("google_contacts", "google_contact", google_contact.name)
 		return get_authentication_url(client_id=google_settings.client_id, redirect_uri=redirect_uri)
 	else:
 		try:
@@ -85,17 +85,17 @@ def authorize_access(g_contact, reauthorize=None):
 			r = requests.post(get_auth_url(), data=data).json()
 
 			if "refresh_token" in r:
-				frappe.db.set_value(
+				capkpi.db.set_value(
 					"Google Contacts", google_contact.name, "refresh_token", r.get("refresh_token")
 				)
-				frappe.db.commit()
+				capkpi.db.commit()
 
-			frappe.local.response["type"] = "redirect"
-			frappe.local.response["location"] = "/app/Form/Google%20Contacts/{}".format(google_contact.name)
+			capkpi.local.response["type"] = "redirect"
+			capkpi.local.response["location"] = "/app/Form/Google%20Contacts/{}".format(google_contact.name)
 
-			frappe.msgprint(_("Google Contacts has been configured."))
+			capkpi.msgprint(_("Google Contacts has been configured."))
 		except Exception as e:
-			frappe.throw(e)
+			capkpi.throw(e)
 
 
 def get_authentication_url(client_id=None, redirect_uri=None):
@@ -106,14 +106,14 @@ def get_authentication_url(client_id=None, redirect_uri=None):
 	}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def google_callback(code=None):
 	"""
 	Authorization code is sent to callback as per the API configuration
 	"""
-	google_contact = frappe.cache().hget("google_contacts", "google_contact")
-	frappe.db.set_value("Google Contacts", google_contact, "authorization_code", code)
-	frappe.db.commit()
+	google_contact = capkpi.cache().hget("google_contacts", "google_contact")
+	capkpi.db.set_value("Google Contacts", google_contact, "authorization_code", code)
+	capkpi.db.commit()
 
 	authorize_access(google_contact)
 
@@ -122,8 +122,8 @@ def get_google_contacts_object(g_contact):
 	"""
 	Returns an object of Google Calendar along with Google Calendar doc.
 	"""
-	google_settings = frappe.get_doc("Google Settings")
-	account = frappe.get_doc("Google Contacts", g_contact)
+	google_settings = capkpi.get_doc("Google Settings")
+	account = capkpi.get_doc("Google Contacts", g_contact)
 
 	credentials_dict = {
 		"token": account.get_access_token(),
@@ -142,14 +142,14 @@ def get_google_contacts_object(g_contact):
 	return google_contacts, account
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def sync(g_contact=None):
 	filters = {"enable": 1}
 
 	if g_contact:
 		filters.update({"name": g_contact})
 
-	google_contacts = frappe.get_list("Google Contacts", filters=filters)
+	google_contacts = capkpi.get_list("Google Contacts", filters=filters)
 
 	for g in google_contacts:
 		return sync_contacts_from_google_contacts(g.name)
@@ -169,7 +169,7 @@ def sync_contacts_from_google_contacts(g_contact):
 	contacts_updated = 0
 
 	sync_token = account.get_password(fieldname="next_sync_token", raise_exception=False) or None
-	contacts = frappe._dict()
+	contacts = capkpi._dict()
 
 	while True:
 		try:
@@ -188,7 +188,7 @@ def sync_contacts_from_google_contacts(g_contact):
 			)
 
 		except HttpError as err:
-			frappe.throw(
+			capkpi.throw(
 				_(
 					"Google Contacts - Could not sync contacts from Google Contacts {0}, error code {1}."
 				).format(account.name, err.resp.status)
@@ -199,23 +199,23 @@ def sync_contacts_from_google_contacts(g_contact):
 
 		if not contacts.get("nextPageToken"):
 			if contacts.get("nextSyncToken"):
-				frappe.db.set_value(
+				capkpi.db.set_value(
 					"Google Contacts", account.name, "next_sync_token", contacts.get("nextSyncToken")
 				)
-				frappe.db.commit()
+				capkpi.db.commit()
 			break
 
-	frappe.db.set_value("Google Contacts", account.name, "last_sync_on", frappe.utils.now_datetime())
+	capkpi.db.set_value("Google Contacts", account.name, "last_sync_on", capkpi.utils.now_datetime())
 
 	for idx, connection in enumerate(results):
-		frappe.publish_realtime(
-			"import_google_contacts", dict(progress=idx + 1, total=len(results)), user=frappe.session.user
+		capkpi.publish_realtime(
+			"import_google_contacts", dict(progress=idx + 1, total=len(results)), user=capkpi.session.user
 		)
 
 		for name in connection.get("names"):
 			if name.get("metadata").get("primary"):
 				contacts_updated += 1
-				contact = frappe.get_doc(
+				contact = capkpi.get_doc(
 					{
 						"doctype": "Contact",
 						"first_name": name.get("givenName") or "",
@@ -253,7 +253,7 @@ def insert_contacts_to_google_contacts(doc, method=None):
 	https://developers.google.com/people/api/rest/v1/people/createContact
 	"""
 	if (
-		not frappe.db.exists("Google Contacts", {"name": doc.google_contacts})
+		not capkpi.db.exists("Google Contacts", {"name": doc.google_contacts})
 		or doc.pulled_from_google_contacts
 		or not doc.sync_with_google_contacts
 	):
@@ -277,9 +277,9 @@ def insert_contacts_to_google_contacts(doc, method=None):
 			)
 			.execute()
 		)
-		frappe.db.set_value("Contact", doc.name, "google_contacts_id", contact.get("resourceName"))
+		capkpi.db.set_value("Contact", doc.name, "google_contacts_id", contact.get("resourceName"))
 	except HttpError as err:
-		frappe.msgprint(
+		capkpi.msgprint(
 			_("Google Calendar - Could not insert contact in Google Contacts {0}, error code {1}.").format(
 				account.name, err.resp.status
 			)
@@ -294,7 +294,7 @@ def update_contacts_to_google_contacts(doc, method=None):
 	# Workaround to avoid triggering updation when Event is being inserted since
 	# creation and modified are same when inserting doc
 	if (
-		not frappe.db.exists("Google Contacts", {"name": doc.google_contacts})
+		not capkpi.db.exists("Google Contacts", {"name": doc.google_contacts})
 		or doc.modified == doc.creation
 		or not doc.sync_with_google_contacts
 	):
@@ -339,9 +339,9 @@ def update_contacts_to_google_contacts(doc, method=None):
 			},
 			updatePersonFields="names,emailAddresses,organizations,phoneNumbers",
 		).execute()
-		frappe.msgprint(_("Contact Synced with Google Contacts."))
+		capkpi.msgprint(_("Contact Synced with Google Contacts."))
 	except HttpError as err:
-		frappe.msgprint(
+		capkpi.msgprint(
 			_("Google Contacts - Could not update contact in Google Contacts {0}, error code {1}.").format(
 				account.name, err.resp.status
 			)

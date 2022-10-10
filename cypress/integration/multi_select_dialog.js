@@ -20,8 +20,8 @@ context('MultiSelectDialog', () => {
 	});
 
 	function open_multi_select_dialog() {
-		cy.window().its('frappe').then(frappe => {
-			new frappe.ui.form.MultiSelectDialog({
+		cy.window().its('capkpi').then(capkpi => {
+			new capkpi.ui.form.MultiSelectDialog({
 				doctype: "Contact",
 				target: {},
 				setters: {
@@ -43,11 +43,11 @@ context('MultiSelectDialog', () => {
 
 	it('checks for filters', () => {
 		['search_term', 'status', 'gender'].forEach(fieldname => {
-			cy.get_open_dialog().get(`.frappe-control[data-fieldname="${fieldname}"]`).should('exist');
+			cy.get_open_dialog().get(`.capkpi-control[data-fieldname="${fieldname}"]`).should('exist');
 		});
 
 		// add_filters_group: 1 should add a filter group
-		cy.get_open_dialog().get(`.frappe-control[data-fieldname="filter_area"]`).should('exist');
+		cy.get_open_dialog().get(`.capkpi-control[data-fieldname="filter_area"]`).should('exist');
 
 	});
 
@@ -56,13 +56,13 @@ context('MultiSelectDialog', () => {
 			.get(`.dt-row-header`).should('not.exist');
 
 		cy.get_open_dialog()
-			.get(`.frappe-control[data-fieldname="allow_child_item_selection"]`)
+			.get(`.capkpi-control[data-fieldname="allow_child_item_selection"]`)
 			.find('input[data-fieldname="allow_child_item_selection"]')
 			.should('exist')
 			.click({force: true});
 
 		cy.get_open_dialog()
-			.get(`.frappe-control[data-fieldname="child_selection_area"]`)
+			.get(`.capkpi-control[data-fieldname="child_selection_area"]`)
 			.should('exist');
 
 		cy.get_open_dialog()
@@ -77,7 +77,7 @@ context('MultiSelectDialog', () => {
 
 	it('tests more button', () => {
 		cy.get_open_dialog()
-			.get(`.frappe-control[data-fieldname="more_child_btn"]`)
+			.get(`.capkpi-control[data-fieldname="more_child_btn"]`)
 			.should('exist')
 			.as('more-btn');
 		
@@ -85,7 +85,7 @@ context('MultiSelectDialog', () => {
 			expect($rows).to.have.length(20);
 		});
 
-		cy.intercept('POST', 'api/method/frappe.client.get_list').as('get-more-records');
+		cy.intercept('POST', 'api/method/capkpi.client.get_list').as('get-more-records');
 		cy.get('@more-btn').find('button').click({force: true});
 		cy.wait('@get-more-records');
 

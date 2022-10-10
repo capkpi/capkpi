@@ -9,8 +9,8 @@ import jwt
 import pytz
 from oauthlib.openid import RequestValidator
 
-import frappe
-from frappe.auth import LoginManager
+import capkpi
+from capkpi.auth import LoginManager
 
 
 class OAuthWebRequestValidator(RequestValidator):
@@ -18,9 +18,9 @@ class OAuthWebRequestValidator(RequestValidator):
 	# Pre- and post-authorization.
 	def validate_client_id(self, client_id, request, *args, **kwargs):
 		# Simple validity check, does client exist? Not banned?
-		cli_id = frappe.db.get_value("OAuth Client", {"name": client_id})
+		cli_id = capkpi.db.get_value("OAuth Client", {"name": client_id})
 		if cli_id:
-			request.client = frappe.get_doc("OAuth Client", client_id).as_dict()
+			request.client = capkpi.get_doc("OAuth Client", client_id).as_dict()
 			return True
 		else:
 			return False
@@ -29,7 +29,7 @@ class OAuthWebRequestValidator(RequestValidator):
 		# Is the client allowed to use the supplied redirect_uri? i.e. has
 		# the client previously registered this EXACT redirect uri.
 
-		redirect_uris = frappe.db.get_value("OAuth Client", client_id, "redirect_uris").split(
+		redirect_uris = capkpi.db.get_value("OAuth Client", client_id, "redirect_uris").split(
 			get_url_delimiter()
 		)
 
@@ -42,7 +42,7 @@ class OAuthWebRequestValidator(RequestValidator):
 		# The redirect used if none has been supplied.
 		# Prefer your clients to pre register a redirect uri rather than
 		# supplying one on each authorization request.
-		redirect_uri = frappe.db.get_value("OAuth Client", client_id, "default_redirect_uri")
+		redirect_uri = capkpi.db.get_value("OAuth Client", client_id, "default_redirect_uri")
 		return redirect_uri
 
 	def validate_scopes(self, client_id, scopes, client, request, *args, **kwargs):
@@ -76,7 +76,7 @@ class OAuthWebRequestValidator(RequestValidator):
 
 		cookie_dict = get_cookie_dict_from_headers(request)
 
-		oac = frappe.new_doc("OAuth Authorization Code")
+		oac = capkpi.new_doc("OAuth Authorization Code")
 		oac.scopes = get_url_delimiter().join(request.scopes)
 		oac.redirect_uri_bound_to_authorization_code = request.redirect_uri
 		oac.client = client_id
@@ -91,34 +91,34 @@ class OAuthWebRequestValidator(RequestValidator):
 			oac.code_challenge_method = request.code_challenge_method.lower()
 
 		oac.save(ignore_permissions=True)
-		frappe.db.commit()
+		capkpi.db.commit()
 
 	def authenticate_client(self, request, *args, **kwargs):
 		# Get ClientID in URL
 		if request.client_id:
-			oc = frappe.get_doc("OAuth Client", request.client_id)
+			oc = capkpi.get_doc("OAuth Client", request.client_id)
 		else:
 			# Extract token, instantiate OAuth Bearer Token and use clientid from there.
-			if "refresh_token" in frappe.form_dict:
-				oc = frappe.get_doc(
+			if "refresh_token" in capkpi.form_dict:
+				oc = capkpi.get_doc(
 					"OAuth Client",
-					frappe.db.get_value(
+					capkpi.db.get_value(
 						"OAuth Bearer Token",
-						{"refresh_token": frappe.form_dict["refresh_token"]},
+						{"refresh_token": capkpi.form_dict["refresh_token"]},
 						"client",
 					),
 				)
-			elif "token" in frappe.form_dict:
-				oc = frappe.get_doc(
+			elif "token" in capkpi.form_dict:
+				oc = capkpi.get_doc(
 					"OAuth Client",
-					frappe.db.get_value("OAuth Bearer Token", frappe.form_dict["token"], "client"),
+					capkpi.db.get_value("OAuth Bearer Token", capkpi.form_dict["token"], "client"),
 				)
 			else:
-				oc = frappe.get_doc(
+				oc = capkpi.get_doc(
 					"OAuth Client",
-					frappe.db.get_value(
+					capkpi.db.get_value(
 						"OAuth Bearer Token",
-						frappe.get_request_header("Authorization").split(" ")[1],
+						capkpi.get_request_header("Authorization").split(" ")[1],
 						"client",
 					),
 				)
@@ -129,22 +129,22 @@ class OAuthWebRequestValidator(RequestValidator):
 
 		cookie_dict = get_cookie_dict_from_headers(request)
 		user_id = unquote(cookie_dict.get("user_id").value) if "user_id" in cookie_dict else "Guest"
-		return frappe.session.user == user_id
+		return capkpi.session.user == user_id
 
 	def authenticate_client_id(self, client_id, request, *args, **kwargs):
-		cli_id = frappe.db.get_value("OAuth Client", client_id, "name")
+		cli_id = capkpi.db.get_value("OAuth Client", client_id, "name")
 		if not cli_id:
 			# Don't allow public (non-authenticated) clients
 			return False
 		else:
-			request["client"] = frappe.get_doc("OAuth Client", cli_id)
+			request["client"] = capkpi.get_doc("OAuth Client", cli_id)
 			return True
 
 	def validate_code(self, client_id, code, client, request, *args, **kwargs):
 		# Validate the code belongs to the client. Add associated scopes,
 		# state and user to request.scopes and request.user.
 
-		validcodes = frappe.get_all(
+		validcodes = capkpi.get_all(
 			"OAuth Authorization Code",
 			filters={"client": client_id, "validity": "Valid"},
 		)
@@ -154,19 +154,19 @@ class OAuthWebRequestValidator(RequestValidator):
 			checkcodes.append(vcode["name"])
 
 		if code in checkcodes:
-			request.scopes = frappe.db.get_value("OAuth Authorization Code", code, "scopes").split(
+			request.scopes = capkpi.db.get_value("OAuth Authorization Code", code, "scopes").split(
 				get_url_delimiter()
 			)
-			request.user = frappe.db.get_value("OAuth Authorization Code", code, "user")
-			code_challenge_method = frappe.db.get_value(
+			request.user = capkpi.db.get_value("OAuth Authorization Code", code, "user")
+			code_challenge_method = capkpi.db.get_value(
 				"OAuth Authorization Code", code, "code_challenge_method"
 			)
-			code_challenge = frappe.db.get_value("OAuth Authorization Code", code, "code_challenge")
+			code_challenge = capkpi.db.get_value("OAuth Authorization Code", code, "code_challenge")
 
 			if code_challenge and not request.code_verifier:
-				if frappe.db.exists("OAuth Authorization Code", code):
-					frappe.delete_doc("OAuth Authorization Code", code, ignore_permissions=True)
-					frappe.db.commit()
+				if capkpi.db.exists("OAuth Authorization Code", code):
+					capkpi.delete_doc("OAuth Authorization Code", code, ignore_permissions=True)
+					capkpi.db.commit()
 				return False
 
 			if code_challenge_method == "s256":
@@ -186,9 +186,9 @@ class OAuthWebRequestValidator(RequestValidator):
 		return False
 
 	def confirm_redirect_uri(self, client_id, code, redirect_uri, client, *args, **kwargs):
-		saved_redirect_uri = frappe.db.get_value("OAuth Client", client_id, "default_redirect_uri")
+		saved_redirect_uri = capkpi.db.get_value("OAuth Client", client_id, "default_redirect_uri")
 
-		redirect_uris = frappe.db.get_value("OAuth Client", client_id, "redirect_uris")
+		redirect_uris = capkpi.db.get_value("OAuth Client", client_id, "redirect_uris")
 
 		if redirect_uris:
 			redirect_uris = redirect_uris.split(get_url_delimiter())
@@ -208,29 +208,29 @@ class OAuthWebRequestValidator(RequestValidator):
 		# access_token and the refresh_token and set expiration for the
 		# access_token to now + expires_in seconds.
 
-		otoken = frappe.new_doc("OAuth Bearer Token")
+		otoken = capkpi.new_doc("OAuth Bearer Token")
 		otoken.client = request.client["name"]
 		try:
 			otoken.user = (
 				request.user
 				if request.user
-				else frappe.db.get_value(
+				else capkpi.db.get_value(
 					"OAuth Bearer Token",
 					{"refresh_token": request.body.get("refresh_token")},
 					"user",
 				)
 			)
 		except Exception:
-			otoken.user = frappe.session.user
+			otoken.user = capkpi.session.user
 
 		otoken.scopes = get_url_delimiter().join(request.scopes)
 		otoken.access_token = token["access_token"]
 		otoken.refresh_token = token.get("refresh_token")
 		otoken.expires_in = token["expires_in"]
 		otoken.save(ignore_permissions=True)
-		frappe.db.commit()
+		capkpi.db.commit()
 
-		default_redirect_uri = frappe.db.get_value(
+		default_redirect_uri = capkpi.db.get_value(
 			"OAuth Client", request.client["name"], "default_redirect_uri"
 		)
 		return default_redirect_uri
@@ -239,22 +239,22 @@ class OAuthWebRequestValidator(RequestValidator):
 		# Authorization codes are use once, invalidate it when a Bearer token
 		# has been acquired.
 
-		frappe.db.set_value("OAuth Authorization Code", code, "validity", "Invalid")
-		frappe.db.commit()
+		capkpi.db.set_value("OAuth Authorization Code", code, "validity", "Invalid")
+		capkpi.db.commit()
 
 	# Protected resource request
 
 	def validate_bearer_token(self, token, scopes, request):
 		# Remember to check expiration and scope membership
-		otoken = frappe.get_doc("OAuth Bearer Token", token)
+		otoken = capkpi.get_doc("OAuth Bearer Token", token)
 		token_expiration_local = otoken.expiration_time.replace(
-			tzinfo=pytz.timezone(frappe.utils.get_time_zone())
+			tzinfo=pytz.timezone(capkpi.utils.get_time_zone())
 		)
 		token_expiration_utc = token_expiration_local.astimezone(pytz.utc)
 		is_token_valid = (
-			frappe.utils.datetime.datetime.utcnow().replace(tzinfo=pytz.utc) < token_expiration_utc
+			capkpi.utils.datetime.datetime.utcnow().replace(tzinfo=pytz.utc) < token_expiration_utc
 		) and otoken.status != "Revoked"
-		client_scopes = frappe.db.get_value("OAuth Client", otoken.client, "scopes").split(
+		client_scopes = capkpi.db.get_value("OAuth Client", otoken.client, "scopes").split(
 			get_url_delimiter()
 		)
 		are_scopes_valid = True
@@ -270,7 +270,7 @@ class OAuthWebRequestValidator(RequestValidator):
 		# return its scopes, these will be passed on to the refreshed
 		# access token if the client did not specify a scope during the
 		# request.
-		obearer_token = frappe.get_doc("OAuth Bearer Token", {"refresh_token": refresh_token})
+		obearer_token = capkpi.get_doc("OAuth Bearer Token", {"refresh_token": refresh_token})
 		return obearer_token.scopes
 
 	def revoke_token(self, token, token_type_hint, request, *args, **kwargs):
@@ -284,12 +284,12 @@ class OAuthWebRequestValidator(RequestValidator):
 		- Revocation Endpoint
 		"""
 		if token_type_hint == "access_token":
-			frappe.db.set_value("OAuth Bearer Token", token, "status", "Revoked")
+			capkpi.db.set_value("OAuth Bearer Token", token, "status", "Revoked")
 		elif token_type_hint == "refresh_token":
-			frappe.db.set_value("OAuth Bearer Token", {"refresh_token": token}, "status", "Revoked")
+			capkpi.db.set_value("OAuth Bearer Token", {"refresh_token": token}, "status", "Revoked")
 		else:
-			frappe.db.set_value("OAuth Bearer Token", token, "status", "Revoked")
-		frappe.db.commit()
+			capkpi.db.set_value("OAuth Bearer Token", token, "status", "Revoked")
+		capkpi.db.commit()
 
 	def validate_refresh_token(self, refresh_token, client, request, *args, **kwargs):
 		"""Ensure the Bearer token is valid and authorized access to scopes.
@@ -308,7 +308,7 @@ class OAuthWebRequestValidator(RequestValidator):
 		- Refresh Token Grant
 		"""
 
-		otoken = frappe.get_doc(
+		otoken = capkpi.get_doc(
 			"OAuth Bearer Token", {"refresh_token": refresh_token, "status": "Active"}
 		)
 
@@ -320,10 +320,10 @@ class OAuthWebRequestValidator(RequestValidator):
 	# OpenID Connect
 
 	def finalize_id_token(self, id_token, token, token_handler, request):
-		# Check whether frappe server URL is set
+		# Check whether capkpi server URL is set
 		id_token_header = {"typ": "jwt", "alg": "HS256"}
 
-		user = frappe.get_doc("User", request.user)
+		user = capkpi.get_doc("User", request.user)
 
 		if request.nonce:
 			id_token["nonce"] = request.nonce
@@ -343,16 +343,16 @@ class OAuthWebRequestValidator(RequestValidator):
 			headers=id_token_header,
 		)
 
-		return frappe.safe_decode(id_token_encoded)
+		return capkpi.safe_decode(id_token_encoded)
 
 	def get_authorization_code_nonce(self, client_id, code, redirect_uri, request):
-		if frappe.get_value("OAuth Authorization Code", code, "validity") == "Valid":
-			return frappe.get_value("OAuth Authorization Code", code, "nonce")
+		if capkpi.get_value("OAuth Authorization Code", code, "validity") == "Valid":
+			return capkpi.get_value("OAuth Authorization Code", code, "nonce")
 
 		return None
 
 	def get_authorization_code_scopes(self, client_id, code, redirect_uri, request):
-		scope = frappe.get_value("OAuth Client", client_id, "scopes")
+		scope = capkpi.get_value("OAuth Client", client_id, "scopes")
 		if not scope:
 			scope = []
 		else:
@@ -370,13 +370,13 @@ class OAuthWebRequestValidator(RequestValidator):
 		return self.finalize_id_token(id_token, token, token_handler, request)
 
 	def get_userinfo_claims(self, request):
-		user = frappe.get_doc("User", frappe.session.user)
+		user = capkpi.get_doc("User", capkpi.session.user)
 		userinfo = get_userinfo(user)
 		return userinfo
 
 	def validate_id_token(self, token, scopes, request):
 		try:
-			id_token = frappe.get_doc("OAuth Bearer Token", token)
+			id_token = capkpi.get_doc("OAuth Bearer Token", token)
 			if id_token.status == "Active":
 				return True
 		except Exception:
@@ -386,7 +386,7 @@ class OAuthWebRequestValidator(RequestValidator):
 
 	def validate_jwt_bearer_token(self, token, scopes, request):
 		try:
-			jwt = frappe.get_doc("OAuth Bearer Token", token)
+			jwt = capkpi.get_doc("OAuth Bearer Token", token)
 			if jwt.status == "Active":
 				return True
 		except Exception:
@@ -431,7 +431,7 @@ class OAuthWebRequestValidator(RequestValidator):
 		- OpenIDConnectImplicit
 		- OpenIDConnectHybrid
 		"""
-		if frappe.session.user == "Guest" or request.prompt.lower() == "login":
+		if capkpi.session.user == "Guest" or request.prompt.lower() == "login":
 			return False
 		else:
 			return True
@@ -463,19 +463,19 @@ class OAuthWebRequestValidator(RequestValidator):
 						"verify_aud": False,
 					},
 				)
-				client_id, client_secret = frappe.get_value(
+				client_id, client_secret = capkpi.get_value(
 					"OAuth Client",
 					payload.get("aud"),
 					["client_id", "client_secret"],
 				)
 
 				if payload.get("sub") and client_id and client_secret:
-					user = frappe.db.get_value(
+					user = capkpi.db.get_value(
 						"User Social Login",
-						{"userid": payload.get("sub"), "provider": "frappe"},
+						{"userid": payload.get("sub"), "provider": "capkpi"},
 						"parent",
 					)
-					user = frappe.get_doc("User", user)
+					user = capkpi.get_doc("User", user)
 					verified_payload = jwt.decode(
 						id_token_hint,
 						key=client_secret,
@@ -487,12 +487,12 @@ class OAuthWebRequestValidator(RequestValidator):
 					)
 
 					if verified_payload:
-						return user.name == frappe.session.user
+						return user.name == capkpi.session.user
 
 			except Exception:
 				return False
 
-		elif frappe.session.user != "Guest":
+		elif capkpi.session.user != "Guest":
 			return True
 
 		return False
@@ -545,41 +545,41 @@ def calculate_at_hash(access_token, hash_alg):
 def delete_oauth2_data():
 	# Delete Invalid Authorization Code and Revoked Token
 	commit_code, commit_token = False, False
-	code_list = frappe.get_all("OAuth Authorization Code", filters={"validity": "Invalid"})
-	token_list = frappe.get_all("OAuth Bearer Token", filters={"status": "Revoked"})
+	code_list = capkpi.get_all("OAuth Authorization Code", filters={"validity": "Invalid"})
+	token_list = capkpi.get_all("OAuth Bearer Token", filters={"status": "Revoked"})
 	if len(code_list) > 0:
 		commit_code = True
 	if len(token_list) > 0:
 		commit_token = True
 	for code in code_list:
-		frappe.delete_doc("OAuth Authorization Code", code["name"])
+		capkpi.delete_doc("OAuth Authorization Code", code["name"])
 	for token in token_list:
-		frappe.delete_doc("OAuth Bearer Token", token["name"])
+		capkpi.delete_doc("OAuth Bearer Token", token["name"])
 	if commit_code or commit_token:
-		frappe.db.commit()
+		capkpi.db.commit()
 
 
 def get_client_scopes(client_id):
-	scopes_string = frappe.db.get_value("OAuth Client", client_id, "scopes")
+	scopes_string = capkpi.db.get_value("OAuth Client", client_id, "scopes")
 	return scopes_string.split()
 
 
 def get_userinfo(user):
 	picture = None
-	frappe_server_url = get_server_url()
+	capkpi_server_url = get_server_url()
 	valid_url_schemes = ("http", "https", "ftp", "ftps")
 
 	if user.user_image:
-		if frappe.utils.validate_url(user.user_image, valid_schemes=valid_url_schemes):
+		if capkpi.utils.validate_url(user.user_image, valid_schemes=valid_url_schemes):
 			picture = user.user_image
 		else:
-			picture = frappe_server_url + "/" + user.user_image
+			picture = capkpi_server_url + "/" + user.user_image
 
-	userinfo = frappe._dict(
+	userinfo = capkpi._dict(
 		{
-			"sub": frappe.db.get_value(
+			"sub": capkpi.db.get_value(
 				"User Social Login",
-				{"parent": user.name, "provider": "frappe"},
+				{"parent": user.name, "provider": "capkpi"},
 				"userid",
 			),
 			"name": " ".join(filter(None, [user.first_name, user.last_name])),
@@ -587,8 +587,8 @@ def get_userinfo(user):
 			"family_name": user.last_name,
 			"email": user.email,
 			"picture": picture,
-			"roles": frappe.get_roles(user.name),
-			"iss": frappe_server_url,
+			"roles": capkpi.get_roles(user.name),
+			"iss": capkpi_server_url,
 		}
 	)
 
@@ -601,20 +601,20 @@ def get_url_delimiter(separator_character=" "):
 
 def generate_json_error_response(e):
 	if not e:
-		e = frappe._dict({})
+		e = capkpi._dict({})
 
-	frappe.local.response = frappe._dict(
+	capkpi.local.response = capkpi._dict(
 		{
 			"description": getattr(e, "description", "Internal Server Error"),
 			"status_code": getattr(e, "status_code", 500),
 			"error": getattr(e, "error", "internal_server_error"),
 		}
 	)
-	frappe.local.response["http_status_code"] = getattr(e, "status_code", 500)
+	capkpi.local.response["http_status_code"] = getattr(e, "status_code", 500)
 	return
 
 
 def get_server_url():
-	request_url = urlparse(frappe.request.url)
+	request_url = urlparse(capkpi.request.url)
 	request_url = f"{request_url.scheme}://{request_url.netloc}"
-	return frappe.get_value("Social Login Key", "frappe", "base_url") or request_url
+	return capkpi.get_value("Social Login Key", "capkpi", "base_url") or request_url

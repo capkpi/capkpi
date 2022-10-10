@@ -6,31 +6,31 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe import _
-from frappe.config import get_modules_from_all_apps_for_user
-from frappe.model.document import Document
-from frappe.modules.export_file import export_to_files
+import capkpi
+from capkpi import _
+from capkpi.config import get_modules_from_all_apps_for_user
+from capkpi.model.document import Document
+from capkpi.modules.export_file import export_to_files
 
 
 class Dashboard(Document):
 	def on_update(self):
 		if self.is_default:
 			# make all other dashboards non-default
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update
 				tabDashboard set is_default = 0 where name != %s""",
 				self.name,
 			)
 
-		if frappe.conf.developer_mode and self.is_standard:
+		if capkpi.conf.developer_mode and self.is_standard:
 			export_to_files(
 				record_list=[["Dashboard", self.name, self.module + " Dashboard"]], record_module=self.module
 			)
 
 	def validate(self):
-		if not frappe.conf.developer_mode and self.is_standard:
-			frappe.throw(_("Cannot edit Standard Dashboards"))
+		if not capkpi.conf.developer_mode and self.is_standard:
+			capkpi.throw(_("Cannot edit Standard Dashboards"))
 
 		if self.is_standard:
 			non_standard_docs_map = {
@@ -40,7 +40,7 @@ class Dashboard(Document):
 
 			if non_standard_docs_map["Dashboard Chart"] or non_standard_docs_map["Number Card"]:
 				message = get_non_standard_warning_message(non_standard_docs_map)
-				frappe.throw(message, title=_("Standard Not Set"), is_minimizable=True)
+				capkpi.throw(message, title=_("Standard Not Set"), is_minimizable=True)
 
 		self.validate_custom_options()
 
@@ -49,22 +49,22 @@ class Dashboard(Document):
 			try:
 				json.loads(self.chart_options)
 			except ValueError as error:
-				frappe.throw(_("Invalid json added in the custom options: {0}").format(error))
+				capkpi.throw(_("Invalid json added in the custom options: {0}").format(error))
 
 
 def get_permission_query_conditions(user):
 	if not user:
-		user = frappe.session.user
+		user = capkpi.session.user
 
 	if user == "Administrator":
 		return
 
-	roles = frappe.get_roles(user)
+	roles = capkpi.get_roles(user)
 	if "System Manager" in roles:
 		return None
 
 	allowed_modules = [
-		frappe.db.escape(module.get("module_name")) for module in get_modules_from_all_apps_for_user()
+		capkpi.db.escape(module.get("module_name")) for module in get_modules_from_all_apps_for_user()
 	]
 	module_condition = (
 		"`tabDashboard`.`module` in ({allowed_modules}) or `tabDashboard`.`module` is NULL".format(
@@ -75,13 +75,13 @@ def get_permission_query_conditions(user):
 	return module_condition
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_permitted_charts(dashboard_name):
 	permitted_charts = []
-	dashboard = frappe.get_doc("Dashboard", dashboard_name)
+	dashboard = capkpi.get_doc("Dashboard", dashboard_name)
 	for chart in dashboard.charts:
-		if frappe.has_permission("Dashboard Chart", doc=chart.chart):
-			chart_dict = frappe._dict()
+		if capkpi.has_permission("Dashboard Chart", doc=chart.chart):
+			chart_dict = capkpi._dict()
 			chart_dict.update(chart.as_dict())
 
 			if dashboard.get("chart_options"):
@@ -91,25 +91,25 @@ def get_permitted_charts(dashboard_name):
 	return permitted_charts
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_permitted_cards(dashboard_name):
 	permitted_cards = []
-	dashboard = frappe.get_doc("Dashboard", dashboard_name)
+	dashboard = capkpi.get_doc("Dashboard", dashboard_name)
 	for card in dashboard.cards:
-		if frappe.has_permission("Number Card", doc=card.card):
+		if capkpi.has_permission("Number Card", doc=card.card):
 			permitted_cards.append(card)
 	return permitted_cards
 
 
 def get_non_standard_charts_in_dashboard(dashboard):
-	non_standard_charts = [doc.name for doc in frappe.get_list("Dashboard Chart", {"is_standard": 0})]
+	non_standard_charts = [doc.name for doc in capkpi.get_list("Dashboard Chart", {"is_standard": 0})]
 	return [
 		chart_link.chart for chart_link in dashboard.charts if chart_link.chart in non_standard_charts
 	]
 
 
 def get_non_standard_cards_in_dashboard(dashboard):
-	non_standard_cards = [doc.name for doc in frappe.get_list("Number Card", {"is_standard": 0})]
+	non_standard_cards = [doc.name for doc in capkpi.get_list("Number Card", {"is_standard": 0})]
 	return [card_link.card for card_link in dashboard.cards if card_link.card in non_standard_cards]
 
 
@@ -117,7 +117,7 @@ def get_non_standard_warning_message(non_standard_docs_map):
 	message = _("""Please set the following documents in this Dashboard as standard first.""")
 
 	def get_html(docs, doctype):
-		html = "<p>{}</p>".format(frappe.bold(doctype))
+		html = "<p>{}</p>".format(capkpi.bold(doctype))
 		for doc in docs:
 			html += '<div><a href="/app/Form/{doctype}/{doc}">{doc}</a></div>'.format(
 				doctype=doctype, doc=doc

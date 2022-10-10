@@ -6,10 +6,10 @@ from __future__ import unicode_literals
 
 import hashlib
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
-from frappe.utils import cint, now_datetime
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
+from capkpi.utils import cint, now_datetime
 
 
 class TransactionLog(Document):
@@ -18,7 +18,7 @@ class TransactionLog(Document):
 		self.row_index = index
 		self.timestamp = now_datetime()
 		if index != 1:
-			prev_hash = frappe.db.sql(
+			prev_hash = capkpi.db.sql(
 				"SELECT `chaining_hash` FROM `tabTransaction Log` WHERE `row_index` = '{0}'".format(index - 1)
 			)
 			if prev_hash:
@@ -34,22 +34,22 @@ class TransactionLog(Document):
 	def hash_line(self):
 		sha = hashlib.sha256()
 		sha.update(
-			frappe.safe_encode(str(self.row_index))
-			+ frappe.safe_encode(str(self.timestamp))
-			+ frappe.safe_encode(str(self.data))
+			capkpi.safe_encode(str(self.row_index))
+			+ capkpi.safe_encode(str(self.timestamp))
+			+ capkpi.safe_encode(str(self.data))
 		)
 		return sha.hexdigest()
 
 	def hash_chain(self):
 		sha = hashlib.sha256()
 		sha.update(
-			frappe.safe_encode(str(self.transaction_hash)) + frappe.safe_encode(str(self.previous_hash))
+			capkpi.safe_encode(str(self.transaction_hash)) + capkpi.safe_encode(str(self.previous_hash))
 		)
 		return sha.hexdigest()
 
 
 def get_current_index():
-	current = frappe.db.sql(
+	current = capkpi.db.sql(
 		"""SELECT `current`
 		FROM `tabSeries`
 		WHERE `name` = 'TRANSACTLOG'
@@ -58,13 +58,13 @@ def get_current_index():
 	if current and current[0][0] is not None:
 		current = current[0][0]
 
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""UPDATE `tabSeries`
 			SET `current` = `current` + 1
 			where `name` = 'TRANSACTLOG'"""
 		)
 		current = cint(current) + 1
 	else:
-		frappe.db.sql("INSERT INTO `tabSeries` (name, current) VALUES ('TRANSACTLOG', 1)")
+		capkpi.db.sql("INSERT INTO `tabSeries` (name, current) VALUES ('TRANSACTLOG', 1)")
 		current = 1
 	return current

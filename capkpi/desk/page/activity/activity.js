@@ -1,12 +1,12 @@
 // Copyright (c) 2015, CapKPI Technologies Pvt. Ltd. and Contributors
 // License: See license.txt
 
-frappe.provide("frappe.activity");
+capkpi.provide("capkpi.activity");
 
-frappe.pages['activity'].on_page_load = function (wrapper) {
+capkpi.pages['activity'].on_page_load = function (wrapper) {
 	var me = this;
 
-	frappe.ui.make_app_page({
+	capkpi.ui.make_app_page({
 		parent: wrapper,
 		single_column: true
 	});
@@ -14,14 +14,14 @@ frappe.pages['activity'].on_page_load = function (wrapper) {
 	me.page = wrapper.page;
 	me.page.set_title(__("Activity"));
 
-	frappe.model.with_doctype("Communication", function () {
-		me.page.list = new frappe.views.Activity({
+	capkpi.model.with_doctype("Communication", function () {
+		me.page.list = new capkpi.views.Activity({
 			doctype: 'Communication',
 			parent: wrapper
 		});
 	});
 
-	frappe.activity.render_heatmap(me.page);
+	capkpi.activity.render_heatmap(me.page);
 
 	me.page.main.on("click", ".activity-message", function () {
 		var link_doctype = $(this).attr("data-link-doctype"),
@@ -37,37 +37,37 @@ frappe.pages['activity'].on_page_load = function (wrapper) {
 
 		if (doctype && docname) {
 			if (link_doctype && link_name) {
-				frappe.route_options = {
+				capkpi.route_options = {
 					scroll_to: { "doctype": doctype, "name": docname }
 				}
 			}
 
-			frappe.set_route(["Form", link_doctype || doctype, link_name || docname]);
+			capkpi.set_route(["Form", link_doctype || doctype, link_name || docname]);
 		}
 	});
 
 	// Build Report Button
-	if (frappe.boot.user.can_get_report.indexOf("Feed") != -1) {
+	if (capkpi.boot.user.can_get_report.indexOf("Feed") != -1) {
 		this.page.add_menu_item(__('Build Report'), function () {
-			frappe.set_route("List", "Feed", "Report");
+			capkpi.set_route("List", "Feed", "Report");
 		}, 'fa fa-th')
 	}
 
 	this.page.add_menu_item(__('Activity Log'), function () {
-		frappe.route_options = {
-			"user": frappe.session.user
+		capkpi.route_options = {
+			"user": capkpi.session.user
 		}
 
-		frappe.set_route("List", "Activity Log", "Report");
+		capkpi.set_route("List", "Activity Log", "Report");
 	}, 'fa fa-th');
 };
 
-frappe.pages['activity'].on_page_show = function () {
-	frappe.breadcrumbs.add("Desk");
+capkpi.pages['activity'].on_page_show = function () {
+	capkpi.breadcrumbs.add("Desk");
 }
 
-frappe.activity.last_feed_date = false;
-frappe.activity.Feed = Class.extend({
+capkpi.activity.last_feed_date = false;
+capkpi.activity.Feed = Class.extend({
 	init: function (row, data) {
 		this.scrub_data(data);
 		this.add_date_separator(row, data);
@@ -76,7 +76,7 @@ frappe.activity.Feed = Class.extend({
 
 		data.link = "";
 		if (data.link_doctype && data.link_name) {
-			data.link = frappe.format(data.link_name, { fieldtype: "Link", options: data.link_doctype },
+			data.link = capkpi.format(data.link_name, { fieldtype: "Link", options: data.link_doctype },
 				{ label: __(data.link_doctype) + " " + __(data.link_name) });
 
 		} else if (data.feed_type === "Comment" && data.comment_type === "Comment") {
@@ -86,21 +86,21 @@ frappe.activity.Feed = Class.extend({
 			data.reference_doctype = "Communication";
 			data.reference_name = data.name;
 
-			data.link = frappe.format(data.link_name, { fieldtype: "Link", options: data.link_doctype },
+			data.link = capkpi.format(data.link_name, { fieldtype: "Link", options: data.link_doctype },
 				{ label: __(data.link_doctype) + " " + __(data.link_name) });
 
 		} else if (data.reference_doctype && data.reference_name) {
-			data.link = frappe.format(data.reference_name, { fieldtype: "Link", options: data.reference_doctype },
+			data.link = capkpi.format(data.reference_name, { fieldtype: "Link", options: data.reference_doctype },
 				{ label: __(data.reference_doctype) + " " + __(data.reference_name) });
 		}
 
 		$(row)
-			.append(frappe.render_template("activity_row", data))
+			.append(capkpi.render_template("activity_row", data))
 			.find("a").addClass("grey");
 	},
 	scrub_data: function (data) {
-		data.by = frappe.user.full_name(data.owner);
-		data.avatar = frappe.avatar(data.owner);
+		data.by = capkpi.user.full_name(data.owner);
+		data.avatar = capkpi.avatar(data.owner);
 
 		data.icon = "fa fa-flag";
 
@@ -116,18 +116,18 @@ frappe.activity.Feed = Class.extend({
 	},
 
 	add_date_separator: function (row, data) {
-		var date = frappe.datetime.str_to_obj(data.creation);
-		var last = frappe.activity.last_feed_date;
+		var date = capkpi.datetime.str_to_obj(data.creation);
+		var last = capkpi.activity.last_feed_date;
 
-		if ((last && frappe.datetime.obj_to_str(last) != frappe.datetime.obj_to_str(date)) || (!last)) {
-			var diff = frappe.datetime.get_day_diff(frappe.datetime.get_today(), frappe.datetime.obj_to_str(date));
+		if ((last && capkpi.datetime.obj_to_str(last) != capkpi.datetime.obj_to_str(date)) || (!last)) {
+			var diff = capkpi.datetime.get_day_diff(capkpi.datetime.get_today(), capkpi.datetime.obj_to_str(date));
 			var pdate;
 			if (diff < 1) {
 				pdate = 'Today';
 			} else if (diff < 2) {
 				pdate = 'Yesterday';
 			} else {
-				pdate = frappe.datetime.global_date_format(date);
+				pdate = capkpi.datetime.global_date_format(date);
 			}
 			data.date_sep = pdate;
 			data.date_class = pdate == 'Today' ? "date-indicator blue" : "date-indicator";
@@ -135,20 +135,20 @@ frappe.activity.Feed = Class.extend({
 			data.date_sep = null;
 			data.date_class = "";
 		}
-		frappe.activity.last_feed_date = date;
+		capkpi.activity.last_feed_date = date;
 	}
 });
 
-frappe.activity.render_heatmap = function (page) {
+capkpi.activity.render_heatmap = function (page) {
 	$('<div class="heatmap-container" style="text-align:center">\
 		<div class="heatmap" style="display:inline-block;"></div></div>\
 		<hr style="margin-bottom: 0px;">').prependTo(page.main);
 
-	frappe.call({
-		method: "frappe.desk.page.activity.activity.get_heatmap_data",
+	capkpi.call({
+		method: "capkpi.desk.page.activity.activity.get_heatmap_data",
 		callback: function (r) {
 			if (r.message) {
-				new frappe.Chart(".heatmap", {
+				new capkpi.Chart(".heatmap", {
 					type: 'heatmap',
 					start: new Date(moment().subtract(1, 'year').toDate()),
 					countLabel: "actions",
@@ -163,7 +163,7 @@ frappe.activity.render_heatmap = function (page) {
 	});
 };
 
-frappe.views.Activity = class Activity extends frappe.views.BaseList {
+capkpi.views.Activity = class Activity extends capkpi.views.BaseList {
 	constructor(opts) {
 		super(opts);
 		this.show();
@@ -174,7 +174,7 @@ frappe.views.Activity = class Activity extends frappe.views.BaseList {
 
 		this.page_title = __('Activity');
 		this.doctype = 'Communication';
-		this.method = 'frappe.desk.page.activity.activity.get_feed';
+		this.method = 'capkpi.desk.page.activity.activity.get_feed';
 
 	}
 
@@ -214,7 +214,7 @@ frappe.views.Activity = class Activity extends frappe.views.BaseList {
 	render() {
 		this.data.map(value => {
 			const row = $('<div class="list-row">').data("data", value).appendTo(this.$result).get(0);
-			new frappe.activity.Feed(row, value);
+			new capkpi.activity.Feed(row, value);
 		});
 	}
 };

@@ -59,7 +59,7 @@
 	},
 	"root": true,
 	"globals": {
-		"frappe": true,
+		"capkpi": true,
 		"Vue": true,
 		"__": true,
 		"repl": true,

@@ -6,31 +6,31 @@ from __future__ import unicode_literals
 
 from json import loads
 
-import frappe
-from frappe import _
-from frappe.desk.utils import validate_route_conflict
-from frappe.model.document import Document
-from frappe.modules.export_file import export_to_files
+import capkpi
+from capkpi import _
+from capkpi.desk.utils import validate_route_conflict
+from capkpi.model.document import Document
+from capkpi.modules.export_file import export_to_files
 
 
 class Workspace(Document):
 	def validate(self):
-		if self.is_standard and not frappe.conf.developer_mode and not disable_saving_as_standard():
-			frappe.throw(_("You need to be in developer mode to edit this document"))
+		if self.is_standard and not capkpi.conf.developer_mode and not disable_saving_as_standard():
+			capkpi.throw(_("You need to be in developer mode to edit this document"))
 		validate_route_conflict(self.doctype, self.name)
 
-		duplicate_exists = frappe.db.exists(
+		duplicate_exists = capkpi.db.exists(
 			"Workspace", {"name": ["!=", self.name], "is_default": 1, "extends": self.extends}
 		)
 
 		if self.is_default and self.name and duplicate_exists:
-			frappe.throw(_("You can only have one default page that extends a particular standard page."))
+			capkpi.throw(_("You can only have one default page that extends a particular standard page."))
 
 	def on_update(self):
 		if disable_saving_as_standard():
 			return
 
-		if frappe.conf.developer_mode and self.is_standard:
+		if capkpi.conf.developer_mode and self.is_standard:
 			export_to_files(record_list=[["Workspace", self.name]], record_module=self.module)
 
 	@staticmethod
@@ -40,13 +40,13 @@ class Workspace(Document):
 			"for_user": "",
 		}
 
-		pages = frappe.get_all("Workspace", fields=["name", "module"], filters=filters, as_list=1)
+		pages = capkpi.get_all("Workspace", fields=["name", "module"], filters=filters, as_list=1)
 
 		return {page[1]: page[0] for page in pages if page[1]}
 
 	def get_link_groups(self):
 		cards = []
-		current_card = frappe._dict(
+		current_card = capkpi._dict(
 			{
 				"label": "Link",
 				"type": "Card Break",
@@ -61,7 +61,7 @@ class Workspace(Document):
 			link = link.as_dict()
 			if link.type == "Card Break":
 				if card_links and (
-					not current_card.only_for or current_card.only_for == frappe.get_system_settings("country")
+					not current_card.only_for or current_card.only_for == capkpi.get_system_settings("country")
 				):
 					current_card["links"] = card_links
 					cards.append(current_card)
@@ -114,11 +114,11 @@ class Workspace(Document):
 
 def disable_saving_as_standard():
 	return (
-		frappe.flags.in_install
-		or frappe.flags.in_patch
-		or frappe.flags.in_test
-		or frappe.flags.in_fixtures
-		or frappe.flags.in_migrate
+		capkpi.flags.in_install
+		or capkpi.flags.in_patch
+		or capkpi.flags.in_test
+		or capkpi.flags.in_fixtures
+		or capkpi.flags.in_migrate
 	)
 
 
@@ -134,5 +134,5 @@ def get_link_type(key):
 
 
 def get_report_type(report):
-	report_type = frappe.get_value("Report", report, "report_type")
+	report_type = capkpi.get_value("Report", report, "report_type")
 	return report_type in ["Query Report", "Script Report", "Custom Report"]

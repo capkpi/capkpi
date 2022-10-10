@@ -4,16 +4,16 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
 
 
 class OAuthClient(Document):
 	def validate(self):
 		self.client_id = self.name
 		if not self.client_secret:
-			self.client_secret = frappe.generate_hash(length=10)
+			self.client_secret = capkpi.generate_hash(length=10)
 		self.validate_grant_and_response()
 
 	def validate_grant_and_response(self):
@@ -23,7 +23,7 @@ class OAuthClient(Document):
 			or self.grant_type == "Implicit"
 			and self.response_type != "Token"
 		):
-			frappe.throw(
+			capkpi.throw(
 				_(
 					"Combination of Grant Type (<code>{0}</code>) and Response Type (<code>{1}</code>) not allowed"
 				).format(self.grant_type, self.response_type)

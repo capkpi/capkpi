@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
-from frappe.core.doctype.data_import.exporter import Exporter
-from frappe.core.doctype.data_import.test_importer import create_doctype_if_not_exists
+import capkpi
+from capkpi.core.doctype.data_import.exporter import Exporter
+from capkpi.core.doctype.data_import.test_importer import create_doctype_if_not_exists
 
 doctype_name = "DocType for Export"
 
@@ -17,8 +17,8 @@ class TestExporter(unittest.TestCase):
 		create_doctype_if_not_exists(doctype_name)
 
 	def test_exports_specified_fields(self):
-		if not frappe.db.exists(doctype_name, "Test"):
-			doc = frappe.get_doc(
+		if not capkpi.db.exists(doctype_name, "Test"):
+			doc = capkpi.get_doc(
 				doctype=doctype_name,
 				title="Test",
 				description="Test Description",
@@ -37,7 +37,7 @@ class TestExporter(unittest.TestCase):
 				],
 			).insert()
 		else:
-			doc = frappe.get_doc(doctype_name, "Test")
+			doc = capkpi.get_doc(doctype_name, "Test")
 
 		e = Exporter(
 			doctype_name,
@@ -99,6 +99,6 @@ class TestExporter(unittest.TestCase):
 		)
 		e.build_response()
 
-		self.assertTrue(frappe.response["result"])
-		self.assertEqual(frappe.response["doctype"], doctype_name)
-		self.assertEqual(frappe.response["type"], "csv")
+		self.assertTrue(capkpi.response["result"])
+		self.assertEqual(capkpi.response["doctype"], doctype_name)
+		self.assertEqual(capkpi.response["type"], "csv")

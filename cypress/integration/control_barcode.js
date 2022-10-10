@@ -21,11 +21,11 @@ context('Control Barcode', () => {
 		get_dialog_with_barcode().as('dialog');
 
 		cy.focused().blur();
-		cy.get('.frappe-control[data-fieldname=barcode]').findByRole('textbox')
+		cy.get('.capkpi-control[data-fieldname=barcode]').findByRole('textbox')
 			.focus()
 			.type('123456789')
 			.blur();
-		cy.get('.frappe-control[data-fieldname=barcode] svg[data-barcode-value="123456789"]')
+		cy.get('.capkpi-control[data-fieldname=barcode] svg[data-barcode-value="123456789"]')
 			.should('exist');
 
 		cy.get('@dialog').then(dialog => {
@@ -39,14 +39,14 @@ context('Control Barcode', () => {
 		get_dialog_with_barcode().as('dialog');
 
 		cy.focused().blur();
-		cy.get('.frappe-control[data-fieldname=barcode]').findByRole('textbox')
+		cy.get('.capkpi-control[data-fieldname=barcode]').findByRole('textbox')
 			.focus()
 			.type('123456789')
 			.blur();
-		cy.get('.frappe-control[data-fieldname=barcode]').findByRole('textbox')
+		cy.get('.capkpi-control[data-fieldname=barcode]').findByRole('textbox')
 			.clear()
 			.blur();
-		cy.get('.frappe-control[data-fieldname=barcode] svg[data-barcode-value="123456789"]')
+		cy.get('.capkpi-control[data-fieldname=barcode] svg[data-barcode-value="123456789"]')
 			.should('not.exist');
 
 		cy.get('@dialog').then(dialog => {

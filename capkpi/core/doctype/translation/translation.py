@@ -6,10 +6,10 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe.model.document import Document
-from frappe.translate import get_translator_url
-from frappe.utils import is_html, strip_html_tags
+import capkpi
+from capkpi.model.document import Document
+from capkpi.translate import get_translator_url
+from capkpi.utils import is_html, strip_html_tags
 
 
 class Translation(Document):
@@ -33,16 +33,16 @@ class Translation(Document):
 		pass
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def create_translations(translation_map, language):
-	from frappe.frappeclient import CapKPIClient
+	from capkpi.capkpiclient import CapKPIClient
 
 	translation_map = json.loads(translation_map)
-	translation_map_to_send = frappe._dict({})
+	translation_map_to_send = capkpi._dict({})
 	# first create / update local user translations
 	for source_id, translation_dict in translation_map.items():
-		translation_dict = frappe._dict(translation_dict)
-		existing_doc_name = frappe.db.get_all(
+		translation_dict = capkpi._dict(translation_dict)
+		existing_doc_name = capkpi.db.get_all(
 			"Translation",
 			{
 				"source_text": translation_dict.source_text,
@@ -52,7 +52,7 @@ def create_translations(translation_map, language):
 		)
 		translation_map_to_send[source_id] = translation_dict
 		if existing_doc_name:
-			frappe.db.set_value(
+			capkpi.db.set_value(
 				"Translation",
 				existing_doc_name[0].name,
 				{
@@ -63,7 +63,7 @@ def create_translations(translation_map, language):
 			)
 			translation_map_to_send[source_id].name = existing_doc_name[0].name
 		else:
-			doc = frappe.get_doc(
+			doc = capkpi.get_doc(
 				{
 					"doctype": "Translation",
 					"source_text": translation_dict.source_text,
@@ -79,8 +79,8 @@ def create_translations(translation_map, language):
 
 	params = {
 		"language": language,
-		"contributor_email": frappe.session.user,
-		"contributor_name": frappe.utils.get_fullname(frappe.session.user),
+		"contributor_email": capkpi.session.user,
+		"contributor_name": capkpi.utils.get_fullname(capkpi.session.user),
 		"translation_map": json.dumps(translation_map_to_send),
 	}
 
@@ -88,8 +88,8 @@ def create_translations(translation_map, language):
 	added_translations = translator.post_api("translator.api.add_translations", params=params)
 
 	for local_docname, remote_docname in added_translations.items():
-		frappe.db.set_value("Translation", local_docname, "contribution_docname", remote_docname)
+		capkpi.db.set_value("Translation", local_docname, "contribution_docname", remote_docname)
 
 
 def clear_user_translation_cache(lang):
-	frappe.cache().hdel("lang_user_translations", lang)
+	capkpi.cache().hdel("lang_user_translations", lang)

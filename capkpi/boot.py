@@ -9,55 +9,55 @@ from six import iteritems, text_type
 bootstrap client session
 """
 
-import frappe
-import frappe.defaults
-import frappe.desk.desk_page
-from frappe.core.doctype.navbar_settings.navbar_settings import get_app_logo, get_navbar_settings
-from frappe.desk.form.load import get_meta_bundle
-from frappe.email.inbox import get_email_accounts
-from frappe.model.base_document import get_controller
-from frappe.social.doctype.energy_point_log.energy_point_log import get_energy_points
-from frappe.social.doctype.energy_point_settings.energy_point_settings import (
+import capkpi
+import capkpi.defaults
+import capkpi.desk.desk_page
+from capkpi.core.doctype.navbar_settings.navbar_settings import get_app_logo, get_navbar_settings
+from capkpi.desk.form.load import get_meta_bundle
+from capkpi.email.inbox import get_email_accounts
+from capkpi.model.base_document import get_controller
+from capkpi.social.doctype.energy_point_log.energy_point_log import get_energy_points
+from capkpi.social.doctype.energy_point_settings.energy_point_settings import (
 	is_energy_point_enabled,
 )
-from frappe.social.doctype.post.post import frequently_visited_links
-from frappe.translate import get_lang_dict, get_translated_doctypes
-from frappe.utils import cstr
-from frappe.utils.change_log import get_versions
-from frappe.website.doctype.web_page_view.web_page_view import is_tracking_enabled
+from capkpi.social.doctype.post.post import frequently_visited_links
+from capkpi.translate import get_lang_dict, get_translated_doctypes
+from capkpi.utils import cstr
+from capkpi.utils.change_log import get_versions
+from capkpi.website.doctype.web_page_view.web_page_view import is_tracking_enabled
 
 
 def get_bootinfo():
 	"""build and return boot info"""
-	frappe.set_user_lang(frappe.session.user)
-	bootinfo = frappe._dict()
-	hooks = frappe.get_hooks()
+	capkpi.set_user_lang(capkpi.session.user)
+	bootinfo = capkpi._dict()
+	hooks = capkpi.get_hooks()
 	doclist = []
 
 	# user
 	get_user(bootinfo)
 
 	# system info
-	bootinfo.sitename = frappe.local.site
-	bootinfo.sysdefaults = frappe.defaults.get_defaults()
-	bootinfo.server_date = frappe.utils.nowdate()
+	bootinfo.sitename = capkpi.local.site
+	bootinfo.sysdefaults = capkpi.defaults.get_defaults()
+	bootinfo.server_date = capkpi.utils.nowdate()
 
-	if frappe.session["user"] != "Guest":
+	if capkpi.session["user"] != "Guest":
 		bootinfo.user_info = get_user_info()
-		bootinfo.sid = frappe.session["sid"]
+		bootinfo.sid = capkpi.session["sid"]
 
 	bootinfo.modules = {}
 	bootinfo.module_list = []
 	load_desktop_data(bootinfo)
 	bootinfo.letter_heads = get_letter_heads()
-	bootinfo.active_domains = frappe.get_active_domains()
-	bootinfo.all_domains = [d.get("name") for d in frappe.get_all("Domain")]
+	bootinfo.active_domains = capkpi.get_active_domains()
+	bootinfo.all_domains = [d.get("name") for d in capkpi.get_all("Domain")]
 	add_layouts(bootinfo)
 
-	bootinfo.module_app = frappe.local.module_app
-	bootinfo.single_types = [d.name for d in frappe.get_all("DocType", {"issingle": 1})]
+	bootinfo.module_app = capkpi.local.module_app
+	bootinfo.single_types = [d.name for d in capkpi.get_all("DocType", {"issingle": 1})]
 	bootinfo.nested_set_doctypes = [
-		d.parent for d in frappe.get_all("DocField", {"fieldname": "lft"}, ["parent"])
+		d.parent for d in capkpi.get_all("DocField", {"fieldname": "lft"}, ["parent"])
 	]
 	add_home_page(bootinfo, doclist)
 	bootinfo.page_info = get_allowed_pages()
@@ -66,33 +66,33 @@ def get_bootinfo():
 	load_conf_settings(bootinfo)
 	load_print(bootinfo, doclist)
 	doclist.extend(get_meta_bundle("Page"))
-	bootinfo.home_folder = frappe.db.get_value("File", {"is_home_folder": 1})
+	bootinfo.home_folder = capkpi.db.get_value("File", {"is_home_folder": 1})
 	bootinfo.navbar_settings = get_navbar_settings()
 	bootinfo.notification_settings = get_notification_settings()
 
 	# ipinfo
-	if frappe.session.data.get("ipinfo"):
-		bootinfo.ipinfo = frappe.session["data"]["ipinfo"]
+	if capkpi.session.data.get("ipinfo"):
+		bootinfo.ipinfo = capkpi.session["data"]["ipinfo"]
 
 	# add docs
 	bootinfo.docs = doclist
 
 	for method in hooks.boot_session or []:
-		frappe.get_attr(method)(bootinfo)
+		capkpi.get_attr(method)(bootinfo)
 
 	if bootinfo.lang:
 		bootinfo.lang = text_type(bootinfo.lang)
 	bootinfo.versions = {k: v["version"] for k, v in get_versions().items()}
 
-	bootinfo.error_report_email = frappe.conf.error_report_email
-	bootinfo.calendars = sorted(frappe.get_hooks("calendars"))
-	bootinfo.treeviews = frappe.get_hooks("treeviews") or []
+	bootinfo.error_report_email = capkpi.conf.error_report_email
+	bootinfo.calendars = sorted(capkpi.get_hooks("calendars"))
+	bootinfo.treeviews = capkpi.get_hooks("treeviews") or []
 	bootinfo.lang_dict = get_lang_dict()
 	bootinfo.success_action = get_success_action()
-	bootinfo.update(get_email_accounts(user=frappe.session.user))
+	bootinfo.update(get_email_accounts(user=capkpi.session.user))
 	bootinfo.energy_points_enabled = is_energy_point_enabled()
 	bootinfo.website_tracking_enabled = is_tracking_enabled()
-	bootinfo.points = get_energy_points(frappe.session.user)
+	bootinfo.points = get_energy_points(capkpi.session.user)
 	bootinfo.frequently_visited_links = frequently_visited_links()
 	bootinfo.link_preview_doctypes = get_link_preview_doctypes()
 	bootinfo.additional_filters_config = get_additional_filters_from_hooks()
@@ -105,7 +105,7 @@ def get_bootinfo():
 
 def get_letter_heads():
 	letter_heads = {}
-	for letter_head in frappe.get_all("Letter Head", fields=["name", "content", "footer"]):
+	for letter_head in capkpi.get_all("Letter Head", fields=["name", "content", "footer"]):
 		letter_heads.setdefault(
 			letter_head.name, {"header": letter_head.content, "footer": letter_head.footer}
 		)
@@ -114,7 +114,7 @@ def get_letter_heads():
 
 
 def load_conf_settings(bootinfo):
-	from frappe import conf
+	from capkpi import conf
 
 	bootinfo.max_file_size = conf.get("max_file_size") or 10485760
 	for key in ("developer_mode", "socketio_port", "file_watcher_port"):
@@ -123,11 +123,11 @@ def load_conf_settings(bootinfo):
 
 
 def load_desktop_data(bootinfo):
-	from frappe.desk.desktop import get_desk_sidebar_items
+	from capkpi.desk.desktop import get_desk_sidebar_items
 
 	bootinfo.allowed_workspaces = get_desk_sidebar_items()
 	bootinfo.module_page_map = get_controller("Workspace").get_module_page_map()
-	bootinfo.dashboards = frappe.get_all("Dashboard")
+	bootinfo.dashboards = capkpi.get_all("Dashboard")
 
 
 def get_allowed_pages(cache=False):
@@ -143,19 +143,19 @@ def get_allowed_report_names(cache=False):
 
 
 def get_user_pages_or_reports(parent, cache=False):
-	_cache = frappe.cache()
+	_cache = capkpi.cache()
 
 	if cache:
-		has_role = _cache.get_value("has_role:" + parent, user=frappe.session.user)
+		has_role = _cache.get_value("has_role:" + parent, user=capkpi.session.user)
 		if has_role:
 			return has_role
 
-	roles = frappe.get_roles()
+	roles = capkpi.get_roles()
 	has_role = {}
 	column = get_column(parent)
 
 	# get pages or reports set on custom role
-	pages_with_custom_roles = frappe.db.sql(
+	pages_with_custom_roles = capkpi.db.sql(
 		"""
 		select
 			`tabCustom Role`.{field} as name,
@@ -178,7 +178,7 @@ def get_user_pages_or_reports(parent, cache=False):
 	for p in pages_with_custom_roles:
 		has_role[p.name] = {"modified": p.modified, "title": p.title, "ref_doctype": p.ref_doctype}
 
-	pages_with_standard_roles = frappe.db.sql(
+	pages_with_standard_roles = capkpi.db.sql(
 		"""
 		select distinct
 			`tab{parent}`.name as name,
@@ -211,7 +211,7 @@ def get_user_pages_or_reports(parent, cache=False):
 
 	# pages with no role are allowed
 	if parent == "Page":
-		pages_with_no_roles = frappe.db.sql(
+		pages_with_no_roles = capkpi.db.sql(
 			"""
 			select
 				`tab{parent}`.name, `tab{parent}`.modified, {column}
@@ -230,7 +230,7 @@ def get_user_pages_or_reports(parent, cache=False):
 				has_role[p.name] = {"modified": p.modified, "title": p.title}
 
 	elif parent == "Report":
-		reports = frappe.get_all(
+		reports = capkpi.get_all(
 			"Report",
 			fields=["name", "report_type"],
 			filters={"name": ("in", has_role.keys())},
@@ -240,7 +240,7 @@ def get_user_pages_or_reports(parent, cache=False):
 			has_role[report.name]["report_type"] = report.report_type
 
 	# Expire every six hours
-	_cache.set_value("has_role:" + parent, has_role, frappe.session.user, 21600)
+	_cache.set_value("has_role:" + parent, has_role, capkpi.session.user, 21600)
 	return has_role
 
 
@@ -253,13 +253,13 @@ def get_column(doctype):
 
 
 def load_translations(bootinfo):
-	messages = frappe.get_lang_dict("boot")
+	messages = capkpi.get_lang_dict("boot")
 
-	bootinfo["lang"] = frappe.lang
+	bootinfo["lang"] = capkpi.lang
 
 	# load translated report names
 	for name in bootinfo.user.all_reports:
-		messages[name] = frappe._(name)
+		messages[name] = capkpi._(name)
 
 	# only untranslated
 	messages = {k: v for k, v in iteritems(messages) if k != v}
@@ -268,7 +268,7 @@ def load_translations(bootinfo):
 
 
 def get_user_info():
-	user_info = frappe.db.get_all(
+	user_info = capkpi.db.get_all(
 		"User",
 		fields=[
 			"`name`",
@@ -298,71 +298,71 @@ def get_user_info():
 
 def get_user(bootinfo):
 	"""get user info"""
-	bootinfo.user = frappe.get_user().load_user()
+	bootinfo.user = capkpi.get_user().load_user()
 
 
 def add_home_page(bootinfo, docs):
 	"""load home page"""
-	if frappe.session.user == "Guest":
+	if capkpi.session.user == "Guest":
 		return
-	home_page = frappe.db.get_default("desktop:home_page")
+	home_page = capkpi.db.get_default("desktop:home_page")
 
 	if home_page == "setup-wizard":
-		bootinfo.setup_wizard_requires = frappe.get_hooks("setup_wizard_requires")
+		bootinfo.setup_wizard_requires = capkpi.get_hooks("setup_wizard_requires")
 
 	try:
-		page = frappe.desk.desk_page.get(home_page)
+		page = capkpi.desk.desk_page.get(home_page)
 		docs.append(page)
 		bootinfo["home_page"] = page.name
-	except (frappe.DoesNotExistError, frappe.PermissionError):
-		if frappe.message_log:
-			frappe.message_log.pop()
+	except (capkpi.DoesNotExistError, capkpi.PermissionError):
+		if capkpi.message_log:
+			capkpi.message_log.pop()
 		bootinfo["home_page"] = "Workspaces"
 
 
 def add_timezone_info(bootinfo):
 	system = bootinfo.sysdefaults.get("time_zone")
-	import frappe.utils.momentjs
+	import capkpi.utils.momentjs
 
 	bootinfo.timezone_info = {"zones": {}, "rules": {}, "links": {}}
-	frappe.utils.momentjs.update(system, bootinfo.timezone_info)
+	capkpi.utils.momentjs.update(system, bootinfo.timezone_info)
 
 
 def load_print(bootinfo, doclist):
-	print_settings = frappe.db.get_singles_dict("Print Settings")
+	print_settings = capkpi.db.get_singles_dict("Print Settings")
 	print_settings.doctype = ":Print Settings"
 	doclist.append(print_settings)
 	load_print_css(bootinfo, print_settings)
 
 
 def load_print_css(bootinfo, print_settings):
-	import frappe.www.printview
+	import capkpi.www.printview
 
-	bootinfo.print_css = frappe.www.printview.get_print_style(
+	bootinfo.print_css = capkpi.www.printview.get_print_style(
 		print_settings.print_style or "Redesign", for_legacy=True
 	)
 
 
 def get_unseen_notes():
-	return frappe.db.sql(
+	return capkpi.db.sql(
 		"""select `name`, title, content, notify_on_every_login from `tabNote` where notify_on_login=1
 		and expire_notification_on > %s and %s not in
 			(select user from `tabNote Seen By` nsb
 				where nsb.parent=`tabNote`.name)""",
-		(frappe.utils.now(), frappe.session.user),
+		(capkpi.utils.now(), capkpi.session.user),
 		as_dict=True,
 	)
 
 
 def get_success_action():
-	return frappe.get_all("Success Action", fields=["*"])
+	return capkpi.get_all("Success Action", fields=["*"])
 
 
 def get_link_preview_doctypes():
-	from frappe.utils import cint
+	from capkpi.utils import cint
 
-	link_preview_doctypes = [d.name for d in frappe.db.get_all("DocType", {"show_preview_popup": 1})]
-	customizations = frappe.get_all(
+	link_preview_doctypes = [d.name for d in capkpi.db.get_all("DocType", {"show_preview_popup": 1})]
+	customizations = capkpi.get_all(
 		"Property Setter", fields=["doc_type", "value"], filters={"property": "show_preview_popup"}
 	)
 
@@ -376,24 +376,24 @@ def get_link_preview_doctypes():
 
 
 def get_additional_filters_from_hooks():
-	filter_config = frappe._dict()
-	filter_hooks = frappe.get_hooks("filters_config")
+	filter_config = capkpi._dict()
+	filter_hooks = capkpi.get_hooks("filters_config")
 	for hook in filter_hooks:
-		filter_config.update(frappe.get_attr(hook)())
+		filter_config.update(capkpi.get_attr(hook)())
 
 	return filter_config
 
 
 def add_layouts(bootinfo):
 	# add routes for readable doctypes
-	bootinfo.doctype_layouts = frappe.get_all("DocType Layout", ["name", "route", "document_type"])
+	bootinfo.doctype_layouts = capkpi.get_all("DocType Layout", ["name", "route", "document_type"])
 
 
 def get_desk_settings():
-	role_list = frappe.get_all("Role", fields=["*"], filters=dict(name=["in", frappe.get_roles()]))
+	role_list = capkpi.get_all("Role", fields=["*"], filters=dict(name=["in", capkpi.get_roles()]))
 	desk_settings = {}
 
-	from frappe.core.doctype.role.role import desk_properties
+	from capkpi.core.doctype.role.role import desk_properties
 
 	for role in role_list:
 		for key in desk_properties:
@@ -403,4 +403,4 @@ def get_desk_settings():
 
 
 def get_notification_settings():
-	return frappe.get_cached_doc("Notification Settings", frappe.session.user)
+	return capkpi.get_cached_doc("Notification Settings", capkpi.session.user)

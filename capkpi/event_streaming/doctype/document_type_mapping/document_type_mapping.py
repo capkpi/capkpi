@@ -8,10 +8,10 @@ import json
 
 from six import iteritems
 
-import frappe
-from frappe import _
-from frappe.model import default_fields
-from frappe.model.document import Document
+import capkpi
+from capkpi import _
+from capkpi.model import default_fields
+from capkpi.model.document import Document
 
 
 class DocumentTypeMapping(Document):
@@ -19,26 +19,26 @@ class DocumentTypeMapping(Document):
 		self.validate_inner_mapping()
 
 	def validate_inner_mapping(self):
-		meta = frappe.get_meta(self.local_doctype)
+		meta = capkpi.get_meta(self.local_doctype)
 		for field_map in self.field_mapping:
 			if field_map.local_fieldname not in default_fields:
 				field = meta.get_field(field_map.local_fieldname)
 				if not field:
-					frappe.throw(_("Row #{0}: Invalid Local Fieldname").format(field_map.idx))
+					capkpi.throw(_("Row #{0}: Invalid Local Fieldname").format(field_map.idx))
 
 			fieldtype = field.get("fieldtype")
 			if fieldtype in ["Link", "Dynamic Link", "Table"]:
 				if not field_map.mapping and not field_map.default_value:
 					msg = _(
 						"Row #{0}: Please set Mapping or Default Value for the field {1} since its a dependency field"
-					).format(field_map.idx, frappe.bold(field_map.local_fieldname))
-					frappe.throw(msg, title="Inner Mapping Missing")
+					).format(field_map.idx, capkpi.bold(field_map.local_fieldname))
+					capkpi.throw(msg, title="Inner Mapping Missing")
 
 			if field_map.mapping_type == "Document" and not field_map.remote_value_filters:
 				msg = _(
 					"Row #{0}: Please set remote value filters for the field {1} to fetch the unique remote dependency document"
-				).format(field_map.idx, frappe.bold(field_map.remote_fieldname))
-				frappe.throw(msg, title="Remote Value Filters Missing")
+				).format(field_map.idx, capkpi.bold(field_map.remote_fieldname))
+				capkpi.throw(msg, title="Remote Value Filters Missing")
 
 	def get_mapping(self, doc, producer_site, update_type):
 		remote_fields = []
@@ -76,13 +76,13 @@ class DocumentTypeMapping(Document):
 		if update_type != "Update":
 			doc["doctype"] = self.local_doctype
 
-		mapping = {"doc": frappe.as_json(doc)}
+		mapping = {"doc": capkpi.as_json(doc)}
 		if len(dependencies):
 			mapping["dependencies"] = dependencies
 		return mapping
 
 	def get_mapped_update(self, update, producer_site):
-		update_diff = frappe._dict(json.loads(update.data))
+		update_diff = capkpi._dict(json.loads(update.data))
 		mapping = update_diff
 		dependencies = []
 		if update_diff.changed:
@@ -99,17 +99,17 @@ class DocumentTypeMapping(Document):
 		if update_diff.row_changed:
 			mapping = self.map_rows(update_diff, mapping, producer_site, operation="row_changed")
 
-		update = {"doc": frappe.as_json(mapping)}
+		update = {"doc": capkpi.as_json(mapping)}
 		if len(dependencies):
 			update["dependencies"] = dependencies
 		return update
 
 	def get_mapped_dependency(self, mapping, producer_site, doc):
-		inner_mapping = frappe.get_doc("Document Type Mapping", mapping.mapping)
+		inner_mapping = capkpi.get_doc("Document Type Mapping", mapping.mapping)
 		filters = json.loads(mapping.remote_value_filters)
 		for key, value in iteritems(filters):
 			if value.startswith("eval:"):
-				val = frappe.safe_eval(value[5:], None, dict(doc=doc))
+				val = capkpi.safe_eval(value[5:], None, dict(doc=doc))
 				filters[key] = val
 			if doc.get(value):
 				filters[key] = doc.get(value)
@@ -125,7 +125,7 @@ class DocumentTypeMapping(Document):
 		removed = []
 		mapping["removed"] = update_diff.removed
 		for key, value in iteritems(update_diff.removed.copy()):
-			local_table_name = frappe.db.get_value(
+			local_table_name = capkpi.db.get_value(
 				"Document Type Field Mapping",
 				{"remote_fieldname": key, "parent": self.name},
 				"local_fieldname",
@@ -142,15 +142,15 @@ class DocumentTypeMapping(Document):
 	def map_rows(self, update_diff, mapping, producer_site, operation):
 		remote_fields = []
 		for tablename, entries in iteritems(update_diff.get(operation).copy()):
-			local_table_name = frappe.db.get_value(
+			local_table_name = capkpi.db.get_value(
 				"Document Type Field Mapping", {"remote_fieldname": tablename}, "local_fieldname"
 			)
-			table_map = frappe.db.get_value(
+			table_map = capkpi.db.get_value(
 				"Document Type Field Mapping",
 				{"local_fieldname": local_table_name, "parent": self.name},
 				"mapping",
 			)
-			table_map = frappe.get_doc("Document Type Mapping", table_map)
+			table_map = capkpi.get_doc("Document Type Mapping", table_map)
 			docs = []
 			for entry in entries:
 				mapped_doc = table_map.get_mapping(entry, producer_site, "Update").get("doc")
@@ -168,7 +168,7 @@ class DocumentTypeMapping(Document):
 
 def get_mapped_child_table_docs(child_map, table_entries, producer_site):
 	"""Get mapping for child doctypes"""
-	child_map = frappe.get_doc("Document Type Mapping", child_map)
+	child_map = capkpi.get_doc("Document Type Mapping", child_map)
 	mapped_entries = []
 	remote_fields = []
 	for child_doc in table_entries:

@@ -8,10 +8,10 @@ import re
 
 from six import string_types
 
-import frappe
-from frappe import _
-from frappe.model import log_types
-from frappe.utils import cint, cstr, now_datetime
+import capkpi
+from capkpi import _
+from capkpi.model import log_types
+from capkpi.utils import cint, cstr, now_datetime
 
 # Types that can be using in naming series fields
 NAMING_SERIES_PART_TYPES = (
@@ -38,9 +38,9 @@ def set_new_name(doc):
 
 	doc.run_method("before_naming")
 
-	autoname = frappe.get_meta(doc.doctype).autoname or ""
+	autoname = capkpi.get_meta(doc.doctype).autoname or ""
 
-	if autoname.lower() != "prompt" and not frappe.flags.in_import:
+	if autoname.lower() != "prompt" and not capkpi.flags.in_import:
 		doc.name = None
 
 	if getattr(doc, "amended_from", None):
@@ -63,7 +63,7 @@ def set_new_name(doc):
 	# notify
 	if not doc.name and autoname.startswith("field:"):
 		fieldname = autoname[6:]
-		frappe.throw(_("{0} is required").format(doc.meta.get_label(fieldname)))
+		capkpi.throw(_("{0} is required").format(doc.meta.get_label(fieldname)))
 
 	# at this point, we fall back to name generation with the hash option
 	if not doc.name and autoname == "hash":
@@ -73,7 +73,7 @@ def set_new_name(doc):
 		doc.name = make_autoname("hash", doc.doctype)
 
 	doc.name = validate_name(
-		doc.doctype, doc.name, frappe.get_meta(doc.doctype).get_field("name_case")
+		doc.doctype, doc.name, capkpi.get_meta(doc.doctype).get_field("name_case")
 	)
 
 
@@ -104,13 +104,13 @@ def set_naming_from_document_naming_rule(doc):
 		return
 
 	# ignore_ddl if naming is not yet bootstrapped
-	for d in frappe.get_all(
+	for d in capkpi.get_all(
 		"Document Naming Rule",
 		dict(document_type=doc.doctype, disabled=0),
 		order_by="priority desc",
 		ignore_ddl=True,
 	):
-		frappe.get_cached_doc("Document Naming Rule", d.name).apply(doc)
+		capkpi.get_cached_doc("Document Naming Rule", d.name).apply(doc)
 		if doc.name:
 			break
 
@@ -121,7 +121,7 @@ def set_name_by_naming_series(doc):
 		doc.naming_series = get_default_naming_series(doc.doctype)
 
 	if not doc.naming_series:
-		frappe.throw(frappe._("Naming Series mandatory"))
+		capkpi.throw(capkpi._("Naming Series mandatory"))
 
 	doc.name = make_autoname(doc.naming_series + ".#####", "", doc)
 
@@ -145,7 +145,7 @@ def make_autoname(key="", doctype="", doc=""):
 	                DE/09/01/0001 where 09 is the year, 01 is the month and 0001 is the series
 	"""
 	if key == "hash":
-		return frappe.generate_hash(doctype, 10)
+		return capkpi.generate_hash(doctype, 10)
 
 	if "#" not in key:
 		key = key + ".#####"
@@ -154,7 +154,7 @@ def make_autoname(key="", doctype="", doc=""):
 		if doctype:
 			error_message = _("Invalid naming series (. missing) for {0}").format(doctype)
 
-		frappe.throw(error_message)
+		capkpi.throw(error_message)
 
 	parts = key.split(".")
 	n = parse_naming_series(parts, doctype, doc)
@@ -190,7 +190,7 @@ def parse_naming_series(parts, doctype="", doc=""):
 		elif e == "timestamp":
 			part = str(today)
 		elif e == "FY":
-			part = frappe.defaults.get_user_default("fiscal_year")
+			part = capkpi.defaults.get_user_default("fiscal_year")
 		elif e.startswith("{") and doc:
 			e = e.replace("{", "").replace("}", "")
 			part = doc.get(e)
@@ -222,15 +222,15 @@ def determine_consecutive_week_number(datetime):
 
 def getseries(key, digits):
 	# series created ?
-	current = frappe.db.sql("SELECT `current` FROM `tabSeries` WHERE `name`=%s FOR UPDATE", (key,))
+	current = capkpi.db.sql("SELECT `current` FROM `tabSeries` WHERE `name`=%s FOR UPDATE", (key,))
 	if current and current[0][0] is not None:
 		current = current[0][0]
 		# yes, update it
-		frappe.db.sql("UPDATE `tabSeries` SET `current` = `current` + 1 WHERE `name`=%s", (key,))
+		capkpi.db.sql("UPDATE `tabSeries` SET `current` = `current` + 1 WHERE `name`=%s", (key,))
 		current = cint(current) + 1
 	else:
 		# no, create it
-		frappe.db.sql("INSERT INTO `tabSeries` (`name`, `current`) VALUES (%s, 1)", (key,))
+		capkpi.db.sql("INSERT INTO `tabSeries` (`name`, `current`) VALUES (%s, 1)", (key,))
 		current = 1
 	return ("%0" + str(digits) + "d") % current
 
@@ -247,15 +247,15 @@ def revert_series_if_last(key, name, doc=None):
 		prefix = parse_naming_series(prefix.split("."), doc=doc)
 
 	count = cint(name.replace(prefix, ""))
-	current = frappe.db.sql("SELECT `current` FROM `tabSeries` WHERE `name`=%s FOR UPDATE", (prefix,))
+	current = capkpi.db.sql("SELECT `current` FROM `tabSeries` WHERE `name`=%s FOR UPDATE", (prefix,))
 
 	if current and current[0][0] == count:
-		frappe.db.sql("UPDATE `tabSeries` SET `current` = `current` - 1 WHERE `name`=%s", prefix)
+		capkpi.db.sql("UPDATE `tabSeries` SET `current` = `current` - 1 WHERE `name`=%s", prefix)
 
 
 def get_default_naming_series(doctype):
 	"""get default value for `naming_series` property"""
-	naming_series = frappe.get_meta(doctype).get_field("naming_series").options or ""
+	naming_series = capkpi.get_meta(doctype).get_field("naming_series").options or ""
 	if naming_series:
 		naming_series = naming_series.split("\n")
 		return naming_series[0] or naming_series[1]
@@ -265,10 +265,10 @@ def get_default_naming_series(doctype):
 
 def validate_name(doctype, name, case=None, merge=False):
 	if not name:
-		frappe.throw(_("No Name Specified for {0}").format(doctype))
+		capkpi.throw(_("No Name Specified for {0}").format(doctype))
 	if name.startswith("New " + doctype):
-		frappe.throw(
-			_("There were some errors setting the name, please contact the administrator"), frappe.NameError
+		capkpi.throw(
+			_("There were some errors setting the name, please contact the administrator"), capkpi.NameError
 		)
 	if case == "Title Case":
 		name = name.title()
@@ -276,14 +276,14 @@ def validate_name(doctype, name, case=None, merge=False):
 		name = name.upper()
 	name = name.strip()
 
-	if not frappe.get_meta(doctype).get("issingle") and (doctype == name) and (name != "DocType"):
-		frappe.throw(_("Name of {0} cannot be {1}").format(doctype, name), frappe.NameError)
+	if not capkpi.get_meta(doctype).get("issingle") and (doctype == name) and (name != "DocType"):
+		capkpi.throw(_("Name of {0} cannot be {1}").format(doctype, name), capkpi.NameError)
 
 	special_characters = "<>"
 	if re.findall("[{0}]+".format(special_characters), name):
 		message = ", ".join("'{0}'".format(c) for c in special_characters)
-		frappe.throw(
-			_("Name cannot contain special characters like {0}").format(message), frappe.NameError
+		capkpi.throw(
+			_("Name cannot contain special characters like {0}").format(message), capkpi.NameError
 		)
 
 	return name
@@ -293,17 +293,17 @@ def append_number_if_name_exists(doctype, value, fieldname="name", separator="-"
 	if not filters:
 		filters = dict()
 	filters.update({fieldname: value})
-	exists = frappe.db.exists(doctype, filters)
+	exists = capkpi.db.exists(doctype, filters)
 
 	regex = "^{value}{separator}\\d+$".format(value=re.escape(value), separator=separator)
 
 	if exists:
-		last = frappe.db.sql(
+		last = capkpi.db.sql(
 			"""SELECT `{fieldname}` FROM `tab{doctype}`
 			WHERE `{fieldname}` {regex_character} %s
 			ORDER BY length({fieldname}) DESC,
 			`{fieldname}` DESC LIMIT 1""".format(
-				doctype=doctype, fieldname=fieldname, regex_character=frappe.db.REGEX_CHARACTER
+				doctype=doctype, fieldname=fieldname, regex_character=capkpi.db.REGEX_CHARACTER
 			),
 			regex,
 		)
@@ -321,7 +321,7 @@ def append_number_if_name_exists(doctype, value, fieldname="name", separator="-"
 def _set_amended_name(doc):
 	am_id = 1
 	am_prefix = doc.amended_from
-	if frappe.db.get_value(doc.doctype, doc.amended_from, "amended_from"):
+	if capkpi.db.get_value(doc.doctype, doc.amended_from, "amended_from"):
 		am_id = cint(doc.amended_from.split("-")[-1]) + 1
 		am_prefix = "-".join(doc.amended_from.split("-")[:-1])  # except the last hyphen
 
@@ -346,7 +346,7 @@ def _prompt_autoname(autoname, doc):
 	"""
 	# set from __newname in save.py
 	if not doc.name:
-		frappe.throw(_("Name not set via prompt"))
+		capkpi.throw(_("Name not set via prompt"))
 
 
 def _format_autoname(autoname, doc):

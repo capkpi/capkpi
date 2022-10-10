@@ -6,39 +6,39 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
 
 
 class SessionDefaultSettings(Document):
 	pass
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_session_default_values():
-	settings = frappe.get_single("Session Default Settings")
+	settings = capkpi.get_single("Session Default Settings")
 	fields = []
 	for default_values in settings.session_defaults:
-		reference_doctype = frappe.scrub(default_values.ref_doctype)
+		reference_doctype = capkpi.scrub(default_values.ref_doctype)
 		fields.append(
 			{
 				"fieldname": reference_doctype,
 				"fieldtype": "Link",
 				"options": default_values.ref_doctype,
 				"label": _("Default {0}").format(_(default_values.ref_doctype)),
-				"default": frappe.defaults.get_user_default(reference_doctype),
+				"default": capkpi.defaults.get_user_default(reference_doctype),
 			}
 		)
 	return json.dumps(fields)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def set_session_default_values(default_values):
-	default_values = frappe.parse_json(default_values)
+	default_values = capkpi.parse_json(default_values)
 	for entry in default_values:
 		try:
-			frappe.defaults.set_user_default(entry, default_values.get(entry))
+			capkpi.defaults.set_user_default(entry, default_values.get(entry))
 		except Exception:
 			return
 	return "success"
@@ -46,6 +46,6 @@ def set_session_default_values(default_values):
 
 # called on hook 'on_logout' to clear defaults for the session
 def clear_session_defaults():
-	settings = frappe.get_single("Session Default Settings").session_defaults
+	settings = capkpi.get_single("Session Default Settings").session_defaults
 	for entry in settings:
-		frappe.defaults.clear_user_default(frappe.scrub(entry.ref_doctype))
+		capkpi.defaults.clear_user_default(capkpi.scrub(entry.ref_doctype))

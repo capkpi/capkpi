@@ -174,6 +174,6 @@ function ensure_js_css_dirs() {
 }
 
 function show_production_message() {
-	const production = process.env.FRAPPE_ENV === 'production';
+	const production = process.env.CAPKPI_ENV === 'production';
 	log(chalk.yellow(`${production ? 'Production' : 'Development'} mode`));
 }

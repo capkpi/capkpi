@@ -9,27 +9,27 @@ from __future__ import print_function, unicode_literals
 """
 import os
 
-import frappe
-from frappe.modules.import_file import import_file_by_path
-from frappe.modules.patch_handler import block_user
-from frappe.utils import update_progress_bar
+import capkpi
+from capkpi.modules.import_file import import_file_by_path
+from capkpi.modules.patch_handler import block_user
+from capkpi.utils import update_progress_bar
 
 
 def sync_all(force=0, verbose=False, reset_permissions=False):
 	block_user(True)
 
-	for app in frappe.get_installed_apps():
+	for app in capkpi.get_installed_apps():
 		sync_for(app, force, verbose=verbose, reset_permissions=reset_permissions)
 
 	block_user(False)
 
-	frappe.clear_cache()
+	capkpi.clear_cache()
 
 
 def sync_for(app_name, force=0, sync_everything=False, verbose=False, reset_permissions=False):
 	files = []
 
-	if app_name == "frappe":
+	if app_name == "capkpi":
 		# these need to go first at time of install
 		for d in (
 			("core", "docfield"),
@@ -62,10 +62,10 @@ def sync_for(app_name, force=0, sync_everything=False, verbose=False, reset_perm
 			("desk", "workspace_shortcut"),
 			("desk", "workspace"),
 		):
-			files.append(os.path.join(frappe.get_app_path("frappe"), d[0], "doctype", d[1], d[1] + ".json"))
+			files.append(os.path.join(capkpi.get_app_path("capkpi"), d[0], "doctype", d[1], d[1] + ".json"))
 
-	for module_name in frappe.local.app_modules.get(app_name) or []:
-		folder = os.path.dirname(frappe.get_module(app_name + "." + module_name).__file__)
+	for module_name in capkpi.local.app_modules.get(app_name) or []:
+		folder = os.path.dirname(capkpi.get_module(app_name + "." + module_name).__file__)
 		files = get_doc_files(files, folder)
 
 	l = len(files)
@@ -76,7 +76,7 @@ def sync_for(app_name, force=0, sync_everything=False, verbose=False, reset_perm
 				doc_path, force=force, ignore_version=True, reset_permissions=reset_permissions
 			)
 
-			frappe.db.commit()
+			capkpi.db.commit()
 
 			# show progress bar
 			update_progress_bar("Updating DocTypes for {0}".format(app_name), i, l)

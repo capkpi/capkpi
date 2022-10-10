@@ -6,32 +6,32 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe.model.document import Document
-from frappe.utils.safe_exec import safe_exec
+import capkpi
+from capkpi.model.document import Document
+from capkpi.utils.safe_exec import safe_exec
 
 
 class SystemConsole(Document):
 	def run(self):
-		frappe.only_for("System Manager")
+		capkpi.only_for("System Manager")
 		try:
-			frappe.debug_log = []
+			capkpi.debug_log = []
 			safe_exec(self.console)
-			self.output = "\n".join(frappe.debug_log)
+			self.output = "\n".join(capkpi.debug_log)
 		except Exception:
-			self.output = frappe.get_traceback()
+			self.output = capkpi.get_traceback()
 
 		if self.commit:
-			frappe.db.commit()
+			capkpi.db.commit()
 		else:
-			frappe.db.rollback()
+			capkpi.db.rollback()
 
-		frappe.get_doc(dict(doctype="Console Log", script=self.console, output=self.output)).insert()
-		frappe.db.commit()
+		capkpi.get_doc(dict(doctype="Console Log", script=self.console, output=self.output)).insert()
+		capkpi.db.commit()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def execute_code(doc):
-	console = frappe.get_doc(json.loads(doc))
+	console = capkpi.get_doc(json.loads(doc))
 	console.run()
 	return console.as_dict()

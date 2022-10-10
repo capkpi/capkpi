@@ -6,15 +6,15 @@
 from __future__ import unicode_literals
 
 # imports - module imports
-import frappe
-from frappe.model.document import Document
+import capkpi
+from capkpi.model.document import Document
 
 
 class AccessLog(Document):
 	pass
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def make_access_log(
 	doctype=None,
 	document=None,
@@ -37,7 +37,7 @@ def make_access_log(
 	)
 
 
-@frappe.write_only()
+@capkpi.write_only()
 def _make_access_log(
 	doctype=None,
 	document=None,
@@ -48,10 +48,10 @@ def _make_access_log(
 	page=None,
 	columns=None,
 ):
-	user = frappe.session.user
-	in_request = frappe.request and frappe.request.method == "GET"
+	user = capkpi.session.user
+	in_request = capkpi.request and capkpi.request.method == "GET"
 
-	doc = frappe.get_doc(
+	doc = capkpi.get_doc(
 		{
 			"doctype": "Access Log",
 			"user": user,
@@ -61,14 +61,14 @@ def _make_access_log(
 			"report_name": report_name,
 			"page": page,
 			"method": method,
-			"filters": frappe.utils.cstr(filters) if filters else None,
+			"filters": capkpi.utils.cstr(filters) if filters else None,
 			"columns": columns,
 		}
 	)
 	doc.insert(ignore_permissions=True)
 
-	# `frappe.db.commit` added because insert doesnt `commit` when called in GET requests like `printview`
+	# `capkpi.db.commit` added because insert doesnt `commit` when called in GET requests like `printview`
 	# dont commit in test mode. It must be tempting to put this block along with the in_request in the
 	# whitelisted method...yeah, don't do it. That part would be executed possibly on a read only DB conn
-	if not frappe.flags.in_test or in_request:
-		frappe.db.commit()
+	if not capkpi.flags.in_test or in_request:
+		capkpi.db.commit()

@@ -5,18 +5,18 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
+import capkpi
 
-test_records = frappe.get_test_records("Note")
+test_records = capkpi.get_test_records("Note")
 
 
 class TestNote(unittest.TestCase):
 	def insert_note(self):
-		frappe.db.sql("delete from tabVersion")
-		frappe.db.sql("delete from tabNote")
-		frappe.db.sql("delete from `tabNote Seen By`")
+		capkpi.db.sql("delete from tabVersion")
+		capkpi.db.sql("delete from tabNote")
+		capkpi.db.sql("delete from `tabNote Seen By`")
 
-		return frappe.get_doc(
+		return capkpi.get_doc(
 			dict(doctype="Note", title="test note", content="test note content")
 		).insert()
 
@@ -26,7 +26,7 @@ class TestNote(unittest.TestCase):
 		note.content = "1"
 		note.save(ignore_version=False)
 
-		version = frappe.get_doc("Version", dict(docname=note.name))
+		version = capkpi.get_doc("Version", dict(docname=note.name))
 		data = version.get_data()
 
 		self.assertTrue(("title", "test note", "test note 1"), data["changed"])
@@ -39,7 +39,7 @@ class TestNote(unittest.TestCase):
 		note.append("seen_by", {"user": "Administrator"})
 		note.save(ignore_version=False)
 
-		version = frappe.get_doc("Version", dict(docname=note.name))
+		version = capkpi.get_doc("Version", dict(docname=note.name))
 		data = version.get_data()
 
 		self.assertEqual(len(data.get("added")), 1)
@@ -54,7 +54,7 @@ class TestNote(unittest.TestCase):
 		note.seen_by[0].user = "Guest"
 		note.save(ignore_version=False)
 
-		version = frappe.get_doc("Version", dict(docname=note.name))
+		version = capkpi.get_doc("Version", dict(docname=note.name))
 		data = version.get_data()
 
 		self.assertEqual(len(data.get("row_changed")), 1)
@@ -68,7 +68,7 @@ class TestNote(unittest.TestCase):
 		note.seen_by = []
 		note.save(ignore_version=False)
 
-		version = frappe.get_doc("Version", dict(docname=note.name))
+		version = capkpi.get_doc("Version", dict(docname=note.name))
 		data = version.get_data()
 
 		self.assertEqual(len(data.get("removed")), 1)

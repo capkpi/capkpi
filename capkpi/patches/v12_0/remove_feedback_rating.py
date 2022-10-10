@@ -1,4 +1,4 @@
-import frappe
+import capkpi
 
 
 def execute():
@@ -6,5 +6,5 @@ def execute():
 	Deprecate Feedback Trigger and Rating. This feature was not customizable.
 	Now can be achieved via custom Web Forms
 	"""
-	frappe.delete_doc("DocType", "Feedback Trigger")
-	frappe.delete_doc("DocType", "Feedback Rating")
+	capkpi.delete_doc("DocType", "Feedback Trigger")
+	capkpi.delete_doc("DocType", "Feedback Rating")

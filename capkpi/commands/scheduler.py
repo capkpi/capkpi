@@ -4,23 +4,23 @@ import sys
 
 import click
 
-import frappe
-from frappe.commands import get_site, pass_context
-from frappe.exceptions import SiteNotSpecifiedError
-from frappe.utils import cint
+import capkpi
+from capkpi.commands import get_site, pass_context
+from capkpi.exceptions import SiteNotSpecifiedError
+from capkpi.utils import cint
 
 
 def _is_scheduler_enabled():
 	enable_scheduler = False
 	try:
-		frappe.connect()
+		capkpi.connect()
 		enable_scheduler = (
-			cint(frappe.db.get_single_value("System Settings", "enable_scheduler")) and True or False
+			cint(capkpi.db.get_single_value("System Settings", "enable_scheduler")) and True or False
 		)
 	except Exception:
 		pass
 	finally:
-		frappe.db.close()
+		capkpi.db.close()
 
 	return enable_scheduler
 
@@ -29,21 +29,21 @@ def _is_scheduler_enabled():
 @click.argument("event")
 @pass_context
 def trigger_scheduler_event(context, event):
-	import frappe.utils.scheduler
+	import capkpi.utils.scheduler
 
 	exit_code = 0
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
+			capkpi.init(site=site)
+			capkpi.connect()
 			try:
-				frappe.get_doc("Scheduled Job Type", {"method": event}).execute()
-			except frappe.DoesNotExistError:
+				capkpi.get_doc("Scheduled Job Type", {"method": event}).execute()
+			except capkpi.DoesNotExistError:
 				click.secho(f"Event {event} does not exist!", fg="red")
 				exit_code = 1
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 
 	if not context.sites:
 		raise SiteNotSpecifiedError
@@ -55,17 +55,17 @@ def trigger_scheduler_event(context, event):
 @pass_context
 def enable_scheduler(context):
 	"Enable scheduler"
-	import frappe.utils.scheduler
+	import capkpi.utils.scheduler
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
-			frappe.utils.scheduler.enable_scheduler()
-			frappe.db.commit()
+			capkpi.init(site=site)
+			capkpi.connect()
+			capkpi.utils.scheduler.enable_scheduler()
+			capkpi.db.commit()
 			print("Enabled for", site)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -74,17 +74,17 @@ def enable_scheduler(context):
 @pass_context
 def disable_scheduler(context):
 	"Disable scheduler"
-	import frappe.utils.scheduler
+	import capkpi.utils.scheduler
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
-			frappe.utils.scheduler.disable_scheduler()
-			frappe.db.commit()
+			capkpi.init(site=site)
+			capkpi.connect()
+			capkpi.utils.scheduler.disable_scheduler()
+			capkpi.db.commit()
 			print("Disabled for", site)
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -94,32 +94,32 @@ def disable_scheduler(context):
 @click.argument("state", type=click.Choice(["pause", "resume", "disable", "enable"]))
 @pass_context
 def scheduler(context, state, site=None):
-	import frappe.utils.scheduler
-	from frappe.installer import update_site_config
+	import capkpi.utils.scheduler
+	from capkpi.installer import update_site_config
 
 	if not site:
 		site = get_site(context)
 
 	try:
-		frappe.init(site=site)
+		capkpi.init(site=site)
 
 		if state == "pause":
 			update_site_config("pause_scheduler", 1)
 		elif state == "resume":
 			update_site_config("pause_scheduler", 0)
 		elif state == "disable":
-			frappe.connect()
-			frappe.utils.scheduler.disable_scheduler()
-			frappe.db.commit()
+			capkpi.connect()
+			capkpi.utils.scheduler.disable_scheduler()
+			capkpi.db.commit()
 		elif state == "enable":
-			frappe.connect()
-			frappe.utils.scheduler.enable_scheduler()
-			frappe.db.commit()
+			capkpi.connect()
+			capkpi.utils.scheduler.enable_scheduler()
+			capkpi.db.commit()
 
 		print("Scheduler {0}d for site {1}".format(state, site))
 
 	finally:
-		frappe.destroy()
+		capkpi.destroy()
 
 
 @click.command("set-maintenance-mode")
@@ -127,17 +127,17 @@ def scheduler(context, state, site=None):
 @click.argument("state", type=click.Choice(["on", "off"]))
 @pass_context
 def set_maintenance_mode(context, state, site=None):
-	from frappe.installer import update_site_config
+	from capkpi.installer import update_site_config
 
 	if not site:
 		site = get_site(context)
 
 	try:
-		frappe.init(site=site)
+		capkpi.init(site=site)
 		update_site_config("maintenance_mode", 1 if (state == "on") else 0)
 
 	finally:
-		frappe.destroy()
+		capkpi.destroy()
 
 
 @click.command(
@@ -147,7 +147,7 @@ def set_maintenance_mode(context, state, site=None):
 @pass_context
 def doctor(context, site=None):
 	"Get diagnostic info about background workers"
-	from frappe.utils.doctor import doctor as _doctor
+	from capkpi.utils.doctor import doctor as _doctor
 
 	if not site:
 		site = get_site(context, raise_err=False)
@@ -159,12 +159,12 @@ def doctor(context, site=None):
 @pass_context
 def show_pending_jobs(context, site=None):
 	"Get diagnostic info about background jobs"
-	from frappe.utils.doctor import pending_jobs as _pending_jobs
+	from capkpi.utils.doctor import pending_jobs as _pending_jobs
 
 	if not site:
 		site = get_site(context)
 
-	with frappe.init_site(site):
+	with capkpi.init_site(site):
 		pending_jobs = _pending_jobs(site=site)
 
 	return pending_jobs
@@ -180,16 +180,16 @@ def show_pending_jobs(context, site=None):
 )
 def purge_jobs(site=None, queue=None, event=None):
 	"Purge any pending periodic tasks, if event option is not given, it will purge everything for the site"
-	from frappe.utils.doctor import purge_pending_jobs
+	from capkpi.utils.doctor import purge_pending_jobs
 
-	frappe.init(site or "")
+	capkpi.init(site or "")
 	count = purge_pending_jobs(event=event, site=site, queue=queue)
 	print("Purged {} jobs".format(count))
 
 
 @click.command("schedule")
 def start_scheduler():
-	from frappe.utils.scheduler import start_scheduler
+	from capkpi.utils.scheduler import start_scheduler
 
 	start_scheduler()
 
@@ -198,7 +198,7 @@ def start_scheduler():
 @click.option("--queue", type=str)
 @click.option("--quiet", is_flag=True, default=False, help="Hide Log Outputs")
 def start_worker(queue, quiet=False):
-	from frappe.utils.background_jobs import start_worker
+	from capkpi.utils.background_jobs import start_worker
 
 	start_worker(queue, quiet=quiet)
 
@@ -207,13 +207,13 @@ def start_worker(queue, quiet=False):
 @click.option("--site", help="site name")
 @pass_context
 def ready_for_migration(context, site=None):
-	from frappe.utils.doctor import get_pending_jobs
+	from capkpi.utils.doctor import get_pending_jobs
 
 	if not site:
 		site = get_site(context)
 
 	try:
-		frappe.init(site=site)
+		capkpi.init(site=site)
 		pending_jobs = get_pending_jobs(site=site)
 
 		if pending_jobs:
@@ -225,7 +225,7 @@ def ready_for_migration(context, site=None):
 			return 0
 
 	finally:
-		frappe.destroy()
+		capkpi.destroy()
 
 
 commands = [

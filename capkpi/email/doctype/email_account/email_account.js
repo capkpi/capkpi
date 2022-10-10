@@ -1,4 +1,4 @@
-frappe.email_defaults = {
+capkpi.email_defaults = {
 	"GMail": {
 		"email_server": "imap.gmail.com",
 		"use_ssl": 1,
@@ -50,7 +50,7 @@ frappe.email_defaults = {
 	},
 };
 
-frappe.email_defaults_pop = {
+capkpi.email_defaults_pop = {
 	"GMail": {
 		"email_server": "pop.gmail.com"
 	},
@@ -66,13 +66,13 @@ frappe.email_defaults_pop = {
 
 };
 
-frappe.ui.form.on("Email Account", {
+capkpi.ui.form.on("Email Account", {
 	service: function(frm) {
-		$.each(frappe.email_defaults[frm.doc.service], function(key, value) {
+		$.each(capkpi.email_defaults[frm.doc.service], function(key, value) {
 			frm.set_value(key, value);
 		});
 		if (!frm.doc.use_imap) {
-			$.each(frappe.email_defaults_pop[frm.doc.service], function(key, value) {
+			$.each(capkpi.email_defaults_pop[frm.doc.service], function(key, value) {
 				frm.set_value(key, value);
 			});
 		}
@@ -81,12 +81,12 @@ frappe.ui.form.on("Email Account", {
 
 	use_imap: function(frm) {
 		if (!frm.doc.use_imap) {
-			$.each(frappe.email_defaults_pop[frm.doc.service], function(key, value) {
+			$.each(capkpi.email_defaults_pop[frm.doc.service], function(key, value) {
 				frm.set_value(key, value);
 			});
 		}
 		else{
-			$.each(frappe.email_defaults[frm.doc.service], function(key, value) {
+			$.each(capkpi.email_defaults[frm.doc.service], function(key, value) {
 				frm.set_value(key, value);
 			});
 		}
@@ -108,7 +108,7 @@ frappe.ui.form.on("Email Account", {
 
 	onload: function(frm) {
 		frm.set_df_property("append_to", "only_select", true);
-		frm.set_query("append_to", "frappe.email.doctype.email_account.email_account.get_append_to");
+		frm.set_query("append_to", "capkpi.email.doctype.email_account.email_account.get_append_to");
 	},
 
 	refresh: function(frm) {
@@ -117,9 +117,9 @@ frappe.ui.form.on("Email Account", {
 		frm.events.notify_if_unreplied(frm);
 		frm.events.show_gmail_message_for_less_secure_apps(frm);
 
-		if(frappe.route_flags.delete_user_from_locals && frappe.route_flags.linked_user) {
-			delete frappe.route_flags.delete_user_from_locals;
-			delete locals['User'][frappe.route_flags.linked_user];
+		if(capkpi.route_flags.delete_user_from_locals && capkpi.route_flags.linked_user) {
+			delete capkpi.route_flags.delete_user_from_locals;
+			delete locals['User'][capkpi.route_flags.linked_user];
 		}
 	},
 
@@ -143,7 +143,7 @@ frappe.ui.form.on("Email Account", {
 			return;
 		}
 
-		frappe.call({
+		capkpi.call({
 			method: 'get_domain',
 			doc: frm.doc,
 			args: {
@@ -159,15 +159,15 @@ frappe.ui.form.on("Email Account", {
 
 	set_domain_fields: function(frm, args) {
 		if(!args){
-			args = frappe.route_flags.set_domain_values? frappe.route_options: {};
+			args = capkpi.route_flags.set_domain_values? capkpi.route_options: {};
 		}
 
 		for(var field in args) {
 			frm.set_value(field, args[field]);
 		}
 
-		delete frappe.route_flags.set_domain_values;
-		frappe.route_options = {};
+		delete capkpi.route_flags.set_domain_values;
+		capkpi.route_options = {};
 	},
 
 	email_sync_option: function(frm) {
@@ -177,7 +177,7 @@ frappe.ui.form.on("Email Account", {
 			var msg = __("You are selecting Sync Option as ALL, It will resync all \
 				read as well as unread message from server. This may also cause the duplication\
 				of Communication (emails).");
-			frappe.confirm(msg, null, function() {
+			capkpi.confirm(msg, null, function() {
 				frm.set_value("email_sync_option", "UNSEEN");
 			});
 		}
@@ -187,9 +187,9 @@ frappe.ui.form.on("Email Account", {
 		if (frm.doc.enable_incoming && frm.doc.enable_auto_reply && frm.doc.__islocal) {
 			var msg = __("Enabling auto reply on an incoming email account will send automated replies \
 				to all the synchronized emails. Do you wish to continue?");
-			frappe.confirm(msg, null, function() {
+			capkpi.confirm(msg, null, function() {
 				frm.set_value("enable_auto_reply", 0);
-				frappe.show_alert({message: __("Disabled Auto Reply"), indicator: "blue"});
+				capkpi.show_alert({message: __("Disabled Auto Reply"), indicator: "blue"});
 			});
 		}
 	}

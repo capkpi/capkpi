@@ -2,8 +2,8 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import click
 
-from frappe.commands import get_site, pass_context
-from frappe.exceptions import SiteNotSpecifiedError
+from capkpi.commands import get_site, pass_context
+from capkpi.exceptions import SiteNotSpecifiedError
 
 
 # translation
@@ -11,15 +11,15 @@ from frappe.exceptions import SiteNotSpecifiedError
 @pass_context
 def build_message_files(context):
 	"Build message files for translation"
-	import frappe.translate
+	import capkpi.translate
 
 	for site in context.sites:
 		try:
-			frappe.init(site=site)
-			frappe.connect()
-			frappe.translate.rebuild_all_translation_files()
+			capkpi.init(site=site)
+			capkpi.connect()
+			capkpi.translate.rebuild_all_translation_files()
 		finally:
-			frappe.destroy()
+			capkpi.destroy()
 	if not context.sites:
 		raise SiteNotSpecifiedError
 
@@ -27,17 +27,17 @@ def build_message_files(context):
 @click.command("new-language")  # , help="Create lang-code.csv for given app")
 @pass_context
 @click.argument("lang_code")  # , help="Language code eg. en")
-@click.argument("app")  # , help="App name eg. frappe")
+@click.argument("app")  # , help="App name eg. capkpi")
 def new_language(context, lang_code, app):
 	"""Create lang-code.csv for given app"""
-	import frappe.translate
+	import capkpi.translate
 
 	if not context["sites"]:
 		raise Exception("--site is required")
 
 	# init site
-	frappe.connect(site=context["sites"][0])
-	frappe.translate.write_translations_file(app, lang_code)
+	capkpi.connect(site=context["sites"][0])
+	capkpi.translate.write_translations_file(app, lang_code)
 
 	print(
 		"File created at ./apps/{app}/{app}/translations/{lang_code}.csv".format(
@@ -45,7 +45,7 @@ def new_language(context, lang_code, app):
 		)
 	)
 	print(
-		"You will need to add the language in frappe/geo/languages.json, if you haven't done it already."
+		"You will need to add the language in capkpi/geo/languages.json, if you haven't done it already."
 	)
 
 
@@ -56,15 +56,15 @@ def new_language(context, lang_code, app):
 @pass_context
 def get_untranslated(context, lang, untranslated_file, all=None):
 	"Get untranslated strings for language"
-	import frappe.translate
+	import capkpi.translate
 
 	site = get_site(context)
 	try:
-		frappe.init(site=site)
-		frappe.connect()
-		frappe.translate.get_untranslated(lang, untranslated_file, get_all=all)
+		capkpi.init(site=site)
+		capkpi.connect()
+		capkpi.translate.get_untranslated(lang, untranslated_file, get_all=all)
 	finally:
-		frappe.destroy()
+		capkpi.destroy()
 
 
 @click.command("update-translations")
@@ -74,15 +74,15 @@ def get_untranslated(context, lang, untranslated_file, all=None):
 @pass_context
 def update_translations(context, lang, untranslated_file, translated_file):
 	"Update translated strings"
-	import frappe.translate
+	import capkpi.translate
 
 	site = get_site(context)
 	try:
-		frappe.init(site=site)
-		frappe.connect()
-		frappe.translate.update_translations(lang, untranslated_file, translated_file)
+		capkpi.init(site=site)
+		capkpi.connect()
+		capkpi.translate.update_translations(lang, untranslated_file, translated_file)
 	finally:
-		frappe.destroy()
+		capkpi.destroy()
 
 
 @click.command("import-translations")
@@ -91,15 +91,15 @@ def update_translations(context, lang, untranslated_file, translated_file):
 @pass_context
 def import_translations(context, lang, path):
 	"Update translated strings"
-	import frappe.translate
+	import capkpi.translate
 
 	site = get_site(context)
 	try:
-		frappe.init(site=site)
-		frappe.connect()
-		frappe.translate.import_translations(lang, path)
+		capkpi.init(site=site)
+		capkpi.connect()
+		capkpi.translate.import_translations(lang, path)
 	finally:
-		frappe.destroy()
+		capkpi.destroy()
 
 
 commands = [

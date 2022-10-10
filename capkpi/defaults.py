@@ -3,24 +3,24 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.cache_manager import clear_defaults_cache, common_default_keys
-from frappe.desk.notifications import clear_notifications
+import capkpi
+from capkpi.cache_manager import clear_defaults_cache, common_default_keys
+from capkpi.desk.notifications import clear_notifications
 
 # Note: DefaultValue records are identified by parenttype
 # __default, __global or 'User Permission'
 
 
 def set_user_default(key, value, user=None, parenttype=None):
-	set_default(key, value, user or frappe.session.user, parenttype)
+	set_default(key, value, user or capkpi.session.user, parenttype)
 
 
 def add_user_default(key, value, user=None, parenttype=None):
-	add_default(key, value, user or frappe.session.user, parenttype)
+	add_default(key, value, user or capkpi.session.user, parenttype)
 
 
 def get_user_default(key, user=None):
-	user_defaults = get_defaults(user or frappe.session.user)
+	user_defaults = get_defaults(user or capkpi.session.user)
 	d = user_defaults.get(key, None)
 
 	if is_a_user_permission_key(key):
@@ -29,7 +29,7 @@ def get_user_default(key, user=None):
 			d = d[0]
 
 		else:
-			d = user_defaults.get(frappe.scrub(key), None)
+			d = user_defaults.get(capkpi.scrub(key), None)
 
 	value = isinstance(d, (list, tuple)) and d[0] or d
 	if not_in_user_permission(key, value, user):
@@ -39,7 +39,7 @@ def get_user_default(key, user=None):
 
 
 def get_user_default_as_list(key, user=None):
-	user_defaults = get_defaults(user or frappe.session.user)
+	user_defaults = get_defaults(user or capkpi.session.user)
 	d = user_defaults.get(key, None)
 
 	if is_a_user_permission_key(key):
@@ -48,7 +48,7 @@ def get_user_default_as_list(key, user=None):
 			d = [d[0]]
 
 		else:
-			d = user_defaults.get(frappe.scrub(key), None)
+			d = user_defaults.get(capkpi.scrub(key), None)
 
 	d = list(filter(None, (not isinstance(d, (list, tuple))) and [d] or d))
 
@@ -59,13 +59,13 @@ def get_user_default_as_list(key, user=None):
 
 
 def is_a_user_permission_key(key):
-	return ":" not in key and key != frappe.scrub(key)
+	return ":" not in key and key != capkpi.scrub(key)
 
 
 def not_in_user_permission(key, value, user=None):
 	# returns true or false based on if value exist in user permission
-	user = user or frappe.session.user
-	user_permission = get_user_permissions(user).get(frappe.unscrub(key)) or []
+	user = user or capkpi.session.user
+	user_permission = get_user_permissions(user).get(capkpi.unscrub(key)) or []
 
 	for perm in user_permission:
 		# doc found in user permission
@@ -77,11 +77,11 @@ def not_in_user_permission(key, value, user=None):
 
 
 def get_user_permissions(user=None):
-	from frappe.core.doctype.user_permission.user_permission import (
+	from capkpi.core.doctype.user_permission.user_permission import (
 		get_user_permissions as _get_user_permissions,
 	)
 
-	"""Return frappe.core.doctype.user_permissions.user_permissions._get_user_permissions (kept for backward compatibility)"""
+	"""Return capkpi.core.doctype.user_permissions.user_permissions._get_user_permissions (kept for backward compatibility)"""
 	return _get_user_permissions(user)
 
 
@@ -89,7 +89,7 @@ def get_defaults(user=None):
 	globald = get_defaults_for()
 
 	if not user:
-		user = frappe.session.user if frappe.session else "Guest"
+		user = capkpi.session.user if capkpi.session else "Guest"
 
 	if user:
 		userd = {}
@@ -101,7 +101,7 @@ def get_defaults(user=None):
 
 
 def clear_user_default(key, user=None):
-	clear_default(key, parent=user or frappe.session.user)
+	clear_default(key, parent=user or capkpi.session.user)
 
 
 # Global
@@ -136,7 +136,7 @@ def set_default(key, value, parent, parenttype="__default"):
 	:param value: Default value.
 	:param parent: Usually, **User** to whom the default belongs.
 	:param parenttype: [optional] default is `__default`."""
-	if frappe.db.sql(
+	if capkpi.db.sql(
 		"""
 		select
 			defkey
@@ -147,7 +147,7 @@ def set_default(key, value, parent, parenttype="__default"):
 		for update""",
 		(key, parent),
 	):
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""
 			delete from
 				`tabDefaultValue`
@@ -162,7 +162,7 @@ def set_default(key, value, parent, parenttype="__default"):
 
 
 def add_default(key, value, parent, parenttype=None):
-	d = frappe.get_doc(
+	d = capkpi.get_doc(
 		{
 			"doctype": "DefaultValue",
 			"parent": parent,
@@ -218,7 +218,7 @@ def clear_default(key=None, value=None, parent=None, name=None, parenttype=None)
 	if not conditions:
 		raise Exception("[clear_default] No key specified.")
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""delete from tabDefaultValue where {0}""".format(" and ".join(conditions)), tuple(values)
 	)
 
@@ -227,18 +227,18 @@ def clear_default(key=None, value=None, parent=None, name=None, parenttype=None)
 
 def get_defaults_for(parent="__default"):
 	"""get all defaults"""
-	defaults = frappe.cache().hget("defaults", parent)
+	defaults = capkpi.cache().hget("defaults", parent)
 
 	if defaults == None:
 		# sort descending because first default must get precedence
-		res = frappe.db.sql(
+		res = capkpi.db.sql(
 			"""select defkey, defvalue from `tabDefaultValue`
 			where parent = %s order by creation""",
 			(parent,),
 			as_dict=1,
 		)
 
-		defaults = frappe._dict({})
+		defaults = capkpi._dict({})
 		for d in res:
 			if d.defkey in defaults:
 				# listify
@@ -251,14 +251,14 @@ def get_defaults_for(parent="__default"):
 			elif d.defvalue is not None:
 				defaults[d.defkey] = d.defvalue
 
-		frappe.cache().hset("defaults", parent, defaults)
+		capkpi.cache().hset("defaults", parent, defaults)
 
 	return defaults
 
 
 def _clear_cache(parent):
 	if parent in common_default_keys:
-		frappe.clear_cache()
+		capkpi.clear_cache()
 	else:
 		clear_notifications(user=parent)
-		frappe.clear_cache(user=parent)
+		capkpi.clear_cache(user=parent)

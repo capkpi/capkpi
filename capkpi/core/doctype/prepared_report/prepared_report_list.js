@@ -1,4 +1,4 @@
-frappe.listview_settings['Prepared Report'] = {
+capkpi.listview_settings['Prepared Report'] = {
 	add_fields: ["status"],
 	get_indicator: function(doc) {
 		if(doc.status==="Completed"){

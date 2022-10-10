@@ -3,8 +3,8 @@
 # License: MIT. See LICENSE
 import unittest
 
-import frappe
-from frappe.core.doctype.data_export.exporter import DataExporter
+import capkpi
+from capkpi.core.doctype.data_export.exporter import DataExporter
 
 
 class TestDataExporter(unittest.TestCase):
@@ -19,15 +19,15 @@ class TestDataExporter(unittest.TestCase):
 		Helper Function for setting up doctypes
 		"""
 		if force:
-			frappe.delete_doc_if_exists("DocType", doctype_name)
-			frappe.delete_doc_if_exists("DocType", "Child 1 of " + doctype_name)
+			capkpi.delete_doc_if_exists("DocType", doctype_name)
+			capkpi.delete_doc_if_exists("DocType", "Child 1 of " + doctype_name)
 
-		if frappe.db.exists("DocType", doctype_name):
+		if capkpi.db.exists("DocType", doctype_name):
 			return
 
 		# Child Table 1
 		table_1_name = "Child 1 of " + doctype_name
-		frappe.get_doc(
+		capkpi.get_doc(
 			{
 				"doctype": "DocType",
 				"name": table_1_name,
@@ -42,7 +42,7 @@ class TestDataExporter(unittest.TestCase):
 		).insert()
 
 		# Main Table
-		frappe.get_doc(
+		capkpi.get_doc(
 			{
 				"doctype": "DocType",
 				"name": doctype_name,
@@ -68,10 +68,10 @@ class TestDataExporter(unittest.TestCase):
 		Helper Function creating test data
 		"""
 		if force:
-			frappe.delete_doc(self.doctype_name, self.doc_name)
+			capkpi.delete_doc(self.doctype_name, self.doc_name)
 
-		if not frappe.db.exists(self.doctype_name, self.doc_name):
-			self.doc = frappe.get_doc(
+		if not capkpi.db.exists(self.doctype_name, self.doc_name):
+			self.doc = capkpi.get_doc(
 				doctype=self.doctype_name,
 				title=self.doc_name,
 				number="100",
@@ -81,17 +81,17 @@ class TestDataExporter(unittest.TestCase):
 				],
 			).insert()
 		else:
-			self.doc = frappe.get_doc(self.doctype_name, self.doc_name)
+			self.doc = capkpi.get_doc(self.doctype_name, self.doc_name)
 
 	def test_export_content(self):
 		exp = DataExporter(doctype=self.doctype_name, file_type="CSV")
 		exp.build_response()
 
-		self.assertEqual(frappe.response["type"], "csv")
-		self.assertEqual(frappe.response["doctype"], self.doctype_name)
-		self.assertTrue(frappe.response["result"])
-		self.assertIn('Child Title 1",50', frappe.response["result"])
-		self.assertIn('Child Title 2",51', frappe.response["result"])
+		self.assertEqual(capkpi.response["type"], "csv")
+		self.assertEqual(capkpi.response["doctype"], self.doctype_name)
+		self.assertTrue(capkpi.response["result"])
+		self.assertIn('Child Title 1",50', capkpi.response["result"])
+		self.assertIn('Child Title 2",51', capkpi.response["result"])
 
 	def test_export_type(self):
 		for type in ["csv", "Excel"]:
@@ -99,17 +99,17 @@ class TestDataExporter(unittest.TestCase):
 				exp = DataExporter(doctype=self.doctype_name, file_type=type)
 				exp.build_response()
 
-				self.assertEqual(frappe.response["doctype"], self.doctype_name)
-				self.assertTrue(frappe.response["result"])
+				self.assertEqual(capkpi.response["doctype"], self.doctype_name)
+				self.assertTrue(capkpi.response["result"])
 
 				if type == "csv":
-					self.assertEqual(frappe.response["type"], "csv")
+					self.assertEqual(capkpi.response["type"], "csv")
 				elif type == "Excel":
-					self.assertEqual(frappe.response["type"], "binary")
+					self.assertEqual(capkpi.response["type"], "binary")
 					self.assertEqual(
-						frappe.response["filename"], self.doctype_name + ".xlsx"
+						capkpi.response["filename"], self.doctype_name + ".xlsx"
 					)  # 'Test DocType for Export Tool.xlsx')
-					self.assertTrue(frappe.response["filecontent"])
+					self.assertTrue(capkpi.response["filecontent"])
 
 	def tearDown(self):
 		pass

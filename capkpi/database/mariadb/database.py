@@ -4,10 +4,10 @@ import pymysql
 from pymysql.constants import ER, FIELD_TYPE
 from pymysql.converters import conversions, escape_string
 
-import frappe
-from frappe.database.database import Database
-from frappe.database.mariadb.schema import MariaDBTable
-from frappe.utils import UnicodeWithAttrs, cstr, get_datetime, get_table_name
+import capkpi
+from capkpi.database.database import Database
+from capkpi.database.mariadb.schema import MariaDBTable
+from capkpi.utils import UnicodeWithAttrs, cstr, get_datetime, get_table_name
 
 
 class MariaDBDatabase(Database):
@@ -57,12 +57,12 @@ class MariaDBDatabase(Database):
 
 	def get_connection(self):
 		usessl = 0
-		if frappe.conf.db_ssl_ca and frappe.conf.db_ssl_cert and frappe.conf.db_ssl_key:
+		if capkpi.conf.db_ssl_ca and capkpi.conf.db_ssl_cert and capkpi.conf.db_ssl_key:
 			usessl = 1
 			ssl_params = {
-				"ca": frappe.conf.db_ssl_ca,
-				"cert": frappe.conf.db_ssl_cert,
-				"key": frappe.conf.db_ssl_key,
+				"ca": capkpi.conf.db_ssl_ca,
+				"cert": capkpi.conf.db_ssl_cert,
+				"key": capkpi.conf.db_ssl_key,
 			}
 
 		conversions.update(
@@ -82,7 +82,7 @@ class MariaDBDatabase(Database):
 			use_unicode=True,
 			ssl=ssl_params if usessl else None,
 			conv=conversions,
-			local_infile=frappe.conf.local_infile,
+			local_infile=capkpi.conf.local_infile,
 		)
 
 		# MYSQL_OPTION_MULTI_STATEMENTS_OFF = 1
@@ -111,7 +111,7 @@ class MariaDBDatabase(Database):
 	def escape(s, percent=True):
 		"""Excape quotes and percent in given string."""
 		# pymysql expects unicode argument to escape_string with Python 3
-		s = frappe.as_unicode(escape_string(frappe.as_unicode(s)), "utf-8").replace("`", "\\`")
+		s = capkpi.as_unicode(escape_string(capkpi.as_unicode(s)), "utf-8").replace("`", "\\`")
 
 		# NOTE separating % escape, because % escape should only be done when using LIKE operator
 		# or when you use python format string to generate query that already has a %s

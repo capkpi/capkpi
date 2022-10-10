@@ -1,21 +1,21 @@
 // Copyright (c) 2016, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Client Script', {
+capkpi.ui.form.on('Client Script', {
 	refresh(frm) {
 		if (frm.doc.dt && frm.doc.script) {
 			frm.add_custom_button(__('Go to {0}', [frm.doc.dt]),
-				() => frappe.set_route('List', frm.doc.dt, 'List'));
+				() => capkpi.set_route('List', frm.doc.dt, 'List'));
 		}
 
 		if (frm.doc.view == 'Form') {
 			frm.add_custom_button(__('Add script for Child Table'), () => {
-				frappe.model.with_doctype(frm.doc.dt, () => {
-					const child_tables = frappe.meta.get_docfields(frm.doc.dt, null, {
+				capkpi.model.with_doctype(frm.doc.dt, () => {
+					const child_tables = capkpi.meta.get_docfields(frm.doc.dt, null, {
 						fieldtype: 'Table'
 					}).map(df => df.options);
 
-					const d = new frappe.ui.Dialog({
+					const d = new capkpi.ui.Dialog({
 						title: __('Select Child Table'),
 						fields: [
 							{
@@ -53,7 +53,7 @@ frappe.ui.form.on('Client Script', {
 	},
 
 	dt(frm) {
-		frm.toggle_display('view', !frappe.boot.single_types.includes(frm.doc.dt));
+		frm.toggle_display('view', !capkpi.boot.single_types.includes(frm.doc.dt));
 
 		if (!frm.doc.script) {
 			frm.events.add_script_for_doctype(frm, frm.doc.dt);
@@ -66,7 +66,7 @@ frappe.ui.form.on('Client Script', {
 	},
 
 	view(frm) {
-		let has_form_boilerplate = frm.doc.script.includes('frappe.ui.form.on')
+		let has_form_boilerplate = frm.doc.script.includes('capkpi.ui.form.on')
 		if (frm.doc.view === 'List' && has_form_boilerplate) {
 			frm.set_value('script', '');
 		}
@@ -78,7 +78,7 @@ frappe.ui.form.on('Client Script', {
 	add_script_for_doctype(frm, doctype) {
 		if (!doctype) return;
 		let boilerplate = `
-frappe.ui.form.on('${doctype}', {
+capkpi.ui.form.on('${doctype}', {
 	refresh(frm) {
 		// your code here
 	}

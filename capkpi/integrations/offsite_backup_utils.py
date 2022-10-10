@@ -7,21 +7,21 @@ from __future__ import unicode_literals
 import glob
 import os
 
-import frappe
-from frappe.utils import cint, split_emails
+import capkpi
+from capkpi.utils import cint, split_emails
 
 
 def send_email(success, service_name, doctype, email_field, error_status=None):
 	recipients = get_recipients(doctype, email_field)
 	if not recipients:
-		frappe.log_error(
+		capkpi.log_error(
 			"No Email Recipient found for {0}".format(service_name),
 			"{0}: Failed to send backup status email".format(service_name),
 		)
 		return
 
 	if success:
-		if not frappe.db.get_single_value(doctype, "send_email_for_successful_backup"):
+		if not capkpi.db.get_single_value(doctype, "send_email_for_successful_backup"):
 			return
 
 		subject = "Backup Upload Successful"
@@ -40,26 +40,26 @@ def send_email(success, service_name, doctype, email_field, error_status=None):
 			service_name, error_status
 		)
 
-	frappe.sendmail(recipients=recipients, subject=subject, message=message)
+	capkpi.sendmail(recipients=recipients, subject=subject, message=message)
 
 
 def get_recipients(doctype, email_field):
-	if not frappe.db:
-		frappe.connect()
+	if not capkpi.db:
+		capkpi.connect()
 
-	return split_emails(frappe.db.get_value(doctype, None, email_field))
+	return split_emails(capkpi.db.get_value(doctype, None, email_field))
 
 
 def get_latest_backup_file(with_files=False):
-	from frappe.utils.backups import BackupGenerator
+	from capkpi.utils.backups import BackupGenerator
 
 	odb = BackupGenerator(
-		frappe.conf.db_name,
-		frappe.conf.db_name,
-		frappe.conf.db_password,
-		db_host=frappe.db.host,
-		db_type=frappe.conf.db_type,
-		db_port=frappe.conf.db_port,
+		capkpi.conf.db_name,
+		capkpi.conf.db_name,
+		capkpi.conf.db_password,
+		db_host=capkpi.db.host,
+		db_type=capkpi.conf.db_type,
+		db_port=capkpi.conf.db_port,
 	)
 	database, public, private, config = odb.get_recent_backup(older_than=24 * 30)
 
@@ -100,24 +100,24 @@ def get_chunk_site(file_size):
 
 
 def validate_file_size():
-	frappe.flags.create_new_backup = True
+	capkpi.flags.create_new_backup = True
 	latest_file, site_config = get_latest_backup_file()
 	file_size = get_file_size(latest_file, unit="GB") if latest_file else 0
 
 	if file_size > 1:
-		frappe.flags.create_new_backup = False
+		capkpi.flags.create_new_backup = False
 
 
 def generate_files_backup():
-	from frappe.utils.backups import BackupGenerator
+	from capkpi.utils.backups import BackupGenerator
 
 	backup = BackupGenerator(
-		frappe.conf.db_name,
-		frappe.conf.db_name,
-		frappe.conf.db_password,
-		db_host=frappe.db.host,
-		db_type=frappe.conf.db_type,
-		db_port=frappe.conf.db_port,
+		capkpi.conf.db_name,
+		capkpi.conf.db_name,
+		capkpi.conf.db_password,
+		db_host=capkpi.db.host,
+		db_type=capkpi.conf.db_type,
+		db_port=capkpi.conf.db_port,
 	)
 
 	backup.set_backup_file_name()

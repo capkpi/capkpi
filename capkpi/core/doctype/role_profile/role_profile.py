@@ -4,8 +4,8 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.model.document import Document
+import capkpi
+from capkpi.model.document import Document
 
 
 class RoleProfile(Document):
@@ -15,9 +15,9 @@ class RoleProfile(Document):
 
 	def on_update(self):
 		"""Changes in role_profile reflected across all its user"""
-		users = frappe.get_all("User", filters={"role_profile_name": self.name})
+		users = capkpi.get_all("User", filters={"role_profile_name": self.name})
 		roles = [role.role for role in self.roles]
 		for d in users:
-			user = frappe.get_doc("User", d)
+			user = capkpi.get_doc("User", d)
 			user.set("roles", [])
 			user.add_roles(*roles)

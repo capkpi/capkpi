@@ -8,11 +8,11 @@ import json
 from six import string_types
 from six.moves import range
 
-import frappe
-from frappe import _
-from frappe.desk.reportview import get_filters_cond
-from frappe.model.document import Document
-from frappe.utils import (
+import capkpi
+from capkpi import _
+from capkpi.desk.reportview import get_filters_cond
+from capkpi.model.document import Document
+from capkpi.utils import (
 	add_days,
 	add_months,
 	cint,
@@ -25,7 +25,7 @@ from frappe.utils import (
 	now_datetime,
 	nowdate,
 )
-from frappe.utils.user import get_enabled_system_users
+from capkpi.utils.user import get_enabled_system_users
 
 weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 communication_mapping = {
@@ -52,21 +52,21 @@ class Event(Document):
 		if (
 			self.repeat_on == "Daily" and self.ends_on and getdate(self.starts_on) != getdate(self.ends_on)
 		):
-			frappe.throw(_("Daily Events should finish on the Same Day."))
+			capkpi.throw(_("Daily Events should finish on the Same Day."))
 
 		if self.sync_with_google_calendar and not self.google_calendar:
-			frappe.throw(_("Select Google Calendar to which event should be synced."))
+			capkpi.throw(_("Select Google Calendar to which event should be synced."))
 
 	def on_update(self):
 		self.sync_communication()
 
 	def on_trash(self):
-		communications = frappe.get_all(
+		communications = capkpi.get_all(
 			"Communication", dict(reference_doctype=self.doctype, reference_name=self.name)
 		)
 		if communications:
 			for communication in communications:
-				frappe.delete_doc_if_exists("Communication", communication.name)
+				capkpi.delete_doc_if_exists("Communication", communication.name)
 
 	def sync_communication(self):
 		if self.event_participants:
@@ -77,19 +77,19 @@ class Event(Document):
 					["Communication Link", "link_doctype", "=", participant.reference_doctype],
 					["Communication Link", "link_name", "=", participant.reference_docname],
 				]
-				comms = frappe.get_all("Communication", filters=filters, fields=["name"])
+				comms = capkpi.get_all("Communication", filters=filters, fields=["name"])
 
 				if comms:
 					for comm in comms:
-						communication = frappe.get_doc("Communication", comm.name)
+						communication = capkpi.get_doc("Communication", comm.name)
 						self.update_communication(participant, communication)
 				else:
-					meta = frappe.get_meta(participant.reference_doctype)
+					meta = capkpi.get_meta(participant.reference_doctype)
 					if hasattr(meta, "allow_events_in_timeline") and meta.allow_events_in_timeline == 1:
 						self.create_communication(participant)
 
 	def create_communication(self, participant):
-		communication = frappe.new_doc("Communication")
+		communication = capkpi.new_doc("Communication")
 		self.update_communication(participant, communication)
 		self.communication = communication.name
 
@@ -99,7 +99,7 @@ class Event(Document):
 		communication.content = self.description if self.description else self.subject
 		communication.communication_date = self.starts_on
 		communication.sender = self.owner
-		communication.sender_full_name = frappe.utils.get_fullname(self.owner)
+		communication.sender_full_name = capkpi.utils.get_fullname(self.owner)
 		communication.reference_doctype = self.doctype
 		communication.reference_name = self.name
 		communication.communication_medium = (
@@ -134,9 +134,9 @@ class Event(Document):
 			self.add_participant(participant["doctype"], participant["docname"])
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def delete_communication(event, reference_doctype, reference_docname):
-	deleted_participant = frappe.get_doc(reference_doctype, reference_docname)
+	deleted_participant = capkpi.get_doc(reference_doctype, reference_docname)
 	if isinstance(event, string_types):
 		event = json.loads(event)
 
@@ -147,12 +147,12 @@ def delete_communication(event, reference_doctype, reference_docname):
 		["Communication Link", "link_name", "=", deleted_participant.reference_docname],
 	]
 
-	comms = frappe.get_list("Communication", filters=filters, fields=["name"])
+	comms = capkpi.get_list("Communication", filters=filters, fields=["name"])
 
 	if comms:
 		deletion = []
 		for comm in comms:
-			delete = frappe.get_doc("Communication", comm.name).delete()
+			delete = capkpi.get_doc("Communication", comm.name).delete()
 			deletion.append(delete)
 
 		return deletion
@@ -162,9 +162,9 @@ def delete_communication(event, reference_doctype, reference_docname):
 
 def get_permission_query_conditions(user):
 	if not user:
-		user = frappe.session.user
+		user = capkpi.session.user
 	return """(`tabEvent`.`event_type`='Public' or `tabEvent`.`owner`=%(user)s)""" % {
-		"user": frappe.db.escape(user),
+		"user": capkpi.db.escape(user),
 	}
 
 
@@ -180,28 +180,28 @@ def send_event_digest():
 	for user in get_enabled_system_users():
 		events = get_events(today, today, user.name, for_reminder=True)
 		if events:
-			frappe.set_user_lang(user.name, user.language)
+			capkpi.set_user_lang(user.name, user.language)
 
 			for e in events:
 				e.starts_on = format_datetime(e.starts_on, "hh:mm a")
 				if e.all_day:
 					e.starts_on = "All Day"
 
-			frappe.sendmail(
+			capkpi.sendmail(
 				recipients=user.email,
-				subject=frappe._("Upcoming Events for Today"),
+				subject=capkpi._("Upcoming Events for Today"),
 				template="upcoming_events",
 				args={
 					"events": events,
 				},
-				header=[frappe._("Events in Today's Calendar"), "blue"],
+				header=[capkpi._("Events in Today's Calendar"), "blue"],
 			)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_events(start, end, user=None, for_reminder=False, filters=None):
 	if not user:
-		user = frappe.session.user
+		user = capkpi.session.user
 
 	if isinstance(filters, string_types):
 		filters = json.loads(filters)
@@ -212,7 +212,7 @@ def get_events(start, end, user=None, for_reminder=False, filters=None):
 	if "`tabEvent Participants`" in filter_condition:
 		tables.append("`tabEvent Participants`")
 
-	events = frappe.db.sql(
+	events = capkpi.db.sql(
 		"""
 		SELECT `tabEvent`.name,
 				`tabEvent`.subject,
@@ -390,7 +390,7 @@ def get_events(start, end, user=None, for_reminder=False, filters=None):
 
 
 def delete_events(ref_type, ref_name, delete_event=False):
-	participations = frappe.get_all(
+	participations = capkpi.get_all(
 		"Event Participants",
 		filters={"reference_doctype": ref_type, "reference_docname": ref_name, "parenttype": "Event"},
 		fields=["parent", "name"],
@@ -399,25 +399,25 @@ def delete_events(ref_type, ref_name, delete_event=False):
 	if participations:
 		for participation in participations:
 			if delete_event:
-				frappe.delete_doc("Event", participation.parent, for_reload=True)
+				capkpi.delete_doc("Event", participation.parent, for_reload=True)
 			else:
-				total_participants = frappe.get_all(
+				total_participants = capkpi.get_all(
 					"Event Participants", filters={"parenttype": "Event", "parent": participation.parent}
 				)
 
 				if len(total_participants) <= 1:
-					frappe.db.sql(
+					capkpi.db.sql(
 						"DELETE FROM `tabEvent` WHERE `name` = %(name)s", {"name": participation.parent}
 					)
 
-				frappe.db.sql(
+				capkpi.db.sql(
 					"DELETE FROM `tabEvent Participants ` WHERE `name` = %(name)s", {"name": participation.name}
 				)
 
 
 # Close events if ends_on or repeat_till is less than now_datetime
 def set_status_of_events():
-	events = frappe.get_list(
+	events = capkpi.get_list(
 		"Event", filters={"status": "Open"}, fields=["name", "ends_on", "repeat_till"]
 	)
 	for event in events:
@@ -425,4 +425,4 @@ def set_status_of_events():
 			event.repeat_till and getdate(event.repeat_till) < getdate(nowdate())
 		):
 
-			frappe.db.set_value("Event", event.name, "status", "Closed")
+			capkpi.db.set_value("Event", event.name, "status", "Closed")

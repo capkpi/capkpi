@@ -7,13 +7,13 @@ import datetime
 
 from six import iteritems, string_types
 
-import frappe
-from frappe import _
-from frappe.model import default_fields, display_fieldtypes, table_fields
-from frappe.model.naming import set_new_name
-from frappe.model.utils.link_count import notify_link_count
-from frappe.modules import load_doctype_module
-from frappe.utils import (
+import capkpi
+from capkpi import _
+from capkpi.model import default_fields, display_fieldtypes, table_fields
+from capkpi.model.naming import set_new_name
+from capkpi.model.utils.link_count import notify_link_count
+from capkpi.modules import load_doctype_module
+from capkpi.utils import (
 	cast_fieldtype,
 	cint,
 	cstr,
@@ -23,7 +23,7 @@ from frappe.utils import (
 	sanitize_html,
 	strip_html,
 )
-from frappe.utils.html_utils import unescape_html
+from capkpi.utils.html_utils import unescape_html
 
 max_positive_value = {"smallint": 2**15 - 1, "int": 2**31 - 1, "bigint": 2**63 - 1}
 
@@ -32,30 +32,30 @@ DOCTYPES_FOR_DOCTYPE = ("DocType", "DocField", "DocPerm", "DocType Action", "Doc
 
 def get_controller(doctype):
 	"""Returns the **class** object of the given DocType.
-	For `custom` type, returns `frappe.model.document.Document`.
+	For `custom` type, returns `capkpi.model.document.Document`.
 
 	:param doctype: DocType name as string."""
 
 	def _get_controller():
-		from frappe.model.document import Document
-		from frappe.utils.nestedset import NestedSet
+		from capkpi.model.document import Document
+		from capkpi.utils.nestedset import NestedSet
 
-		module_name, custom = frappe.db.get_value(
+		module_name, custom = capkpi.db.get_value(
 			"DocType", doctype, ("module", "custom"), cache=True
 		) or ["Core", False]
 
 		if custom:
-			if frappe.db.field_exists("DocType", "is_tree"):
-				is_tree = frappe.db.get_value("DocType", doctype, "is_tree", cache=True)
+			if capkpi.db.field_exists("DocType", "is_tree"):
+				is_tree = capkpi.db.get_value("DocType", doctype, "is_tree", cache=True)
 			else:
 				is_tree = False
 			_class = NestedSet if is_tree else Document
 		else:
-			class_overrides = frappe.get_hooks("override_doctype_class")
+			class_overrides = capkpi.get_hooks("override_doctype_class")
 			if class_overrides and class_overrides.get(doctype):
 				import_path = class_overrides[doctype][-1]
 				module_path, classname = import_path.rsplit(".", 1)
-				module = frappe.get_module(module_path)
+				module = capkpi.get_module(module_path)
 				if not hasattr(module, classname):
 					raise ImportError(
 						"{0}: {1} does not exist in module {2}".format(doctype, classname, module_path)
@@ -74,10 +74,10 @@ def get_controller(doctype):
 				raise ImportError(doctype)
 		return _class
 
-	if frappe.local.dev_server:
+	if capkpi.local.dev_server:
 		return _get_controller()
 
-	site_controllers = frappe.controllers.setdefault(frappe.local.site, {})
+	site_controllers = capkpi.controllers.setdefault(capkpi.local.site, {})
 	if doctype not in site_controllers:
 		site_controllers[doctype] = _get_controller()
 
@@ -100,7 +100,7 @@ class BaseDocument(object):
 	@property
 	def meta(self):
 		if not hasattr(self, "_meta"):
-			self._meta = frappe.get_meta(self.doctype)
+			self._meta = capkpi.get_meta(self.doctype)
 
 		return self._meta
 
@@ -139,7 +139,7 @@ class BaseDocument(object):
 				self.set(key, value)
 
 	def get_db_value(self, key):
-		return frappe.db.get_value(self.doctype, self.name, key)
+		return capkpi.db.get_value(self.doctype, self.name, key)
 
 	def get(self, key=None, filters=None, limit=None, default=None):
 		if key:
@@ -261,7 +261,7 @@ class BaseDocument(object):
 		return value
 
 	def get_valid_dict(self, sanitize=True, convert_dates_to_str=False, ignore_nulls=False):
-		d = frappe._dict()
+		d = capkpi._dict()
 		for fieldname in self.meta.get_valid_columns():
 			d[fieldname] = self.get(fieldname)
 
@@ -288,7 +288,7 @@ class BaseDocument(object):
 					d[fieldname] = None
 
 				if isinstance(d[fieldname], list) and df.fieldtype not in table_fields:
-					frappe.throw(_("Value for {0} cannot be a list").format(_(df.label)))
+					capkpi.throw(_("Value for {0} cannot be a list").format(_(df.label)))
 
 			if convert_dates_to_str and isinstance(
 				d[fieldname], (datetime.datetime, datetime.date, datetime.time, datetime.timedelta)
@@ -313,17 +313,17 @@ class BaseDocument(object):
 				self.__dict__[key] = None
 
 	def get_valid_columns(self):
-		if self.doctype not in frappe.local.valid_columns:
+		if self.doctype not in capkpi.local.valid_columns:
 			if self.doctype in DOCTYPES_FOR_DOCTYPE:
-				from frappe.model.meta import get_table_columns
+				from capkpi.model.meta import get_table_columns
 
 				valid = get_table_columns(self.doctype)
 			else:
 				valid = self.meta.get_valid_columns()
 
-			frappe.local.valid_columns[self.doctype] = valid
+			capkpi.local.valid_columns[self.doctype] = valid
 
-		return frappe.local.valid_columns[self.doctype]
+		return capkpi.local.valid_columns[self.doctype]
 
 	def is_new(self):
 		return self.get("__islocal")
@@ -366,7 +366,7 @@ class BaseDocument(object):
 		return doc
 
 	def as_json(self):
-		return frappe.as_json(self.as_dict())
+		return capkpi.as_json(self.as_dict())
 
 	def get_table_field_doctype(self, fieldname):
 		try:
@@ -388,7 +388,7 @@ class BaseDocument(object):
 
 		if not self.creation:
 			self.creation = self.modified = now()
-			self.created_by = self.modified_by = frappe.session.user
+			self.created_by = self.modified_by = capkpi.session.user
 
 		# if doctype is "DocType", don't insert null values as we don't know who is valid yet
 		d = self.get_valid_dict(
@@ -397,7 +397,7 @@ class BaseDocument(object):
 
 		columns = list(d)
 		try:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""INSERT INTO `tab{doctype}` ({columns})
 					VALUES ({values})""".format(
 					doctype=self.doctype,
@@ -407,24 +407,24 @@ class BaseDocument(object):
 				list(d.values()),
 			)
 		except Exception as e:
-			if frappe.db.is_primary_key_violation(e):
+			if capkpi.db.is_primary_key_violation(e):
 				if self.meta.autoname == "hash":
 					# hash collision? try again
-					frappe.flags.retry_count = (frappe.flags.retry_count or 0) + 1
-					if frappe.flags.retry_count > 5 and not frappe.flags.in_test:
+					capkpi.flags.retry_count = (capkpi.flags.retry_count or 0) + 1
+					if capkpi.flags.retry_count > 5 and not capkpi.flags.in_test:
 						raise
 					self.name = None
 					self.db_insert()
 					return
 
-				frappe.msgprint(
-					_("{0} {1} already exists").format(self.doctype, frappe.bold(self.name)),
+				capkpi.msgprint(
+					_("{0} {1} already exists").format(self.doctype, capkpi.bold(self.name)),
 					title=_("Duplicate Name"),
 					indicator="red",
 				)
-				raise frappe.DuplicateEntryError(self.doctype, self.name, e)
+				raise capkpi.DuplicateEntryError(self.doctype, self.name, e)
 
-			elif frappe.db.is_unique_key_violation(e):
+			elif capkpi.db.is_unique_key_violation(e):
 				# unique constraint
 				self.show_unique_validation_message(e)
 
@@ -449,7 +449,7 @@ class BaseDocument(object):
 		columns = list(d)
 
 		try:
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""UPDATE `tab{doctype}`
 				SET {values} WHERE `name`=%s""".format(
 					doctype=self.doctype, values=", ".join(["`" + c + "`=%s" for c in columns])
@@ -457,7 +457,7 @@ class BaseDocument(object):
 				list(d.values()) + [name],
 			)
 		except Exception as e:
-			if frappe.db.is_unique_key_violation(e):
+			if capkpi.db.is_unique_key_violation(e):
 				self.show_unique_validation_message(e)
 			else:
 				raise
@@ -471,7 +471,7 @@ class BaseDocument(object):
 				doc.db_update()
 
 	def show_unique_validation_message(self, e):
-		if frappe.db.db_type != "postgres":
+		if capkpi.db.db_type != "postgres":
 			fieldname = str(e).split("'")[-2]
 			label = None
 
@@ -483,10 +483,10 @@ class BaseDocument(object):
 
 			label = self.get_label_from_fieldname(fieldname)
 
-			frappe.msgprint(_("{0} must be unique").format(label or fieldname))
+			capkpi.msgprint(_("{0} must be unique").format(label or fieldname))
 
 		# this is used to preserve traceback
-		raise frappe.UniqueValidationError(self.doctype, self.name, e)
+		raise capkpi.UniqueValidationError(self.doctype, self.name, e)
 
 	def get_field_name_by_key_name(self, key_name):
 		"""MariaDB stores a mapping between `key_name` and `column_name`.
@@ -501,7 +501,7 @@ class BaseDocument(object):
 		Returns:
 		        str: The column name associated with the key.
 		"""
-		return frappe.db.sql(
+		return capkpi.db.sql(
 			f"""
 			SHOW
 				INDEX
@@ -532,7 +532,7 @@ class BaseDocument(object):
 	def update_modified(self):
 		"""Update modified timestamp"""
 		self.set("modified", now())
-		frappe.db.set_value(self.doctype, self.name, "modified", self.modified, update_modified=False)
+		capkpi.db.set_value(self.doctype, self.name, "modified", self.modified, update_modified=False)
 
 	def _fix_numeric_types(self):
 		for df in self.meta.get("fields"):
@@ -559,7 +559,7 @@ class BaseDocument(object):
 			elif self.parentfield:
 				return "{}: {} {} #{}: {}: {}".format(
 					_("Error"),
-					frappe.bold(_(self.doctype)),
+					capkpi.bold(_(self.doctype)),
 					_("Row"),
 					self.idx,
 					_("Value missing for"),
@@ -579,7 +579,7 @@ class BaseDocument(object):
 		if self.meta.istable:
 			for fieldname in ("parent", "parenttype"):
 				if not self.get(fieldname):
-					missing.append((fieldname, get_msg(frappe._dict(label=fieldname))))
+					missing.append((fieldname, get_msg(capkpi._dict(label=fieldname))))
 
 		return missing
 
@@ -604,11 +604,11 @@ class BaseDocument(object):
 				if df.fieldtype == "Link":
 					doctype = df.options
 					if not doctype:
-						frappe.throw(_("Options not set for link field {0}").format(df.fieldname))
+						capkpi.throw(_("Options not set for link field {0}").format(df.fieldname))
 				else:
 					doctype = self.get(df.options)
 					if not doctype:
-						frappe.throw(_("{0} must be set first").format(self.meta.get_label(df.options)))
+						capkpi.throw(_("{0} must be set first").format(self.meta.get_label(df.options)))
 
 				# MySQL is case insensitive. Preserve case of the original docname in the Link Field.
 
@@ -622,21 +622,21 @@ class BaseDocument(object):
 					if not _df.get("fetch_if_empty")
 					or (_df.get("fetch_if_empty") and not self.get(_df.fieldname))
 				]
-				if not frappe.get_meta(doctype).get("is_virtual"):
+				if not capkpi.get_meta(doctype).get("is_virtual"):
 					if not fields_to_fetch:
 						# cache a single value type
-						values = frappe._dict(name=frappe.db.get_value(doctype, docname, "name", cache=True))
+						values = capkpi._dict(name=capkpi.db.get_value(doctype, docname, "name", cache=True))
 					else:
 						values_to_fetch = ["name"] + [_df.fetch_from.split(".")[-1] for _df in fields_to_fetch]
 
 						# don't cache if fetching other values too
-						values = frappe.db.get_value(doctype, docname, values_to_fetch, as_dict=True)
+						values = capkpi.db.get_value(doctype, docname, values_to_fetch, as_dict=True)
 
-				if frappe.get_meta(doctype).issingle:
+				if capkpi.get_meta(doctype).issingle:
 					values.name = doctype
 
-				if frappe.get_meta(doctype).get("is_virtual"):
-					values = frappe.get_doc(doctype, docname)
+				if capkpi.get_meta(doctype).get("is_virtual"):
+					values = capkpi.get_doc(doctype, docname)
 
 				if values:
 					setattr(self, df.fieldname, values.name)
@@ -653,8 +653,8 @@ class BaseDocument(object):
 					elif (
 						df.fieldname != "amended_from"
 						and (is_submittable or self.meta.is_submittable)
-						and frappe.get_meta(doctype).is_submittable
-						and cint(frappe.db.get_value(doctype, docname, "docstatus")) == 2
+						and capkpi.get_meta(doctype).is_submittable
+						and cint(capkpi.db.get_value(doctype, docname, "docstatus")) == 2
 					):
 
 						cancelled_links.append((df.fieldname, docname, get_msg(df, docname)))
@@ -666,15 +666,15 @@ class BaseDocument(object):
 		value = values[fetch_from_fieldname]
 		if df.fieldtype in ["Small Text", "Text", "Data"]:
 			if fetch_from_fieldname in default_fields:
-				from frappe.model.meta import get_default_df
+				from capkpi.model.meta import get_default_df
 
 				fetch_from_df = get_default_df(fetch_from_fieldname)
 			else:
-				fetch_from_df = frappe.get_meta(doctype).get_field(fetch_from_fieldname)
+				fetch_from_df = capkpi.get_meta(doctype).get_field(fetch_from_fieldname)
 
 			if not fetch_from_df:
-				frappe.throw(
-					_('Please check the value of "Fetch From" set for field {0}').format(frappe.bold(df.label)),
+				capkpi.throw(
+					_('Please check the value of "Fetch From" set for field {0}').format(capkpi.bold(df.label)),
 					title=_("Wrong Fetch From value"),
 				)
 
@@ -684,7 +684,7 @@ class BaseDocument(object):
 		setattr(self, df.fieldname, value)
 
 	def _validate_selects(self):
-		if frappe.flags.in_import:
+		if capkpi.flags.in_import:
 			return
 
 		for df in self.meta.get_select_fields():
@@ -701,22 +701,22 @@ class BaseDocument(object):
 			self.set(df.fieldname, cstr(self.get(df.fieldname)).strip())
 			value = self.get(df.fieldname)
 
-			if value not in options and not (frappe.flags.in_test and value.startswith("_T-")):
+			if value not in options and not (capkpi.flags.in_test and value.startswith("_T-")):
 				# show an elaborate message
 				prefix = _("Row #{0}:").format(self.idx) if self.get("parentfield") else ""
 				label = _(self.meta.get_label(df.fieldname))
 				comma_options = '", "'.join(_(each) for each in options)
 
-				frappe.throw(
+				capkpi.throw(
 					_('{0} {1} cannot be "{2}". It should be one of "{3}"').format(
 						prefix, label, value, comma_options
 					)
 				)
 
 	def _validate_data_fields(self):
-		from frappe.core.doctype.user.user import STANDARD_USERS
+		from capkpi.core.doctype.user.user import STANDARD_USERS
 
-		# data_field options defined in frappe.model.data_field_options
+		# data_field options defined in capkpi.model.data_field_options
 		for data_field in self.meta.get_data_fields():
 			data = self.get(data_field.fieldname)
 			data_field_options = data_field.get("options")
@@ -728,28 +728,28 @@ class BaseDocument(object):
 			if data_field_options == "Email":
 				if (self.owner in STANDARD_USERS) and (data in STANDARD_USERS):
 					continue
-				for email_address in frappe.utils.split_emails(data):
-					frappe.utils.validate_email_address(email_address, throw=True)
+				for email_address in capkpi.utils.split_emails(data):
+					capkpi.utils.validate_email_address(email_address, throw=True)
 
 			if data_field_options == "Name":
-				frappe.utils.validate_name(data, throw=True)
+				capkpi.utils.validate_name(data, throw=True)
 
 			if data_field_options == "Phone":
-				frappe.utils.validate_phone_number(data, throw=True)
+				capkpi.utils.validate_phone_number(data, throw=True)
 
 			if data_field_options == "URL":
 				if not data:
 					continue
 
-				frappe.utils.validate_url(data, throw=True)
+				capkpi.utils.validate_url(data, throw=True)
 
 	def _validate_constants(self):
-		if frappe.flags.in_import or self.is_new() or self.flags.ignore_validate_constants:
+		if capkpi.flags.in_import or self.is_new() or self.flags.ignore_validate_constants:
 			return
 
 		constants = [d.fieldname for d in self.meta.get("fields", {"set_only_once": ("=", 1)})]
 		if constants:
-			values = frappe.db.get_value(self.doctype, self.name, constants, as_dict=True)
+			values = capkpi.db.get_value(self.doctype, self.name, constants, as_dict=True)
 
 		for fieldname in constants:
 			df = self.meta.get_field(fieldname)
@@ -762,20 +762,20 @@ class BaseDocument(object):
 				value = values.get(fieldname)
 
 			if self.get(fieldname) != value:
-				frappe.throw(
+				capkpi.throw(
 					_("Value cannot be changed for {0}").format(self.meta.get_label(fieldname)),
-					frappe.CannotChangeConstantError,
+					capkpi.CannotChangeConstantError,
 				)
 
 	def _validate_length(self):
-		if frappe.flags.in_install:
+		if capkpi.flags.in_install:
 			return
 
 		if self.meta.issingle:
 			# single doctype value type is mediumtext
 			return
 
-		type_map = frappe.db.type_map
+		type_map = capkpi.db.type_map
 
 		for fieldname, value in iteritems(self.get_valid_dict()):
 			df = self.meta.get_field(fieldname)
@@ -805,10 +805,10 @@ class BaseDocument(object):
 			language = field.get("options")
 
 			if language == "Python":
-				frappe.utils.validate_python_code(code_string, fieldname=field.label, is_expression=False)
+				capkpi.utils.validate_python_code(code_string, fieldname=field.label, is_expression=False)
 
 			elif language == "PythonExpression":
-				frappe.utils.validate_python_code(code_string, fieldname=field.label)
+				capkpi.utils.validate_python_code(code_string, fieldname=field.label)
 
 	def _sync_autoname_field(self):
 		"""Keep autoname field in sync with `name`"""
@@ -825,17 +825,17 @@ class BaseDocument(object):
 		else:
 			reference = "{0} {1}".format(_(self.doctype), self.name)
 
-		frappe.throw(
+		capkpi.throw(
 			_("{0}: '{1}' ({3}) will get truncated, as max characters allowed is {2}").format(
 				reference, _(df.label), max_length, value
 			),
-			frappe.CharacterLengthExceededError,
+			capkpi.CharacterLengthExceededError,
 			title=_("Value too big"),
 		)
 
 	def _validate_update_after_submit(self):
 		# get the full doc with children
-		db_values = frappe.get_doc(self.doctype, self.name).as_dict()
+		db_values = capkpi.get_doc(self.doctype, self.name).as_dict()
 
 		for key in self.as_dict():
 			df = self.meta.get_field(key)
@@ -852,9 +852,9 @@ class BaseDocument(object):
 					self_value = self.get_value(key)
 
 				if self_value != db_value:
-					frappe.throw(
+					capkpi.throw(
 						_("Not allowed to change {0} after submission").format(df.label),
-						frappe.UpdateAfterSubmitError,
+						capkpi.UpdateAfterSubmitError,
 					)
 
 	def _sanitize_content(self):
@@ -864,14 +864,14 @@ class BaseDocument(object):
 		"""
 		from bs4 import BeautifulSoup
 
-		if frappe.flags.in_install:
+		if capkpi.flags.in_install:
 			return
 
 		for fieldname, value in self.get_valid_dict().items():
 			if not value or not isinstance(value, string_types):
 				continue
 
-			value = frappe.as_unicode(value)
+			value = capkpi.as_unicode(value)
 
 			if "<" not in value and ">" not in value:
 				# doesn't look like html so no need
@@ -901,7 +901,7 @@ class BaseDocument(object):
 
 	def _save_passwords(self):
 		"""Save password field values in __Auth table"""
-		from frappe.utils.password import remove_encrypted_password, set_encrypted_password
+		from capkpi.utils.password import remove_encrypted_password, set_encrypted_password
 
 		if self.flags.ignore_save_passwords is True:
 			return
@@ -922,7 +922,7 @@ class BaseDocument(object):
 				self.set(df.fieldname, "*" * len(new_password))
 
 	def get_password(self, fieldname="password", raise_exception=True):
-		from frappe.utils.password import get_decrypted_password
+		from capkpi.utils.password import get_decrypted_password
 
 		if self.get(fieldname) and not self.is_dummy_password(self.get(fieldname)):
 			return self.get(fieldname)
@@ -939,7 +939,7 @@ class BaseDocument(object):
 
 		:param fieldname: Fieldname for which precision is required.
 		:param parentfield: If fieldname is in child table."""
-		from frappe.model.meta import get_field_precision
+		from capkpi.model.meta import get_field_precision
 
 		if parentfield and not isinstance(parentfield, string_types):
 			parentfield = parentfield.parentfield
@@ -947,16 +947,16 @@ class BaseDocument(object):
 		cache_key = parentfield or "main"
 
 		if not hasattr(self, "_precision"):
-			self._precision = frappe._dict()
+			self._precision = capkpi._dict()
 
 		if cache_key not in self._precision:
-			self._precision[cache_key] = frappe._dict()
+			self._precision[cache_key] = capkpi._dict()
 
 		if fieldname not in self._precision[cache_key]:
 			self._precision[cache_key][fieldname] = None
 
 			doctype = self.meta.get_field(parentfield).options if parentfield else self.doctype
-			df = frappe.get_meta(doctype).get_field(fieldname)
+			df = capkpi.get_meta(doctype).get_field(fieldname)
 
 			if df.fieldtype in ("Currency", "Float", "Percent"):
 				self._precision[cache_key][fieldname] = get_field_precision(df, self)
@@ -966,17 +966,17 @@ class BaseDocument(object):
 	def get_formatted(
 		self, fieldname, doc=None, currency=None, absolute_value=False, translated=False, format=None
 	):
-		from frappe.utils.formatters import format_value
+		from capkpi.utils.formatters import format_value
 
 		df = self.meta.get_field(fieldname)
 		if not df and fieldname in default_fields:
-			from frappe.model.meta import get_default_df
+			from capkpi.model.meta import get_default_df
 
 			df = get_default_df(fieldname)
 
 		if df and not currency:
 			currency = self.get(df.get("options"))
-			if not frappe.db.exists("Currency", currency, cache=True):
+			if not capkpi.db.exists("Currency", currency, cache=True):
 				currency = None
 
 		val = self.get(fieldname)
@@ -1046,7 +1046,7 @@ class BaseDocument(object):
 		if to_reset:
 			if self.is_new():
 				# if new, set default value
-				ref_doc = frappe.new_doc(self.doctype)
+				ref_doc = capkpi.new_doc(self.doctype)
 			else:
 				# get values from old doc
 				if self.get("parent_doc"):
@@ -1068,7 +1068,7 @@ class BaseDocument(object):
 		return cast_fieldtype(df.fieldtype, value, show_warning=False)
 
 	def _extract_images_from_text_editor(self):
-		from frappe.core.doctype.file.file import extract_images_from_doc
+		from capkpi.core.doctype.file.file import extract_images_from_doc
 
 		if self.doctype != "DocType":
 			for df in self.meta.get("fields", {"fieldtype": ("=", "Text Editor")}):
@@ -1105,7 +1105,7 @@ def _filter(data, filters, limit=None):
 
 	for d in data:
 		for f, fval in _filters.items():
-			if not frappe.compare(getattr(d, f, None), fval[0], fval[1]):
+			if not capkpi.compare(getattr(d, f, None), fval[0], fval[1]):
 				break
 		else:
 			out.append(d)

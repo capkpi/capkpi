@@ -1,10 +1,10 @@
-import frappe
+import capkpi
 
 
 def execute():
 	# if current = 0, simply delete the key as it'll be recreated on first entry
-	frappe.db.sql("delete from `tabSeries` where current = 0")
-	duplicate_keys = frappe.db.sql(
+	capkpi.db.sql("delete from `tabSeries` where current = 0")
+	duplicate_keys = capkpi.db.sql(
 		"""
         SELECT name, max(current) as current
         from
@@ -16,8 +16,8 @@ def execute():
 		as_dict=True,
 	)
 	for row in duplicate_keys:
-		frappe.db.sql("delete from `tabSeries` where name = %(key)s", {"key": row.name})
+		capkpi.db.sql("delete from `tabSeries` where name = %(key)s", {"key": row.name})
 		if row.current:
-			frappe.db.sql("insert into `tabSeries`(`name`, `current`) values (%(name)s, %(current)s)", row)
-	frappe.db.commit()
-	frappe.db.sql("ALTER table `tabSeries` ADD PRIMARY KEY IF NOT EXISTS (name)")
+			capkpi.db.sql("insert into `tabSeries`(`name`, `current`) values (%(name)s, %(current)s)", row)
+	capkpi.db.commit()
+	capkpi.db.sql("ALTER table `tabSeries` ADD PRIMARY KEY IF NOT EXISTS (name)")

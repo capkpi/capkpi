@@ -1,7 +1,7 @@
 // Copyright (c) 2019, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Milestone Tracker', {
+capkpi.ui.form.on('Milestone Tracker', {
 	refresh: function(frm) {
 		frm.trigger('update_options');
 	},
@@ -14,9 +14,9 @@ frappe.ui.form.on('Milestone Tracker', {
 		let track_fields = [];
 
 		if (doctype) {
-			frappe.model.with_doctype(doctype, () => {
+			capkpi.model.with_doctype(doctype, () => {
 				// get all date and datetime fields
-				frappe.get_meta(doctype).fields.map(df => {
+				capkpi.get_meta(doctype).fields.map(df => {
 					if (['Link', 'Select'].includes(df.fieldtype)) {
 						track_fields.push({label: df.label, value: df.fieldname});
 					}

@@ -28,7 +28,7 @@ export default class GoogleDrivePicker {
 
 	loadGapi() {
 		// load auth and picker libraries
-		if (!frappe.boot.user.google_drive_token) {
+		if (!capkpi.boot.user.google_drive_token) {
 			gapi.load('auth', this.onAuthApiLoad.bind(this));
 		}
 
@@ -49,11 +49,11 @@ export default class GoogleDrivePicker {
 		};
 
 		if (authResult && !authResult.error) {
-			frappe.boot.user.google_drive_token = authResult.access_token;
+			capkpi.boot.user.google_drive_token = authResult.access_token;
 			this.createPicker();
 		} else {
 			let error = error_map[authResult.error] || __("Google Authentication Error");
-			frappe.throw(error);
+			capkpi.throw(error);
 		}
 	}
 
@@ -64,7 +64,7 @@ export default class GoogleDrivePicker {
 
 	createPicker() {
 		// Create and render a Picker object for searching images.
-		if (this.pickerApiLoaded && frappe.boot.user.google_drive_token) {
+		if (this.pickerApiLoaded && capkpi.boot.user.google_drive_token) {
 			this.view = new google.picker.DocsView(google.picker.ViewId.DOCS)
 				.setParent('root') // show the root folder by default
 				.setIncludeFolders(true); // also show folders, not just files
@@ -72,9 +72,9 @@ export default class GoogleDrivePicker {
 			this.picker = new google.picker.PickerBuilder()
 				.setAppId(this.appId)
 				.setDeveloperKey(this.developerKey)
-				.setOAuthToken(frappe.boot.user.google_drive_token)
+				.setOAuthToken(capkpi.boot.user.google_drive_token)
 				.addView(this.view)
-				.setLocale(frappe.boot.lang)
+				.setLocale(capkpi.boot.lang)
 				.setCallback(this.pickerCallback)
 				.build();
 

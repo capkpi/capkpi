@@ -7,8 +7,8 @@ import sys
 from collections import OrderedDict
 from typing import Dict, List
 
-import frappe
-from frappe.defaults import _clear_cache
+import capkpi
+from capkpi.defaults import _clear_cache
 
 
 def _new_site(
@@ -44,10 +44,10 @@ def _new_site(
 
 		db_name = "_" + hashlib.sha1(site.encode()).hexdigest()[:16]
 
-	frappe.init(site=site)
+	capkpi.init(site=site)
 
-	from frappe.commands.scheduler import _is_scheduler_enabled
-	from frappe.utils import get_site_path, scheduler, touch_file
+	from capkpi.commands.scheduler import _is_scheduler_enabled
+	from capkpi.utils import get_site_path, scheduler, touch_file
 
 	try:
 		# enable scheduler post install?
@@ -75,7 +75,7 @@ def _new_site(
 		no_mariadb_socket=no_mariadb_socket,
 	)
 	apps_to_install = (
-		["frappe"] + (frappe.conf.get("install_apps") or []) + (list(install_apps) or [])
+		["capkpi"] + (capkpi.conf.get("install_apps") or []) + (list(install_apps) or [])
 	)
 
 	for app in apps_to_install:
@@ -84,9 +84,9 @@ def _new_site(
 	os.remove(installing)
 
 	scheduler.toggle_scheduler(enable_scheduler)
-	frappe.db.commit()
+	capkpi.db.commit()
 
-	scheduler_status = "disabled" if frappe.utils.scheduler.is_scheduler_disabled() else "enabled"
+	scheduler_status = "disabled" if capkpi.utils.scheduler.is_scheduler_disabled() else "enabled"
 	print("*** Scheduler is", scheduler_status, "***")
 
 
@@ -106,11 +106,11 @@ def install_db(
 	db_port=None,
 	no_mariadb_socket=False,
 ):
-	import frappe.database
-	from frappe.database import setup_database
+	import capkpi.database
+	from capkpi.database import setup_database
 
 	if not db_type:
-		db_type = frappe.conf.db_type or "mariadb"
+		db_type = capkpi.conf.db_type or "mariadb"
 
 	if not root_login and db_type == "mariadb":
 		root_login = "root"
@@ -125,106 +125,106 @@ def install_db(
 		db_host=db_host,
 		db_port=db_port,
 	)
-	frappe.flags.in_install_db = True
+	capkpi.flags.in_install_db = True
 
-	frappe.flags.root_login = root_login
-	frappe.flags.root_password = root_password
+	capkpi.flags.root_login = root_login
+	capkpi.flags.root_password = root_password
 	setup_database(force, source_sql, verbose, no_mariadb_socket)
 
-	frappe.conf.admin_password = frappe.conf.admin_password or admin_password
+	capkpi.conf.admin_password = capkpi.conf.admin_password or admin_password
 
 	remove_missing_apps()
 
-	frappe.db.create_auth_table()
-	frappe.db.create_global_search_table()
-	frappe.db.create_user_settings_table()
+	capkpi.db.create_auth_table()
+	capkpi.db.create_global_search_table()
+	capkpi.db.create_user_settings_table()
 
-	frappe.flags.in_install_db = False
+	capkpi.flags.in_install_db = False
 
 
 def install_app(name, verbose=False, set_as_patched=True):
-	from frappe.core.doctype.scheduled_job_type.scheduled_job_type import sync_jobs
-	from frappe.model.sync import sync_for
-	from frappe.modules.utils import sync_customizations
-	from frappe.utils.fixtures import sync_fixtures
+	from capkpi.core.doctype.scheduled_job_type.scheduled_job_type import sync_jobs
+	from capkpi.model.sync import sync_for
+	from capkpi.modules.utils import sync_customizations
+	from capkpi.utils.fixtures import sync_fixtures
 
-	frappe.flags.in_install = name
-	frappe.flags.ignore_in_install = False
+	capkpi.flags.in_install = name
+	capkpi.flags.ignore_in_install = False
 
-	frappe.clear_cache()
-	app_hooks = frappe.get_hooks(app_name=name)
-	installed_apps = frappe.get_installed_apps()
+	capkpi.clear_cache()
+	app_hooks = capkpi.get_hooks(app_name=name)
+	installed_apps = capkpi.get_installed_apps()
 
 	# install pre-requisites
 	if app_hooks.required_apps:
 		for app in app_hooks.required_apps:
 			install_app(app, verbose=verbose)
 
-	frappe.flags.in_install = name
-	frappe.clear_cache()
+	capkpi.flags.in_install = name
+	capkpi.clear_cache()
 
-	if name not in frappe.get_all_apps():
+	if name not in capkpi.get_all_apps():
 		raise Exception("App not in apps.txt")
 
 	if name in installed_apps:
-		frappe.msgprint(frappe._("App {0} already installed").format(name))
+		capkpi.msgprint(capkpi._("App {0} already installed").format(name))
 		return
 
 	print("\nInstalling {0}...".format(name))
 
-	if name != "frappe":
-		frappe.only_for("System Manager")
+	if name != "capkpi":
+		capkpi.only_for("System Manager")
 
 	for before_install in app_hooks.before_install or []:
-		out = frappe.get_attr(before_install)()
+		out = capkpi.get_attr(before_install)()
 		if out == False:
 			return
 
-	if name != "frappe":
+	if name != "capkpi":
 		add_module_defs(name)
 
 	sync_for(name, force=True, sync_everything=True, verbose=verbose, reset_permissions=True)
 
 	add_to_installed_apps(name)
 
-	frappe.get_doc("Portal Settings", "Portal Settings").sync_menu()
+	capkpi.get_doc("Portal Settings", "Portal Settings").sync_menu()
 
 	if set_as_patched:
 		set_all_patches_as_completed(name)
 
 	for after_install in app_hooks.after_install or []:
-		frappe.get_attr(after_install)()
+		capkpi.get_attr(after_install)()
 
 	sync_jobs()
 	sync_fixtures(name)
 	sync_customizations(name)
 
 	for after_sync in app_hooks.after_sync or []:
-		frappe.get_attr(after_sync)()  #
+		capkpi.get_attr(after_sync)()  #
 
-	frappe.flags.in_install = False
+	capkpi.flags.in_install = False
 
 
 def add_to_installed_apps(app_name, rebuild_website=True):
-	installed_apps = frappe.get_installed_apps()
+	installed_apps = capkpi.get_installed_apps()
 	if not app_name in installed_apps:
 		installed_apps.append(app_name)
-		frappe.db.set_global("installed_apps", json.dumps(installed_apps))
-		frappe.db.commit()
-		if frappe.flags.in_install:
+		capkpi.db.set_global("installed_apps", json.dumps(installed_apps))
+		capkpi.db.commit()
+		if capkpi.flags.in_install:
 			post_install(rebuild_website)
 
 
 def remove_from_installed_apps(app_name):
-	installed_apps = frappe.get_installed_apps()
+	installed_apps = capkpi.get_installed_apps()
 	if app_name in installed_apps:
 		installed_apps.remove(app_name)
-		frappe.db.set_value(
+		capkpi.db.set_value(
 			"DefaultValue", {"defkey": "installed_apps"}, "defvalue", json.dumps(installed_apps)
 		)
 		_clear_cache("__global")
-		frappe.db.commit()
-		if frappe.flags.in_install:
+		capkpi.db.commit()
+		if capkpi.flags.in_install:
 			post_install()
 
 
@@ -232,12 +232,12 @@ def remove_app(app_name, dry_run=False, yes=False, no_backup=False, force=False)
 	"""Remove app and all linked to the app's module with the app from a site."""
 	import click
 
-	site = frappe.local.site
-	app_hooks = frappe.get_hooks(app_name=app_name)
+	site = capkpi.local.site
+	app_hooks = capkpi.get_hooks(app_name=app_name)
 
 	# dont allow uninstall app if not installed unless forced
 	if not force:
-		if app_name not in frappe.get_installed_apps():
+		if app_name not in capkpi.get_installed_apps():
 			click.secho(f"App {app_name} not installed on Site {site}", fg="yellow")
 			return
 
@@ -252,31 +252,31 @@ def remove_app(app_name, dry_run=False, yes=False, no_backup=False, force=False)
 			return
 
 	if not (dry_run or no_backup):
-		from frappe.utils.backups import scheduled_backup
+		from capkpi.utils.backups import scheduled_backup
 
 		print("Backing up...")
 		scheduled_backup(ignore_files=True)
 
-	frappe.flags.in_uninstall = True
+	capkpi.flags.in_uninstall = True
 
 	for before_uninstall in app_hooks.before_uninstall or []:
-		frappe.get_attr(before_uninstall)()
+		capkpi.get_attr(before_uninstall)()
 
-	modules = frappe.get_all("Module Def", filters={"app_name": app_name}, pluck="name")
+	modules = capkpi.get_all("Module Def", filters={"app_name": app_name}, pluck="name")
 
 	drop_doctypes = _delete_modules(modules, dry_run=dry_run)
 	_delete_doctypes(drop_doctypes, dry_run=dry_run)
 
 	if not dry_run:
 		remove_from_installed_apps(app_name)
-		frappe.get_single("Installed Applications").update_versions()
-		frappe.db.commit()
+		capkpi.get_single("Installed Applications").update_versions()
+		capkpi.db.commit()
 
 	for after_uninstall in app_hooks.after_uninstall or []:
-		frappe.get_attr(after_uninstall)()
+		capkpi.get_attr(after_uninstall)()
 
 	click.secho(f"Uninstalled App {app_name} from Site {site}", fg="green")
-	frappe.flags.in_uninstall = False
+	capkpi.flags.in_uninstall = False
 
 
 def _delete_modules(modules: List[str], dry_run: bool) -> List[str]:
@@ -291,14 +291,14 @@ def _delete_modules(modules: List[str], dry_run: bool) -> List[str]:
 	for module_name in modules:
 		print(f"Deleting Module '{module_name}'")
 
-		for doctype in frappe.get_all(
+		for doctype in capkpi.get_all(
 			"DocType", filters={"module": module_name}, fields=["name", "issingle"]
 		):
 			print(f"* removing DocType '{doctype.name}'...")
 
 			if not dry_run:
 				if doctype.issingle:
-					frappe.delete_doc("DocType", doctype.name, ignore_on_trash=True)
+					capkpi.delete_doc("DocType", doctype.name, ignore_on_trash=True)
 				else:
 					drop_doctypes.append(doctype.name)
 
@@ -306,7 +306,7 @@ def _delete_modules(modules: List[str], dry_run: bool) -> List[str]:
 
 		print(f"* removing Module Def '{module_name}'...")
 		if not dry_run:
-			frappe.delete_doc("Module Def", module_name, ignore_on_trash=True, force=True)
+			capkpi.delete_doc("Module Def", module_name, ignore_on_trash=True, force=True)
 
 	return drop_doctypes
 
@@ -317,10 +317,10 @@ def _delete_linked_documents(
 
 	"""Deleted all records linked with module def"""
 	for doctype, fieldname in doctype_linkfield_map.items():
-		for record in frappe.get_all(doctype, filters={fieldname: module_name}, pluck="name"):
+		for record in capkpi.get_all(doctype, filters={fieldname: module_name}, pluck="name"):
 			print(f"* removing {doctype} '{record}'...")
 			if not dry_run:
-				frappe.delete_doc(doctype, record, ignore_on_trash=True, force=True)
+				capkpi.delete_doc(doctype, record, ignore_on_trash=True, force=True)
 
 
 def _get_module_linked_doctype_field_map() -> Dict[str, str]:
@@ -337,12 +337,12 @@ def _get_module_linked_doctype_field_map() -> Dict[str, str]:
 	]
 	doctype_to_field_map = OrderedDict(ordered_doctypes)
 
-	linked_doctypes = frappe.get_all(
+	linked_doctypes = capkpi.get_all(
 		"DocField",
 		filters={"fieldtype": "Link", "options": "Module Def"},
 		fields=["parent", "fieldname"],
 	)
-	existing_linked_doctypes = [d for d in linked_doctypes if frappe.db.exists("DocType", d.parent)]
+	existing_linked_doctypes = [d for d in linked_doctypes if capkpi.db.exists("DocType", d.parent)]
 
 	for d in existing_linked_doctypes:
 		# DocType deletion is handled separately in the end
@@ -356,34 +356,34 @@ def _delete_doctypes(doctypes: List[str], dry_run: bool) -> None:
 	for doctype in set(doctypes):
 		print(f"* dropping Table for '{doctype}'...")
 		if not dry_run:
-			frappe.delete_doc("DocType", doctype, ignore_on_trash=True)
-			frappe.db.sql_ddl(f"DROP TABLE IF EXISTS `tab{doctype}`")
+			capkpi.delete_doc("DocType", doctype, ignore_on_trash=True)
+			capkpi.db.sql_ddl(f"DROP TABLE IF EXISTS `tab{doctype}`")
 
 
 def post_install(rebuild_website=False):
-	from frappe.website import render
+	from capkpi.website import render
 
 	if rebuild_website:
 		render.clear_cache()
 
 	init_singles()
-	frappe.db.commit()
-	frappe.clear_cache()
+	capkpi.db.commit()
+	capkpi.clear_cache()
 
 
 def set_all_patches_as_completed(app):
-	patch_path = os.path.join(frappe.get_pymodule_path(app), "patches.txt")
+	patch_path = os.path.join(capkpi.get_pymodule_path(app), "patches.txt")
 	if os.path.exists(patch_path):
-		for patch in frappe.get_file_items(patch_path):
-			frappe.get_doc({"doctype": "Patch Log", "patch": patch}).insert(ignore_permissions=True)
-		frappe.db.commit()
+		for patch in capkpi.get_file_items(patch_path):
+			capkpi.get_doc({"doctype": "Patch Log", "patch": patch}).insert(ignore_permissions=True)
+		capkpi.db.commit()
 
 
 def init_singles():
-	singles = [single["name"] for single in frappe.get_all("DocType", filters={"issingle": True})]
+	singles = [single["name"] for single in capkpi.get_all("DocType", filters={"issingle": True})]
 	for single in singles:
-		if not frappe.db.get_singles_dict(single):
-			doc = frappe.new_doc(single)
+		if not capkpi.db.get_singles_dict(single):
+			doc = capkpi.new_doc(single)
 			doc.flags.ignore_mandatory = True
 			doc.flags.ignore_validate = True
 			doc.save()
@@ -392,19 +392,19 @@ def init_singles():
 def make_conf(
 	db_name=None, db_password=None, site_config=None, db_type=None, db_host=None, db_port=None
 ):
-	site = frappe.local.site
+	site = capkpi.local.site
 	make_site_config(
 		db_name, db_password, site_config, db_type=db_type, db_host=db_host, db_port=db_port
 	)
-	sites_path = frappe.local.sites_path
-	frappe.destroy()
-	frappe.init(site, sites_path=sites_path)
+	sites_path = capkpi.local.sites_path
+	capkpi.destroy()
+	capkpi.init(site, sites_path=sites_path)
 
 
 def make_site_config(
 	db_name=None, db_password=None, site_config=None, db_type=None, db_host=None, db_port=None
 ):
-	frappe.create_folder(os.path.join(frappe.local.site_path))
+	capkpi.create_folder(os.path.join(capkpi.local.site_path))
 	site_file = get_site_config_path()
 
 	if not os.path.exists(site_file):
@@ -452,12 +452,12 @@ def update_site_config(key, value, validate=True, site_config_path=None):
 	with open(site_config_path, "w") as f:
 		f.write(json.dumps(site_config, indent=1, sort_keys=True))
 
-	if hasattr(frappe.local, "conf"):
-		frappe.local.conf[key] = value
+	if hasattr(capkpi.local, "conf"):
+		capkpi.local.conf[key] = value
 
 
 def get_site_config_path():
-	return os.path.join(frappe.local.site_path, "site_config.json")
+	return os.path.join(capkpi.local.site_path, "site_config.json")
 
 
 def get_conf_params(db_name=None, db_password=None):
@@ -467,7 +467,7 @@ def get_conf_params(db_name=None, db_password=None):
 			raise Exception("Database Name Required")
 
 	if not db_password:
-		from frappe.utils import random_string
+		from capkpi.utils import random_string
 
 		db_password = random_string(16)
 
@@ -483,14 +483,14 @@ def make_site_dirs():
 		"locks",
 		"logs",
 	]:
-		path = frappe.get_site_path(dir_path)
+		path = capkpi.get_site_path(dir_path)
 		os.makedirs(path, exist_ok=True)
 
 
 def add_module_defs(app):
-	modules = frappe.get_module_list(app)
+	modules = capkpi.get_module_list(app)
 	for module in modules:
-		d = frappe.new_doc("Module Def")
+		d = capkpi.new_doc("Module Def")
 		d.app_name = app
 		d.module_name = module
 		d.save(ignore_permissions=True)
@@ -499,8 +499,8 @@ def add_module_defs(app):
 def remove_missing_apps():
 	import importlib
 
-	apps = ("frappe_subscription", "shopping_cart")
-	installed_apps = json.loads(frappe.db.get_global("installed_apps") or "[]")
+	apps = ("capkpi_subscription", "shopping_cart")
+	installed_apps = json.loads(capkpi.db.get_global("installed_apps") or "[]")
 	for app in apps:
 		if app in installed_apps:
 			try:
@@ -508,7 +508,7 @@ def remove_missing_apps():
 
 			except ImportError:
 				installed_apps.remove(app)
-				frappe.db.set_global("installed_apps", json.dumps(installed_apps))
+				capkpi.db.set_global("installed_apps", json.dumps(installed_apps))
 
 
 def extract_sql_from_archive(sql_file_path):
@@ -522,7 +522,7 @@ def extract_sql_from_archive(sql_file_path):
 	Returns:
 	        str: Path of the decompressed SQL file
 	"""
-	from frappe.utils import get_bench_relative_path
+	from capkpi.utils import get_bench_relative_path
 
 	sql_file_path = get_bench_relative_path(sql_file_path)
 	# Extract the gzip file if user has passed *.sql.gz file instead of *.sql file
@@ -553,13 +553,13 @@ def extract_files(site_name, file_path):
 	import shutil
 	import subprocess
 
-	from frappe.utils import get_bench_relative_path
+	from capkpi.utils import get_bench_relative_path
 
 	file_path = get_bench_relative_path(file_path)
 
-	# Need to do frappe.init to maintain the site locals
-	frappe.init(site=site_name)
-	abs_site_path = os.path.abspath(frappe.get_site_path())
+	# Need to do capkpi.init to maintain the site locals
+	capkpi.init(site=site_name)
+	abs_site_path = os.path.abspath(capkpi.get_site_path())
 
 	# Copy the files to the parent directory and extract
 	shutil.copy2(os.path.abspath(file_path), abs_site_path)
@@ -576,7 +576,7 @@ def extract_files(site_name, file_path):
 	except Exception:
 		raise
 	finally:
-		frappe.destroy()
+		capkpi.destroy()
 
 	return tar_path
 
@@ -586,7 +586,7 @@ def is_downgrade(sql_file_path, verbose=False):
 
 	# This function is only tested with mariadb
 	# TODO: Add postgres support
-	if frappe.conf.db_type not in (None, "mariadb"):
+	if capkpi.conf.db_type not in (None, "mariadb"):
 		return False
 
 	from semantic_version import Version
@@ -596,25 +596,25 @@ def is_downgrade(sql_file_path, verbose=False):
 	with open(sql_file_path) as f:
 		for line in f:
 			if head in line:
-				# 'line' (str) format: ('2056588823','2020-05-11 18:21:31.488367','2020-06-12 11:49:31.079506','Administrator','Administrator',0,'Installed Applications','installed_applications','Installed Applications',1,'frappe','v10.1.71-74 (3c50d5e) (v10.x.x)','v10.x.x'),('855c640b8e','2020-05-11 18:21:31.488367','2020-06-12 11:49:31.079506','Administrator','Administrator',0,'Installed Applications','installed_applications','Installed Applications',2,'your_custom_app','0.0.1','master')
+				# 'line' (str) format: ('2056588823','2020-05-11 18:21:31.488367','2020-06-12 11:49:31.079506','Administrator','Administrator',0,'Installed Applications','installed_applications','Installed Applications',1,'capkpi','v10.1.71-74 (3c50d5e) (v10.x.x)','v10.x.x'),('855c640b8e','2020-05-11 18:21:31.488367','2020-06-12 11:49:31.079506','Administrator','Administrator',0,'Installed Applications','installed_applications','Installed Applications',2,'your_custom_app','0.0.1','master')
 				line = line.strip().lstrip(head).rstrip(";").strip()
-				app_rows = frappe.safe_eval(line)
+				app_rows = capkpi.safe_eval(line)
 				# check if iterable consists of tuples before trying to transform
 				apps_list = (
 					app_rows
 					if all(isinstance(app_row, (tuple, list, set)) for app_row in app_rows)
 					else (app_rows,)
 				)
-				# 'all_apps' (list) format: [('frappe', '12.x.x-develop ()', 'develop'), ('your_custom_app', '0.0.1', 'master')]
+				# 'all_apps' (list) format: [('capkpi', '12.x.x-develop ()', 'develop'), ('your_custom_app', '0.0.1', 'master')]
 				all_apps = [x[-3:] for x in apps_list]
 
 				for app in all_apps:
 					app_name = app[0]
 					app_version = app[1].split(" ")[0]
 
-					if app_name == "frappe":
+					if app_name == "capkpi":
 						try:
-							current_version = Version(frappe.__version__)
+							current_version = Version(capkpi.__version__)
 							backup_version = Version(app_version[1:] if app_version[0] == "v" else app_version)
 						except ValueError:
 							return False
@@ -638,14 +638,14 @@ def is_partial(sql_file_path):
 def partial_restore(sql_file_path, verbose=False):
 	sql_file = extract_sql_from_archive(sql_file_path)
 
-	if frappe.conf.db_type in (None, "mariadb"):
-		from frappe.database.mariadb.setup_db import import_db_from_sql
-	elif frappe.conf.db_type == "postgres":
+	if capkpi.conf.db_type in (None, "mariadb"):
+		from capkpi.database.mariadb.setup_db import import_db_from_sql
+	elif capkpi.conf.db_type == "postgres":
 		import warnings
 
 		from click import style
 
-		from frappe.database.postgres.setup_db import import_db_from_sql
+		from capkpi.database.postgres.setup_db import import_db_from_sql
 
 		warn = style(
 			"Delete the tables you want to restore manually before attempting"
@@ -694,4 +694,4 @@ def validate_database_sql(path, _raise=True):
 		click.secho(error_message, fg="red")
 
 	if _raise and (missing_table or empty_file):
-		raise frappe.InvalidDatabaseFile
+		raise capkpi.InvalidDatabaseFile

@@ -1,7 +1,7 @@
 // Copyright (c) 2019, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Server Script', {
+capkpi.ui.form.on('Server Script', {
 	setup: function(frm) {
 		frm.trigger('setup_help');
 	},
@@ -30,11 +30,11 @@ if "test" in doc.description:
 
 # validate
 if "validate" in doc.description:
-	raise frappe.ValidationError
+	raise capkpi.ValidationError
 
 # auto create another document
 if doc.allocated_to:
-	frappe.get_doc(dict(
+	capkpi.get_doc(dict(
 		doctype = 'ToDo'
 		owner = doc.allocated_to,
 		description = doc.subject
@@ -49,10 +49,10 @@ if doc.allocated_to:
 <pre><code>
 # respond to API
 
-if frappe.form_dict.message == "ping":
-	frappe.response['message'] = "pong"
+if capkpi.form_dict.message == "ping":
+	capkpi.response['message'] = "pong"
 else:
-	frappe.response['message'] = "ok"
+	capkpi.response['message'] = "ok"
 </code></pre>
 
 <hr>
@@ -61,7 +61,7 @@ else:
 <p>Add conditions to the where clause of list queries.</p>
 <pre><code>
 # generate dynamic conditions and set it in the conditions variable
-tenant_id = frappe.db.get_value(...)
+tenant_id = capkpi.db.get_value(...)
 conditions = 'tenant_id = {}'.format(tenant_id)
 
 # resulting select query

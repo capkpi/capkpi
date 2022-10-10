@@ -1,7 +1,7 @@
 # Copyright (c) 2021, CapKPI Technologies Pvt. Ltd. and Contributors
 # MIT License. See LICENSE
 
-from frappe.exceptions import ValidationError
+from capkpi.exceptions import ValidationError
 
 
 class NewsletterAlreadySentError(ValidationError):

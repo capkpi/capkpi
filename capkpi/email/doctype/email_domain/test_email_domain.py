@@ -5,10 +5,10 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
-from frappe.test_runner import make_test_objects
+import capkpi
+from capkpi.test_runner import make_test_objects
 
-test_records = frappe.get_test_records("Email Domain")
+test_records = capkpi.get_test_records("Email Domain")
 
 
 class TestDomain(unittest.TestCase):
@@ -16,12 +16,12 @@ class TestDomain(unittest.TestCase):
 		make_test_objects("Email Domain", reset=True)
 
 	def tearDown(self):
-		frappe.delete_doc("Email Account", "Test")
-		frappe.delete_doc("Email Domain", "test.com")
+		capkpi.delete_doc("Email Account", "Test")
+		capkpi.delete_doc("Email Domain", "test.com")
 
 	def test_on_update(self):
-		mail_domain = frappe.get_doc("Email Domain", "test.com")
-		mail_account = frappe.get_doc("Email Account", "Test")
+		mail_domain = capkpi.get_doc("Email Domain", "test.com")
+		mail_account = capkpi.get_doc("Email Account", "Test")
 
 		# Ensure a different port
 		mail_account.incoming_port = int(mail_domain.incoming_port) + 5

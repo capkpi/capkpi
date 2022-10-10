@@ -43,15 +43,15 @@ context('Control Link', () => {
 	it('should set the valid value', () => {
 		get_dialog_with_link().as('dialog');
 
-		cy.intercept('POST', '/api/method/frappe.desk.search.search_link').as('search_link');
+		cy.intercept('POST', '/api/method/capkpi.desk.search.search_link').as('search_link');
 
-		cy.get('.frappe-control[data-fieldname=link] input').focus().as('input');
+		cy.get('.capkpi-control[data-fieldname=link] input').focus().as('input');
 		cy.wait('@search_link');
 		cy.get('@input').type('todo for link', { delay: 200 });
 		cy.wait('@search_link');
-		cy.get('.frappe-control[data-fieldname=link]').findByRole('listbox').should('be.visible');
-		cy.get('.frappe-control[data-fieldname=link] input').type('{enter}', { delay: 100 });
-		cy.get('.frappe-control[data-fieldname=link] input').blur();
+		cy.get('.capkpi-control[data-fieldname=link]').findByRole('listbox').should('be.visible');
+		cy.get('.capkpi-control[data-fieldname=link] input').type('{enter}', { delay: 100 });
+		cy.get('.capkpi-control[data-fieldname=link] input').blur();
 		cy.get('@dialog').then(dialog => {
 			cy.get('@todos').then(todos => {
 				let value = dialog.get_value('link');
@@ -63,25 +63,25 @@ context('Control Link', () => {
 	it('should unset invalid value', () => {
 		get_dialog_with_link().as('dialog');
 
-		cy.intercept('POST', '/api/method/frappe.client.validate_link').as('validate_link');
+		cy.intercept('POST', '/api/method/capkpi.client.validate_link').as('validate_link');
 
-		cy.get('.frappe-control[data-fieldname=link] input')
+		cy.get('.capkpi-control[data-fieldname=link] input')
 			.type('invalid value', { delay: 100 })
 			.blur();
 		cy.wait('@validate_link');
-		cy.get('.frappe-control[data-fieldname=link] input').should('have.value', '');
+		cy.get('.capkpi-control[data-fieldname=link] input').should('have.value', '');
 	});
 
 	it("should be possible set empty value explicitly", () => {
 		get_dialog_with_link().as("dialog");
 
-		cy.intercept("POST", "/api/method/frappe.client.validate_link").as("validate_link");
+		cy.intercept("POST", "/api/method/capkpi.client.validate_link").as("validate_link");
 
-		cy.get(".frappe-control[data-fieldname=link] input")
+		cy.get(".capkpi-control[data-fieldname=link] input")
 			.type("  ", { delay: 100 })
 			.blur();
 		cy.wait("@validate_link");
-		cy.get(".frappe-control[data-fieldname=link] input").should("have.value", "");
+		cy.get(".capkpi-control[data-fieldname=link] input").should("have.value", "");
 		cy.window()
 			.its("cur_dialog")
 			.then((dialog) => {
@@ -92,11 +92,11 @@ context('Control Link', () => {
 	it('should route to form on arrow click', () => {
 		get_dialog_with_link().as('dialog');
 
-		cy.intercept('POST', '/api/method/frappe.client.validate_link').as('validate_link');
-		cy.intercept('POST', '/api/method/frappe.desk.search.search_link').as('search_link');
+		cy.intercept('POST', '/api/method/capkpi.client.validate_link').as('validate_link');
+		cy.intercept('POST', '/api/method/capkpi.desk.search.search_link').as('search_link');
 
 		cy.get('@todos').then(todos => {
-			cy.get('.frappe-control[data-fieldname=link] input').as('input');
+			cy.get('.capkpi-control[data-fieldname=link] input').as('input');
 			cy.get('@input').focus();
 			cy.wait('@search_link');
 			cy.get('@input').type(todos[0]).blur();
@@ -112,12 +112,12 @@ context('Control Link', () => {
 	it('should update dependant fields (via fetch_from)', () => {
 		cy.get('@todos').then(todos => {
 			cy.visit(`/app/todo/${todos[0]}`);
-			cy.intercept('POST', '/api/method/frappe.client.validate_link').as('validate_link');
+			cy.intercept('POST', '/api/method/capkpi.client.validate_link').as('validate_link');
 
-			cy.get('.frappe-control[data-fieldname=assigned_by] input').focus().as('input');
+			cy.get('.capkpi-control[data-fieldname=assigned_by] input').focus().as('input');
 			cy.get('@input').type('Administrator', {delay: 100}).blur();
 			cy.wait('@validate_link');
-			cy.get('.frappe-control[data-fieldname=assigned_by_full_name] .control-value').should(
+			cy.get('.capkpi-control[data-fieldname=assigned_by_full_name] .control-value').should(
 				'contain', 'Administrator'
 			);
 
@@ -127,7 +127,7 @@ context('Control Link', () => {
 
 			// invalid input
 			cy.get('@input').clear().type('invalid input', {delay: 100}).blur();
-			cy.get('.frappe-control[data-fieldname=assigned_by_full_name] .control-value').should(
+			cy.get('.capkpi-control[data-fieldname=assigned_by_full_name] .control-value').should(
 				'contain', ''
 			);
 
@@ -145,7 +145,7 @@ context('Control Link', () => {
 
 			// clear input
 			cy.get('@input').clear().blur();
-			cy.get('.frappe-control[data-fieldname=assigned_by_full_name] .control-value').should(
+			cy.get('.capkpi-control[data-fieldname=assigned_by_full_name] .control-value').should(
 				'contain', ''
 			);
 
@@ -167,44 +167,44 @@ context('Control Link', () => {
 		cy.reload();
 		cy.new_form("ToDo");
 		cy.fill_field("description", "new", "Text Editor");
-		cy.intercept("POST", "/api/method/frappe.desk.form.save.savedocs").as("save_form");
+		cy.intercept("POST", "/api/method/capkpi.desk.form.save.savedocs").as("save_form");
 		cy.findByRole("button", {name: "Save"}).click();
 		cy.wait("@save_form");
-		cy.get(".frappe-control[data-fieldname=assigned_by_full_name] .control-value").should(
+		cy.get(".capkpi-control[data-fieldname=assigned_by_full_name] .control-value").should(
 			"contain", "Administrator"
 		);
 		// if user clears default value explicitly, system should not reset default again
 		cy.get_field("assigned_by").clear().blur();
-		cy.intercept("POST", "/api/method/frappe.desk.form.save.savedocs").as("save_form");
+		cy.intercept("POST", "/api/method/capkpi.desk.form.save.savedocs").as("save_form");
 		cy.findByRole("button", {name: "Save"}).click();
 		cy.wait("@save_form");
 		cy.get_field("assigned_by").should("have.value", "");
-		cy.get(".frappe-control[data-fieldname=assigned_by_full_name] .control-value").should(
+		cy.get(".capkpi-control[data-fieldname=assigned_by_full_name] .control-value").should(
 			"contain", ""
 		);
 	});
 
 	it("show translated text for Gender link field with language de with input in de", () => {
-		cy.call("frappe.tests.ui_test_helpers.insert_translations").then(() => {
+		cy.call("capkpi.tests.ui_test_helpers.insert_translations").then(() => {
 			cy.window()
-				.its("frappe")
-				.then((frappe) => {
-					cy.set_value("User", frappe.user.name, { language: "de" });
+				.its("capkpi")
+				.then((capkpi) => {
+					cy.set_value("User", capkpi.user.name, { language: "de" });
 				});
 
 			cy.clear_cache();
 			cy.wait(500);
 
 			get_dialog_with_gender_link().as("dialog");
-			cy.intercept("POST", "/api/method/frappe.desk.search.search_link").as("search_link");
+			cy.intercept("POST", "/api/method/capkpi.desk.search.search_link").as("search_link");
 
-			cy.get(".frappe-control[data-fieldname=link] input").focus().as("input");
+			cy.get(".capkpi-control[data-fieldname=link] input").focus().as("input");
 			cy.wait("@search_link");
 			cy.get("@input").type("Sonstiges", { delay: 100 });
 			cy.wait("@search_link");
-			cy.get(".frappe-control[data-fieldname=link] ul").should("be.visible");
-			cy.get(".frappe-control[data-fieldname=link] input").type("{enter}", { delay: 100 });
-			cy.get(".frappe-control[data-fieldname=link] input").blur();
+			cy.get(".capkpi-control[data-fieldname=link] ul").should("be.visible");
+			cy.get(".capkpi-control[data-fieldname=link] input").type("{enter}", { delay: 100 });
+			cy.get(".capkpi-control[data-fieldname=link] input").blur();
 			cy.get("@dialog").then((dialog) => {
 				let field = dialog.get_field("link");
 				let value = field.get_value();
@@ -218,24 +218,24 @@ context('Control Link', () => {
 
 	it("show text for Gender link field with language en", () => {
 		cy.window()
-			.its("frappe")
-			.then((frappe) => {
-				cy.set_value("User", frappe.user.name, { language: "en" });
+			.its("capkpi")
+			.then((capkpi) => {
+				cy.set_value("User", capkpi.user.name, { language: "en" });
 			});
 
 		cy.clear_cache();
 		cy.wait(500);
 
 		get_dialog_with_gender_link().as("dialog");
-		cy.intercept("POST", "/api/method/frappe.desk.search.search_link").as("search_link");
+		cy.intercept("POST", "/api/method/capkpi.desk.search.search_link").as("search_link");
 
-		cy.get(".frappe-control[data-fieldname=link] input").focus().as("input");
+		cy.get(".capkpi-control[data-fieldname=link] input").focus().as("input");
 		cy.wait("@search_link");
 		cy.get("@input").type("Non-Conforming", { delay: 100 });
 		cy.wait("@search_link");
-		cy.get(".frappe-control[data-fieldname=link] ul").should("be.visible");
-		cy.get(".frappe-control[data-fieldname=link] input").type("{enter}", { delay: 100 });
-		cy.get(".frappe-control[data-fieldname=link] input").blur();
+		cy.get(".capkpi-control[data-fieldname=link] ul").should("be.visible");
+		cy.get(".capkpi-control[data-fieldname=link] input").type("{enter}", { delay: 100 });
+		cy.get(".capkpi-control[data-fieldname=link] input").blur();
 		cy.get("@dialog").then((dialog) => {
 			let field = dialog.get_field("link");
 			let value = field.get_value();

@@ -1,10 +1,10 @@
-import BaseTimeline from "../../../public/js/frappe/form/footer/base_timeline";
-frappe.provide('frappe.energy_points');
+import BaseTimeline from "../../../public/js/capkpi/form/footer/base_timeline";
+capkpi.provide('capkpi.energy_points');
 
 class UserProfile {
 	constructor(wrapper) {
 		this.wrapper = $(wrapper);
-		this.page = frappe.ui.make_app_page({
+		this.page = capkpi.ui.make_app_page({
 			parent: wrapper,
 		});
 		this.sidebar = this.wrapper.find('.layout-side-section');
@@ -15,24 +15,24 @@ class UserProfile {
 	}
 
 	show() {
-		let route = frappe.get_route();
-		this.user_id = route[1] || frappe.session.user;
-		frappe.dom.freeze(__('Loading user profile') + '...');
-		frappe.db.exists('User', this.user_id).then(exists => {
-			frappe.dom.unfreeze();
+		let route = capkpi.get_route();
+		this.user_id = route[1] || capkpi.session.user;
+		capkpi.dom.freeze(__('Loading user profile') + '...');
+		capkpi.db.exists('User', this.user_id).then(exists => {
+			capkpi.dom.unfreeze();
 			if (exists) {
 				this.make_user_profile();
 			} else {
-				frappe.msgprint(__('User does not exist'));
+				capkpi.msgprint(__('User does not exist'));
 			}
 		});
 	}
 
 	make_user_profile() {
-		this.user = frappe.user_info(this.user_id);
+		this.user = capkpi.user_info(this.user_id);
 		this.page.set_title(this.user.fullname);
 		this.setup_user_search();
-		this.main_section.empty().append(frappe.render_template('user_profile'));
+		this.main_section.empty().append(capkpi.render_template('user_profile'));
 		this.energy_points = 0;
 		this.review_points = 0;
 		this.rank = 0;
@@ -55,7 +55,7 @@ class UserProfile {
 	}
 
 	show_user_search_dialog() {
-		let dialog = new frappe.ui.Dialog({
+		let dialog = new capkpi.ui.Dialog({
 			title: __('Change User'),
 			fields: [
 				{
@@ -68,14 +68,14 @@ class UserProfile {
 			primary_action_label: __('Go'),
 			primary_action: ({ user }) => {
 				dialog.hide();
-				frappe.set_route('user-profile', user);
+				capkpi.set_route('user-profile', user);
 			}
 		});
 		dialog.show();
 	}
 
 	render_heatmap() {
-		this.heatmap = new frappe.Chart('.performance-heatmap', {
+		this.heatmap = new capkpi.Chart('.performance-heatmap', {
 			type: 'heatmap',
 			countLabel: 'Energy Points',
 			data: {},
@@ -88,9 +88,9 @@ class UserProfile {
 	}
 
 	update_heatmap_data(date_from) {
-		frappe.xcall('frappe.desk.page.user_profile.user_profile.get_energy_points_heatmap_data', {
+		capkpi.xcall('capkpi.desk.page.user_profile.user_profile.get_energy_points_heatmap_data', {
 			user: this.user_id,
-			date: date_from || frappe.datetime.year_start(),
+			date: date_from || capkpi.datetime.year_start(),
 		}).then((r) => {
 			this.heatmap.update({ dataPoints: r });
 		});
@@ -115,7 +115,7 @@ class UserProfile {
 			based_on: 'creation'
 		};
 
-		this.line_chart = new frappe.Chart('.performance-line-chart', {
+		this.line_chart = new capkpi.Chart('.performance-line-chart', {
 			type: 'line',
 			height: 200,
 			data: {
@@ -134,7 +134,7 @@ class UserProfile {
 	update_line_chart_data() {
 		this.line_chart_config.filters_json = JSON.stringify(this.line_chart_filters);
 
-		frappe.xcall('frappe.desk.doctype.dashboard_chart.dashboard_chart.get', {
+		capkpi.xcall('capkpi.desk.doctype.dashboard_chart.dashboard_chart.get', {
 			chart: this.line_chart_config,
 			no_cache: 1,
 		}).then(chart => {
@@ -144,12 +144,12 @@ class UserProfile {
 
 	// eslint-disable-next-line no-unused-vars
 	render_percentage_chart(field, title) {
-		frappe.xcall('frappe.desk.page.user_profile.user_profile.get_energy_points_percentage_chart_data', {
+		capkpi.xcall('capkpi.desk.page.user_profile.user_profile.get_energy_points_percentage_chart_data', {
 			user: this.user_id,
 			field: field
 		}).then(chart => {
 			if (chart.labels.length) {
-				this.percentage_chart = new frappe.Chart('.performance-percentage-chart', {
+				this.percentage_chart = new capkpi.Chart('.performance-percentage-chart', {
 					type: 'percentage',
 					data: {
 						labels: chart.labels,
@@ -204,7 +204,7 @@ class UserProfile {
 				}
 			},
 		];
-		frappe.dashboard_utils.render_chart_filters(filters, 'chart-filter', '.line-chart-options', 1);
+		capkpi.dashboard_utils.render_chart_filters(filters, 'chart-filter', '.line-chart-options', 1);
 	}
 
 	create_percentage_chart_filters() {
@@ -219,25 +219,25 @@ class UserProfile {
 				}
 			},
 		];
-		frappe.dashboard_utils.render_chart_filters(filters, 'chart-filter', '.percentage-chart-options');
+		capkpi.dashboard_utils.render_chart_filters(filters, 'chart-filter', '.percentage-chart-options');
 	}
 
 	create_heatmap_chart_filters() {
 		let filters = [
 			{
-				label: frappe.dashboard_utils.get_year(frappe.datetime.now_date()),
-				options: frappe.dashboard_utils.get_years_since_creation(frappe.boot.user.creation),
+				label: capkpi.dashboard_utils.get_year(capkpi.datetime.now_date()),
+				options: capkpi.dashboard_utils.get_years_since_creation(capkpi.boot.user.creation),
 				action: (selected_item) => {
-					this.update_heatmap_data(frappe.datetime.obj_to_str(selected_item));
+					this.update_heatmap_data(capkpi.datetime.obj_to_str(selected_item));
 				}
 			},
 		];
-		frappe.dashboard_utils.render_chart_filters(filters, 'chart-filter', '.heatmap-options');
+		capkpi.dashboard_utils.render_chart_filters(filters, 'chart-filter', '.heatmap-options');
 	}
 
 
 	edit_profile() {
-		let edit_profile_dialog = new frappe.ui.Dialog({
+		let edit_profile_dialog = new capkpi.ui.Dialog({
 			title: __('Edit Profile'),
 			fields: [
 				{
@@ -270,7 +270,7 @@ class UserProfile {
 			],
 			primary_action: values => {
 				edit_profile_dialog.disable_primary_action();
-				frappe.xcall('frappe.desk.page.user_profile.user_profile.update_profile_info', {
+				capkpi.xcall('capkpi.desk.page.user_profile.user_profile.update_profile_info', {
 					profile_info: values
 				}).then(user => {
 					user.image = user.user_image;
@@ -294,7 +294,7 @@ class UserProfile {
 	}
 
 	render_user_details() {
-		this.sidebar.empty().append(frappe.render_template('user_profile_sidebar', {
+		this.sidebar.empty().append(capkpi.render_template('user_profile_sidebar', {
 			user_image: this.user.image,
 			user_abbr: this.user.abbr,
 			user_location: this.user.location,
@@ -306,7 +306,7 @@ class UserProfile {
 	}
 
 	setup_user_profile_links() {
-		if (this.user_id !== frappe.session.user) {
+		if (this.user_id !== capkpi.session.user) {
 			this.wrapper.find('.profile-links').hide();
 		} else {
 			this.wrapper.find('.edit-profile-link').on('click', () => {
@@ -320,7 +320,7 @@ class UserProfile {
 	}
 
 	get_user_rank() {
-		return frappe.xcall('frappe.desk.page.user_profile.user_profile.get_user_rank', {
+		return capkpi.xcall('capkpi.desk.page.user_profile.user_profile.get_user_rank', {
 			user: this.user_id,
 		}).then(r => {
 			if (r.monthly_rank.length) this.month_rank = r.monthly_rank[0];
@@ -329,8 +329,8 @@ class UserProfile {
 	}
 
 	get_user_points() {
-		return frappe.xcall(
-			'frappe.social.doctype.energy_point_log.energy_point_log.get_user_energy_and_review_points',
+		return capkpi.xcall(
+			'capkpi.social.doctype.energy_point_log.energy_point_log.get_user_energy_and_review_points',
 			{
 				user: this.user_id,
 			}
@@ -348,7 +348,7 @@ class UserProfile {
 
 		const _get_stat_dom = (value, label, icon) => {
 			return `<div class="user-stats-item mt-4">
-				${frappe.utils.icon(icon, "lg", "no-stroke")}
+				${capkpi.utils.icon(icon, "lg", "no-stroke")}
 				<div>
 					<div class="stat-value">${value}</div>
 					<div class="stat-label">${label}</div>
@@ -372,7 +372,7 @@ class UserProfile {
 	}
 
 	go_to_user_settings() {
-		frappe.set_route('Form', 'User', this.user_id);
+		capkpi.set_route('Form', 'User', this.user_id);
 	}
 
 	setup_user_activity_timeline() {
@@ -406,7 +406,7 @@ class UserProfileTimeline extends BaseTimeline {
 	}
 
 	get_user_activity_data() {
-		return frappe.xcall('frappe.desk.page.user_profile.user_profile.get_energy_points_list', {
+		return capkpi.xcall('capkpi.desk.page.user_profile.user_profile.get_energy_points_list', {
 			start: this.activity_start,
 			limit: this.activity_limit,
 			user: this.user
@@ -419,7 +419,7 @@ class UserProfileTimeline extends BaseTimeline {
 			icon: icon,
 			creation: data.creation,
 			is_card: true,
-			content: frappe.energy_points.format_history_log(data),
+			content: capkpi.energy_points.format_history_log(data),
 		};
 	}
 
@@ -442,5 +442,5 @@ class UserProfileTimeline extends BaseTimeline {
 	}
 }
 
-frappe.provide('frappe.ui');
-frappe.ui.UserProfile = UserProfile;
+capkpi.provide('capkpi.ui');
+capkpi.ui.UserProfile = UserProfile;

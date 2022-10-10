@@ -1,17 +1,17 @@
 // Copyright (c) 2019, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Data Import', {
+capkpi.ui.form.on('Data Import', {
 	setup(frm) {
-		frappe.realtime.on('data_import_refresh', ({ data_import }) => {
+		capkpi.realtime.on('data_import_refresh', ({ data_import }) => {
 			frm.import_in_progress = false;
 			if (data_import !== frm.doc.name) return;
-			frappe.model.clear_doc('Data Import', frm.doc.name);
-			frappe.model.with_doc('Data Import', frm.doc.name).then(() => {
+			capkpi.model.clear_doc('Data Import', frm.doc.name);
+			capkpi.model.with_doc('Data Import', frm.doc.name).then(() => {
 				frm.refresh();
 			});
 		});
-		frappe.realtime.on('data_import_progress', data => {
+		capkpi.realtime.on('data_import_progress', data => {
 			frm.import_in_progress = true;
 			if (data.data_import !== frm.doc.name) {
 				return;
@@ -57,7 +57,7 @@ frappe.ui.form.on('Data Import', {
 		frm.set_query('reference_doctype', () => {
 			return {
 				filters: {
-					name: ['in', frappe.boot.user.can_import]
+					name: ['in', capkpi.boot.user.can_import]
 				}
 			};
 		});
@@ -92,7 +92,7 @@ frappe.ui.form.on('Data Import', {
 		if (frm.doc.status.includes('Success')) {
 			frm.add_custom_button(
 				__('Go to {0} List', [__(frm.doc.reference_doctype)]),
-				() => frappe.set_route('List', frm.doc.reference_doctype)
+				() => capkpi.set_route('List', frm.doc.reference_doctype)
 			);
 		}
 	},
@@ -119,7 +119,7 @@ frappe.ui.form.on('Data Import', {
 	},
 
 	update_indicators(frm) {
-		const indicator = frappe.get_indicator(frm.doc);
+		const indicator = capkpi.get_indicator(frm.doc);
 		if (indicator) {
 			frm.page.set_indicator(indicator[0], indicator[1]);
 		} else {
@@ -166,7 +166,7 @@ frappe.ui.form.on('Data Import', {
 
 	show_report_error_button(frm) {
 		if (frm.doc.status === 'Error') {
-			frappe.db
+			capkpi.db
 				.get_list('Error Log', {
 					filters: { method: frm.doc.name },
 					fields: ['method', 'error'],
@@ -181,7 +181,7 @@ frappe.ui.form.on('Data Import', {
 									exc: result[0].error
 								})
 							};
-							frappe.request.report_error(fake_xhr, {});
+							capkpi.request.report_error(fake_xhr, {});
 						});
 					}
 				});
@@ -203,8 +203,8 @@ frappe.ui.form.on('Data Import', {
 	},
 
 	download_template(frm) {
-		frappe.require('/assets/js/data_import_tools.min.js', () => {
-			frm.data_exporter = new frappe.data_import.DataExporter(
+		capkpi.require('/assets/js/data_import_tools.min.js', () => {
+			frm.data_exporter = new capkpi.data_import.DataExporter(
 				frm.doc.reference_doctype,
 				frm.doc.import_type
 			);
@@ -219,8 +219,8 @@ frappe.ui.form.on('Data Import', {
 		frm.toggle_display('submit_after_import', false);
 		let doctype = frm.doc.reference_doctype;
 		if (doctype) {
-			frappe.model.with_doctype(doctype, () => {
-				let meta = frappe.get_meta(doctype);
+			capkpi.model.with_doctype(doctype, () => {
+				let meta = capkpi.get_meta(doctype);
 				frm.toggle_display('submit_after_import', meta.is_submittable);
 			});
 		}
@@ -287,8 +287,8 @@ frappe.ui.form.on('Data Import', {
 			return;
 		}
 
-		frappe.require('/assets/js/data_import_tools.min.js', () => {
-			frm.import_preview = new frappe.data_import.ImportPreview({
+		capkpi.require('/assets/js/data_import_tools.min.js', () => {
+			frm.import_preview = new capkpi.data_import.ImportPreview({
 				wrapper: frm.get_field('import_preview').$wrapper,
 				doctype: frm.doc.reference_doctype,
 				preview_data,
@@ -309,7 +309,7 @@ frappe.ui.form.on('Data Import', {
 
 	export_errored_rows(frm) {
 		open_url_post(
-			'/api/method/frappe.core.doctype.data_import.data_import.download_errored_template',
+			'/api/method/capkpi.core.doctype.data_import.data_import.download_errored_template',
 			{
 				data_import_name: frm.doc.name
 			}
@@ -408,7 +408,7 @@ frappe.ui.form.on('Data Import', {
 				if (log.success) {
 					if (frm.doc.import_type === 'Insert New Records') {
 						html = __('Successfully imported {0}', [
-							`<span class="underline">${frappe.utils.get_form_link(
+							`<span class="underline">${capkpi.utils.get_form_link(
 								frm.doc.reference_doctype,
 								log.docname,
 								true
@@ -416,7 +416,7 @@ frappe.ui.form.on('Data Import', {
 						]);
 					} else {
 						html = __('Successfully updated {0}', [
-							`<span class="underline">${frappe.utils.get_form_link(
+							`<span class="underline">${capkpi.utils.get_form_link(
 								frm.doc.reference_doctype,
 								log.docname,
 								true
@@ -432,7 +432,7 @@ frappe.ui.form.on('Data Import', {
 							return title + message;
 						})
 						.join('');
-					let id = frappe.dom.get_unique_id();
+					let id = capkpi.dom.get_unique_id();
 					html = `${messages}
 						<button class="btn btn-default btn-xs" type="button" data-toggle="collapse" data-target="#${id}" aria-expanded="false" aria-controls="${id}" style="margin-top: 15px;">
 							${__('Show Traceback')}

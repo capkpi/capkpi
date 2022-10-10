@@ -2,8 +2,8 @@ from __future__ import unicode_literals
 
 import os
 
-import frappe
-from frappe.database.db_manager import DbManager
+import capkpi
+from capkpi.database.db_manager import DbManager
 
 expected_settings_10_2_earlier = {
 	"innodb_file_format": "Barracuda",
@@ -22,7 +22,7 @@ expected_settings_10_3_later = {
 def get_mariadb_versions():
 	# MariaDB classifies their versions as Major (1st and 2nd number), and Minor (3rd number)
 	# Example: Version 10.3.13 is Major Version = 10.3, Minor Version = 13
-	mariadb_variables = frappe._dict(frappe.db.sql("""show variables"""))
+	mariadb_variables = capkpi._dict(capkpi.db.sql("""show variables"""))
 	version_string = mariadb_variables.get("version").split("-")[0]
 	versions = {}
 	versions["major"] = version_string.split(".")[0] + "." + version_string.split(".")[1]
@@ -31,10 +31,10 @@ def get_mariadb_versions():
 
 
 def setup_database(force, source_sql, verbose, no_mariadb_socket=False):
-	frappe.local.session = frappe._dict({"user": "Administrator"})
+	capkpi.local.session = capkpi._dict({"user": "Administrator"})
 
-	db_name = frappe.local.conf.db_name
-	root_conn = get_root_connection(frappe.flags.root_login, frappe.flags.root_password)
+	db_name = capkpi.local.conf.db_name
+	root_conn = get_root_connection(capkpi.flags.root_login, capkpi.flags.root_password)
 	dbman = DbManager(root_conn)
 	if force or (db_name not in dbman.get_database_list()):
 		dbman.delete_user(db_name)
@@ -44,9 +44,9 @@ def setup_database(force, source_sql, verbose, no_mariadb_socket=False):
 	else:
 		raise Exception("Database %s already exists" % (db_name,))
 
-	dbman.create_user(db_name, frappe.conf.db_password)
+	dbman.create_user(db_name, capkpi.conf.db_password)
 	if no_mariadb_socket:
-		dbman.create_user(db_name, frappe.conf.db_password, host="%")
+		dbman.create_user(db_name, capkpi.conf.db_password, host="%")
 	if verbose:
 		print("Created user %s" % db_name)
 
@@ -68,7 +68,7 @@ def setup_database(force, source_sql, verbose, no_mariadb_socket=False):
 
 
 def setup_help_database(help_db_name):
-	dbman = DbManager(get_root_connection(frappe.flags.root_login, frappe.flags.root_password))
+	dbman = DbManager(get_root_connection(capkpi.flags.root_login, capkpi.flags.root_password))
 	dbman.drop_database(help_db_name)
 
 	# make database
@@ -85,8 +85,8 @@ def setup_help_database(help_db_name):
 
 
 def drop_user_and_database(db_name, root_login, root_password):
-	frappe.local.db = get_root_connection(root_login, root_password)
-	dbman = DbManager(frappe.local.db)
+	capkpi.local.db = get_root_connection(root_login, root_password)
+	dbman = DbManager(capkpi.local.db)
 	dbman.delete_user(db_name, host="%")
 	dbman.delete_user(db_name)
 	dbman.drop_database(db_name)
@@ -95,15 +95,15 @@ def drop_user_and_database(db_name, root_login, root_password):
 def bootstrap_database(db_name, verbose, source_sql=None):
 	import sys
 
-	frappe.connect(db_name=db_name)
+	capkpi.connect(db_name=db_name)
 	if not check_database_settings():
 		print("Database settings do not match expected values; stopping database setup.")
 		sys.exit(1)
 
 	import_db_from_sql(source_sql, verbose)
 
-	frappe.connect(db_name=db_name)
-	if "tabDefaultValue" not in frappe.db.get_tables(cached=False):
+	capkpi.connect(db_name=db_name)
+	if "tabDefaultValue" not in capkpi.db.get_tables(cached=False):
 		from click import secho
 
 		secho(
@@ -120,10 +120,10 @@ def bootstrap_database(db_name, verbose, source_sql=None):
 def import_db_from_sql(source_sql=None, verbose=False):
 	if verbose:
 		print("Starting database import...")
-	db_name = frappe.conf.db_name
+	db_name = capkpi.conf.db_name
 	if not source_sql:
 		source_sql = os.path.join(os.path.dirname(__file__), "framework_mariadb.sql")
-	DbManager(frappe.local.db).restore_database(db_name, source_sql, db_name, frappe.conf.db_password)
+	DbManager(capkpi.local.db).restore_database(db_name, source_sql, db_name, capkpi.conf.db_password)
 	if verbose:
 		print("Imported from database %s" % source_sql)
 
@@ -135,7 +135,7 @@ def check_database_settings():
 	else:
 		expected_variables = expected_settings_10_3_later
 
-	mariadb_variables = frappe._dict(frappe.db.sql("""show variables"""))
+	mariadb_variables = capkpi._dict(capkpi.db.sql("""show variables"""))
 	# Check each expected value vs. actuals:
 	result = True
 	for key, expected_value in expected_variables.items():
@@ -146,7 +146,7 @@ def check_database_settings():
 			)
 			result = False
 	if not result:
-		site = frappe.local.site
+		site = capkpi.local.site
 		msg = (
 			"Creation of your site - {x} failed because MariaDB is not properly {sep}"
 			"configured.  If using version 10.2.x or earlier, make sure you use the {sep}"
@@ -162,21 +162,21 @@ def check_database_settings():
 def get_root_connection(root_login, root_password):
 	import getpass
 
-	if not frappe.local.flags.root_connection:
+	if not capkpi.local.flags.root_connection:
 		if not root_login:
 			root_login = "root"
 
 		if not root_password:
-			root_password = frappe.conf.get("root_password") or None
+			root_password = capkpi.conf.get("root_password") or None
 
 		if not root_password:
 			root_password = getpass.getpass("MySQL root password: ")
 
-		frappe.local.flags.root_connection = frappe.database.get_db(
+		capkpi.local.flags.root_connection = capkpi.database.get_db(
 			user=root_login, password=root_password
 		)
 
-	return frappe.local.flags.root_connection
+	return capkpi.local.flags.root_connection
 
 
 def print_db_config(explanation):

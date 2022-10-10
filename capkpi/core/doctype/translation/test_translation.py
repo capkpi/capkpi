@@ -5,28 +5,28 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
-from frappe import _
+import capkpi
+from capkpi import _
 
 
 class TestTranslation(unittest.TestCase):
 	def setUp(self):
-		frappe.db.sql("delete from tabTranslation")
+		capkpi.db.sql("delete from tabTranslation")
 
 	def tearDown(self):
-		frappe.local.lang = "en"
-		frappe.local.lang_full_dict = None
+		capkpi.local.lang = "en"
+		capkpi.local.lang_full_dict = None
 
 	def test_doctype(self):
 		translation_data = get_translation_data()
 		for key, val in translation_data.items():
-			frappe.local.lang = key
-			frappe.local.lang_full_dict = None
+			capkpi.local.lang = key
+			capkpi.local.lang_full_dict = None
 			translation = create_translation(key, val)
 			self.assertEqual(_(val[0]), val[1])
 
-			frappe.delete_doc("Translation", translation.name)
-			frappe.local.lang_full_dict = None
+			capkpi.delete_doc("Translation", translation.name)
+			capkpi.local.lang_full_dict = None
 
 			self.assertEqual(_(val[0]), val[0])
 
@@ -40,22 +40,22 @@ class TestTranslation(unittest.TestCase):
 		for key, val in data:
 			create_translation(key, val)
 
-		frappe.local.lang = "es"
+		capkpi.local.lang = "es"
 
-		frappe.local.lang_full_dict = None
+		capkpi.local.lang_full_dict = None
 		self.assertTrue(_(data[0][0]), data[0][1])
 
-		frappe.local.lang_full_dict = None
+		capkpi.local.lang_full_dict = None
 		self.assertTrue(_(data[1][0]), data[1][1])
 
-		frappe.local.lang = "es-MX"
+		capkpi.local.lang = "es-MX"
 
 		# different translation for es-MX
-		frappe.local.lang_full_dict = None
+		capkpi.local.lang_full_dict = None
 		self.assertTrue(_(data[2][0]), data[2][1])
 
 		# from spanish (general)
-		frappe.local.lang_full_dict = None
+		capkpi.local.lang_full_dict = None
 		self.assertTrue(_(data[1][0]), data[1][1])
 
 	def test_html_content_data_translation(self):
@@ -107,7 +107,7 @@ def get_translation_data():
 
 
 def create_translation(key, val):
-	translation = frappe.new_doc("Translation")
+	translation = capkpi.new_doc("Translation")
 	translation.language = key
 	translation.source_text = val[0]
 	translation.translated_text = val[1]

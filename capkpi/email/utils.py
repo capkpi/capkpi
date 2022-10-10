@@ -6,7 +6,7 @@ from __future__ import print_function, unicode_literals
 import imaplib
 import poplib
 
-from frappe.utils import cint
+from capkpi.utils import cint
 
 
 def get_port(doc):

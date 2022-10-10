@@ -36,7 +36,7 @@ context('Login', () => {
 
 		cy.findByRole('button', {name: 'Login'}).click();
 		cy.location('pathname').should('eq', '/app');
-		cy.window().its('frappe.session.user').should('eq', 'Administrator');
+		cy.window().its('capkpi.session.user').should('eq', 'Administrator');
 	});
 
 	it('check redirect after login', () => {

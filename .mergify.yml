@@ -9,7 +9,7 @@ pull_request_rules:
       - status-success=Python Unit Tests (Postgres) (2)
       - status-success=UI Tests (Cypress) (1)
       - status-success=UI Tests (Cypress) (2)
-      - status-success=security/snyk (frappe)
+      - status-success=security/snyk (capkpi)
       - label!=dont-merge
       - label!=squash
       - "#approved-reviews-by>=1"
@@ -25,7 +25,7 @@ pull_request_rules:
       - status-success=Python Unit Tests (Postgres) (2)
       - status-success=UI Tests (Cypress) (1)
       - status-success=UI Tests (Cypress) (2)
-      - status-success=security/snyk (frappe)
+      - status-success=security/snyk (capkpi)
       - label!=dont-merge
       - label=squash
       - "#approved-reviews-by>=1"

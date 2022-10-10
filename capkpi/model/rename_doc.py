@@ -3,16 +3,16 @@
 
 from __future__ import print_function, unicode_literals
 
-import frappe
-from frappe import _, bold
-from frappe.model.dynamic_links import get_dynamic_link_map
-from frappe.model.naming import validate_name
-from frappe.model.utils.user_settings import sync_user_settings, update_user_settings_data
-from frappe.utils import cint
-from frappe.utils.password import rename_password
+import capkpi
+from capkpi import _, bold
+from capkpi.model.dynamic_links import get_dynamic_link_map
+from capkpi.model.naming import validate_name
+from capkpi.model.utils.user_settings import sync_user_settings, update_user_settings_data
+from capkpi.utils import cint
+from capkpi.utils.password import rename_password
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def update_document_title(
 	doctype, docname, title_field=None, old_title=None, new_title=None, new_name=None, merge=False
 ):
@@ -22,9 +22,9 @@ def update_document_title(
 
 	for key, val in [("docname", docname), ("new_title", new_title), ("new_name", new_name)]:
 		if not isinstance(val, (str, type(None))):
-			frappe.throw("{0}={1} must be of type str or None".format(key, val))
+			capkpi.throw("{0}={1} must be of type str or None".format(key, val))
 
-	doc = frappe.get_doc(doctype, docname)
+	doc = capkpi.get_doc(doctype, docname)
 	doc.check_permission(permtype="write")
 
 	title_field = doc.meta.get_title_field()
@@ -37,14 +37,14 @@ def update_document_title(
 
 	if title_updated:
 		try:
-			frappe.db.set_value(doctype, docname, title_field, new_title)
-			frappe.msgprint(_("Saved"), alert=True, indicator="green")
+			capkpi.db.set_value(doctype, docname, title_field, new_title)
+			capkpi.msgprint(_("Saved"), alert=True, indicator="green")
 		except Exception as e:
-			if frappe.db.is_duplicate_entry(e):
-				frappe.throw(
-					_("{0} {1} already exists").format(doctype, frappe.bold(docname)),
+			if capkpi.db.is_duplicate_entry(e):
+				capkpi.throw(
+					_("{0} {1} already exists").format(doctype, capkpi.bold(docname)),
 					title=_("Duplicate Name"),
-					exc=frappe.DuplicateEntryError,
+					exc=capkpi.DuplicateEntryError,
 				)
 			raise
 
@@ -63,22 +63,22 @@ def rename_doc(
 	rebuild_search=True,
 ):
 	"""Rename a doc(dt, old) to doc(dt, new) and update all linked fields of type "Link"."""
-	if not frappe.db.exists(doctype, old):
+	if not capkpi.db.exists(doctype, old):
 		return
 
-	if ignore_if_exists and frappe.db.exists(doctype, new):
+	if ignore_if_exists and capkpi.db.exists(doctype, new):
 		return
 
 	if old == new:
-		frappe.msgprint(_("Please select a new name to rename"))
+		capkpi.msgprint(_("Please select a new name to rename"))
 		return
 
 	force = cint(force)
 	merge = cint(merge)
-	meta = frappe.get_meta(doctype)
+	meta = capkpi.get_meta(doctype)
 
 	# call before_rename
-	old_doc = frappe.get_doc(doctype, old)
+	old_doc = capkpi.get_doc(doctype, old)
 	out = old_doc.run_method("before_rename", old, new, merge) or {}
 	new = (out.get("new") or new) if isinstance(out, dict) else (out or new)
 	new = validate_rename(doctype, new, meta, merge, force, ignore_permissions)
@@ -108,7 +108,7 @@ def rename_doc(
 	rename_eps_records(doctype, old, new)
 
 	# call after_rename
-	new_doc = frappe.get_doc(doctype, new)
+	new_doc = capkpi.get_doc(doctype, new)
 
 	# copy any flags if required
 	new_doc._local = getattr(old_doc, "_local", None)
@@ -119,28 +119,28 @@ def rename_doc(
 		rename_password(doctype, old, new)
 
 	# update user_permissions
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""UPDATE `tabDefaultValue` SET `defvalue`=%s WHERE `parenttype`='User Permission'
 		AND `defkey`=%s AND `defvalue`=%s""",
 		(new, doctype, old),
 	)
 
 	if merge:
-		new_doc.add_comment("Edit", _("merged {0} into {1}").format(frappe.bold(old), frappe.bold(new)))
+		new_doc.add_comment("Edit", _("merged {0} into {1}").format(capkpi.bold(old), capkpi.bold(new)))
 	else:
 		new_doc.add_comment(
-			"Edit", _("renamed from {0} to {1}").format(frappe.bold(old), frappe.bold(new))
+			"Edit", _("renamed from {0} to {1}").format(capkpi.bold(old), capkpi.bold(new))
 		)
 
 	if merge:
-		frappe.delete_doc(doctype, old)
+		capkpi.delete_doc(doctype, old)
 
-	frappe.clear_cache()
+	capkpi.clear_cache()
 	if rebuild_search:
-		frappe.enqueue("frappe.utils.global_search.rebuild_for_doctype", doctype=doctype)
+		capkpi.enqueue("capkpi.utils.global_search.rebuild_for_doctype", doctype=doctype)
 
 	if show_alert:
-		frappe.msgprint(
+		capkpi.msgprint(
 			_("Document renamed from {0} to {1}").format(bold(old), bold(new)),
 			alert=True,
 			indicator="green",
@@ -150,13 +150,13 @@ def rename_doc(
 
 
 def update_assignments(old, new, doctype):
-	old_assignments = frappe.parse_json(frappe.db.get_value(doctype, old, "_assign")) or []
-	new_assignments = frappe.parse_json(frappe.db.get_value(doctype, new, "_assign")) or []
+	old_assignments = capkpi.parse_json(capkpi.db.get_value(doctype, old, "_assign")) or []
+	new_assignments = capkpi.parse_json(capkpi.db.get_value(doctype, new, "_assign")) or []
 	common_assignments = list(set(old_assignments).intersection(new_assignments))
 
 	for user in common_assignments:
 		# delete todos linked to old doc
-		todos = frappe.db.get_all(
+		todos = capkpi.db.get_all(
 			"ToDo",
 			{
 				"owner": user,
@@ -167,10 +167,10 @@ def update_assignments(old, new, doctype):
 		)
 
 		for todo in todos:
-			frappe.delete_doc("ToDo", todo.name)
+			capkpi.delete_doc("ToDo", todo.name)
 
 	unique_assignments = list(set(old_assignments + new_assignments))
-	frappe.db.set_value(doctype, new, "_assign", frappe.as_json(unique_assignments, indent=0))
+	capkpi.db.set_value(doctype, new, "_assign", capkpi.as_json(unique_assignments, indent=0))
 
 
 def update_user_settings(old, new, link_fields):
@@ -186,7 +186,7 @@ def update_user_settings(old, new, link_fields):
 
 	# find the user settings for the linked doctypes
 	linked_doctypes = set([d.parent for d in link_fields if not d.issingle])
-	user_settings_details = frappe.db.sql(
+	user_settings_details = capkpi.db.sql(
 		"""SELECT `user`, `doctype`, `data`
 			FROM `__UserSettings`
 			WHERE `data` like %s
@@ -215,33 +215,33 @@ def update_user_settings(old, new, link_fields):
 
 
 def update_customizations(old: str, new: str) -> None:
-	frappe.db.set_value("Custom DocPerm", {"parent": old}, "parent", new, update_modified=False)
+	capkpi.db.set_value("Custom DocPerm", {"parent": old}, "parent", new, update_modified=False)
 
 
 def update_attachments(doctype, old, new):
 	try:
 		if old != "File Data" and doctype != "DocType":
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tabFile` set attached_to_name=%s
 				where attached_to_name=%s and attached_to_doctype=%s""",
 				(new, old, doctype),
 			)
-	except frappe.db.ProgrammingError as e:
-		if not frappe.db.is_column_missing(e):
+	except capkpi.db.ProgrammingError as e:
+		if not capkpi.db.is_column_missing(e):
 			raise
 
 
 def rename_versions(doctype, old, new):
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""UPDATE `tabVersion` SET `docname`=%s WHERE `ref_doctype`=%s AND `docname`=%s""",
 		(new, doctype, old),
 	)
 
 
 def rename_eps_records(doctype, old, new):
-	epl = frappe.qb.DocType("Energy Point Log")
+	epl = capkpi.qb.DocType("Energy Point Log")
 	(
-		frappe.qb.update(epl)
+		capkpi.qb.update(epl)
 		.set(epl.reference_name, new)
 		.where((epl.reference_doctype == doctype) & (epl.reference_name == old))
 	).run()
@@ -249,7 +249,7 @@ def rename_eps_records(doctype, old, new):
 
 def rename_parent_and_child(doctype, old, new, meta):
 	# rename the doc
-	frappe.db.sql("UPDATE `tab{0}` SET `name`={1} WHERE `name`={1}".format(doctype, "%s"), (new, old))
+	capkpi.db.sql("UPDATE `tab{0}` SET `name`={1} WHERE `name`={1}".format(doctype, "%s"), (new, old))
 	update_autoname_field(doctype, new, meta)
 	update_child_docs(old, new, meta)
 
@@ -259,20 +259,20 @@ def update_autoname_field(doctype, new, meta):
 	if meta.get("autoname"):
 		field = meta.get("autoname").split(":")
 		if field and field[0] == "field":
-			frappe.db.sql(
+			capkpi.db.sql(
 				"UPDATE `tab{0}` SET `{1}`={2} WHERE `name`={2}".format(doctype, field[1], "%s"), (new, new)
 			)
 
 
 def validate_rename(doctype, new, meta, merge, force, ignore_permissions):
 	# using for update so that it gets locked and someone else cannot edit it while this rename is going on!
-	exists = frappe.db.sql(
+	exists = capkpi.db.sql(
 		"select name from `tab{doctype}` where name=%s for update".format(doctype=doctype), new
 	)
 	exists = exists[0][0] if exists else None
 
 	if merge and not exists:
-		frappe.msgprint(
+		capkpi.msgprint(
 			_("{0} {1} does not exist, select a new target to merge").format(doctype, new),
 			raise_exception=1,
 		)
@@ -282,18 +282,18 @@ def validate_rename(doctype, new, meta, merge, force, ignore_permissions):
 		exists = None
 
 	if (not merge) and exists:
-		frappe.msgprint(
+		capkpi.msgprint(
 			_("Another {0} with name {1} exists, select another name").format(doctype, new),
 			raise_exception=1,
 		)
 
 	if not (
-		ignore_permissions or frappe.permissions.has_permission(doctype, "write", raise_exception=False)
+		ignore_permissions or capkpi.permissions.has_permission(doctype, "write", raise_exception=False)
 	):
-		frappe.msgprint(_("You need write permission to rename"), raise_exception=1)
+		capkpi.msgprint(_("You need write permission to rename"), raise_exception=1)
 
 	if not (force or ignore_permissions) and not meta.allow_rename:
-		frappe.msgprint(_("{0} not allowed to be renamed").format(_(doctype)), raise_exception=1)
+		capkpi.msgprint(_("{0} not allowed to be renamed").format(_(doctype)), raise_exception=1)
 
 	# validate naming like it's done in doc.py
 	new = validate_name(doctype, new, merge=merge)
@@ -303,7 +303,7 @@ def validate_rename(doctype, new, meta, merge, force, ignore_permissions):
 
 def rename_doctype(doctype, old, new, force=False):
 	# change options for fieldtype Table, Table MultiSelect and Link
-	fields_with_options = ("Link",) + frappe.model.table_fields
+	fields_with_options = ("Link",) + capkpi.model.table_fields
 
 	for fieldtype in fields_with_options:
 		update_options_for_fieldtype(fieldtype, old, new)
@@ -320,7 +320,7 @@ def rename_doctype(doctype, old, new, force=False):
 def update_child_docs(old, new, meta):
 	# update "parent"
 	for df in meta.get_table_fields():
-		frappe.db.sql(
+		capkpi.db.sql(
 			"update `tab%s` set parent=%s where parent=%s" % (df.options, "%s", "%s"), (new, old)
 		)
 
@@ -329,7 +329,7 @@ def update_link_field_values(link_fields, old, new, doctype):
 	for field in link_fields:
 		if field["issingle"]:
 			try:
-				single_doc = frappe.get_doc(field["parent"])
+				single_doc = capkpi.get_doc(field["parent"])
 				if single_doc.get(field["fieldname"]) == old:
 					single_doc.set(field["fieldname"], new)
 					# update single docs using ORM rather then query
@@ -354,7 +354,7 @@ def update_link_field_values(link_fields, old, new, doctype):
 			if parent == new and doctype == "DocType":
 				parent = old
 
-			frappe.db.set_value(parent, {docfield: old}, docfield, new, update_modified=False)
+			capkpi.db.set_value(parent, {docfield: old}, docfield, new, update_modified=False)
 
 		# update cached link_fields as per new
 		if doctype == "DocType" and field["parent"] == old:
@@ -363,11 +363,11 @@ def update_link_field_values(link_fields, old, new, doctype):
 
 def get_link_fields(doctype):
 	# get link fields from tabDocField
-	if not frappe.flags.link_fields:
-		frappe.flags.link_fields = {}
+	if not capkpi.flags.link_fields:
+		capkpi.flags.link_fields = {}
 
-	if not doctype in frappe.flags.link_fields:
-		link_fields = frappe.db.sql(
+	if not doctype in capkpi.flags.link_fields:
+		link_fields = capkpi.db.sql(
 			"""\
 			select parent, fieldname,
 				(select issingle from tabDocType dt
@@ -380,7 +380,7 @@ def get_link_fields(doctype):
 		)
 
 		# get link fields from tabCustom Field
-		custom_link_fields = frappe.db.sql(
+		custom_link_fields = capkpi.db.sql(
 			"""\
 			select dt as parent, fieldname,
 				(select issingle from tabDocType dt
@@ -396,7 +396,7 @@ def get_link_fields(doctype):
 		link_fields += custom_link_fields
 
 		# remove fields whose options have been changed using property setter
-		property_setter_link_fields = frappe.db.sql(
+		property_setter_link_fields = capkpi.db.sql(
 			"""\
 			select ps.doc_type as parent, ps.field_name as fieldname,
 				(select issingle from tabDocType dt
@@ -412,15 +412,15 @@ def get_link_fields(doctype):
 
 		link_fields += property_setter_link_fields
 
-		frappe.flags.link_fields[doctype] = link_fields
+		capkpi.flags.link_fields[doctype] = link_fields
 
-	return frappe.flags.link_fields[doctype]
+	return capkpi.flags.link_fields[doctype]
 
 
 def update_options_for_fieldtype(fieldtype, old, new):
-	if frappe.conf.developer_mode:
-		for name in frappe.get_all("DocField", filters={"options": old}, pluck="parent"):
-			doctype = frappe.get_doc("DocType", name)
+	if capkpi.conf.developer_mode:
+		for name in capkpi.get_all("DocField", filters={"options": old}, pluck="parent"):
+			doctype = capkpi.get_doc("DocType", name)
 			save = False
 			for f in doctype.fields:
 				if f.options == old:
@@ -429,19 +429,19 @@ def update_options_for_fieldtype(fieldtype, old, new):
 			if save:
 				doctype.save()
 	else:
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""update `tabDocField` set options=%s
 			where fieldtype=%s and options=%s""",
 			(new, fieldtype, old),
 		)
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""update `tabCustom Field` set options=%s
 		where fieldtype=%s and options=%s""",
 		(new, fieldtype, old),
 	)
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""update `tabProperty Setter` set value=%s
 		where property='options' and value=%s""",
 		(new, old),
@@ -454,7 +454,7 @@ def get_select_fields(old, new):
 	new line separated list
 	"""
 	# get link fields from tabDocField
-	select_fields = frappe.db.sql(
+	select_fields = capkpi.db.sql(
 		"""
 		select parent, fieldname,
 			(select issingle from tabDocType dt
@@ -463,14 +463,14 @@ def get_select_fields(old, new):
 		where
 			df.parent != %s and df.fieldtype = 'Select' and df.fieldname != 'fieldtype' and
 			df.options like {0} """.format(
-			frappe.db.escape("%" + old + "%")
+			capkpi.db.escape("%" + old + "%")
 		),
 		(new,),
 		as_dict=1,
 	)
 
 	# get link fields from tabCustom Field
-	custom_select_fields = frappe.db.sql(
+	custom_select_fields = capkpi.db.sql(
 		"""
 		select dt as parent, fieldname,
 			(select issingle from tabDocType dt
@@ -479,7 +479,7 @@ def get_select_fields(old, new):
 		where
 			df.dt != %s and df.fieldtype = 'Select' and
 			df.options like {0} """.format(
-			frappe.db.escape("%" + old + "%")
+			capkpi.db.escape("%" + old + "%")
 		),
 		(new,),
 		as_dict=1,
@@ -489,7 +489,7 @@ def get_select_fields(old, new):
 	select_fields += custom_select_fields
 
 	# remove fields whose options have been changed using property setter
-	property_setter_select_fields = frappe.db.sql(
+	property_setter_select_fields = capkpi.db.sql(
 		"""
 		select ps.doc_type as parent, ps.field_name as fieldname,
 			(select issingle from tabDocType dt
@@ -500,7 +500,7 @@ def get_select_fields(old, new):
 			ps.property_type='options' and
 			ps.field_name is not null and
 			ps.value like {0} """.format(
-			frappe.db.escape("%" + old + "%")
+			capkpi.db.escape("%" + old + "%")
 		),
 		(new,),
 		as_dict=1,
@@ -512,58 +512,58 @@ def get_select_fields(old, new):
 
 
 def update_select_field_values(old, new):
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""
 		update `tabDocField` set options=replace(options, %s, %s)
 		where
 			parent != %s and fieldtype = 'Select' and
 			(options like {0} or options like {1})""".format(
-			frappe.db.escape("%" + "\n" + old + "%"), frappe.db.escape("%" + old + "\n" + "%")
+			capkpi.db.escape("%" + "\n" + old + "%"), capkpi.db.escape("%" + old + "\n" + "%")
 		),
 		(old, new, new),
 	)
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""
 		update `tabCustom Field` set options=replace(options, %s, %s)
 		where
 			dt != %s and fieldtype = 'Select' and
 			(options like {0} or options like {1})""".format(
-			frappe.db.escape("%" + "\n" + old + "%"), frappe.db.escape("%" + old + "\n" + "%")
+			capkpi.db.escape("%" + "\n" + old + "%"), capkpi.db.escape("%" + old + "\n" + "%")
 		),
 		(old, new, new),
 	)
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""
 		update `tabProperty Setter` set value=replace(value, %s, %s)
 		where
 			doc_type != %s and field_name is not null and
 			property='options' and
 			(value like {0} or value like {1})""".format(
-			frappe.db.escape("%" + "\n" + old + "%"), frappe.db.escape("%" + old + "\n" + "%")
+			capkpi.db.escape("%" + "\n" + old + "%"), capkpi.db.escape("%" + old + "\n" + "%")
 		),
 		(old, new, new),
 	)
 
 
 def update_parenttype_values(old, new):
-	child_doctypes = frappe.db.get_all(
+	child_doctypes = capkpi.db.get_all(
 		"DocField",
 		fields=["options", "fieldname"],
-		filters={"parent": new, "fieldtype": ["in", frappe.model.table_fields]},
+		filters={"parent": new, "fieldtype": ["in", capkpi.model.table_fields]},
 	)
 
-	custom_child_doctypes = frappe.db.get_all(
+	custom_child_doctypes = capkpi.db.get_all(
 		"Custom Field",
 		fields=["options", "fieldname"],
-		filters={"dt": new, "fieldtype": ["in", frappe.model.table_fields]},
+		filters={"dt": new, "fieldtype": ["in", capkpi.model.table_fields]},
 	)
 
 	child_doctypes += custom_child_doctypes
 	fields = [d["fieldname"] for d in child_doctypes]
 
-	property_setter_child_doctypes = frappe.get_all(
+	property_setter_child_doctypes = capkpi.get_all(
 		"Property Setter",
 		filters={"doc_type": new, "property": "options", "field_name": ("in", fields)},
 		pluck="value",
@@ -573,17 +573,17 @@ def update_parenttype_values(old, new):
 	child_doctypes += property_setter_child_doctypes
 
 	for doctype in child_doctypes:
-		frappe.db.sql(f"update `tab{doctype}` set parenttype=%s where parenttype=%s", (new, old))
+		capkpi.db.sql(f"update `tab{doctype}` set parenttype=%s where parenttype=%s", (new, old))
 
 
 def rename_dynamic_links(doctype, old, new):
 	for df in get_dynamic_link_map().get(doctype, []):
 		# dynamic link in single, just one value to check
-		if frappe.get_meta(df.parent).issingle:
-			refdoc = frappe.db.get_singles_dict(df.parent)
+		if capkpi.get_meta(df.parent).issingle:
+			refdoc = capkpi.db.get_singles_dict(df.parent)
 			if refdoc.get(df.options) == doctype and refdoc.get(df.fieldname) == old:
 
-				frappe.db.sql(
+				capkpi.db.sql(
 					"""update tabSingles set value=%s where
 					field=%s and value=%s and doctype=%s""",
 					(new, df.fieldname, old, df.parent),
@@ -591,7 +591,7 @@ def rename_dynamic_links(doctype, old, new):
 		else:
 			# because the table hasn't been renamed yet!
 			parent = df.parent if df.parent != new else old
-			frappe.db.sql(
+			capkpi.db.sql(
 				"""update `tab{parent}` set {fieldname}=%s
 				where {options}=%s and {fieldname}=%s""".format(
 					parent=parent, fieldname=df.fieldname, options=df.options
@@ -606,12 +606,12 @@ def bulk_rename(doctype, rows=None, via_console=False):
 	:param doctype: DocType to be renamed
 	:param rows: list of documents as `((oldname, newname), ..)`"""
 	if not rows:
-		frappe.throw(_("Please select a valid csv file with data"))
+		capkpi.throw(_("Please select a valid csv file with data"))
 
 	if not via_console:
 		max_rows = 500
 		if len(rows) > max_rows:
-			frappe.throw(_("Maximum {0} rows allowed").format(max_rows))
+			capkpi.throw(_("Maximum {0} rows allowed").format(max_rows))
 
 	rename_log = []
 	for row in rows:
@@ -620,26 +620,26 @@ def bulk_rename(doctype, rows=None, via_console=False):
 			try:
 				if rename_doc(doctype, row[0], row[1], rebuild_search=False):
 					msg = _("Successful: {0} to {1}").format(row[0], row[1])
-					frappe.db.commit()
+					capkpi.db.commit()
 				else:
 					msg = _("Ignored: {0} to {1}").format(row[0], row[1])
 			except Exception as e:
 				msg = _("** Failed: {0} to {1}: {2}").format(row[0], row[1], repr(e))
-				frappe.db.rollback()
+				capkpi.db.rollback()
 
 			if via_console:
 				print(msg)
 			else:
 				rename_log.append(msg)
 
-	frappe.enqueue("frappe.utils.global_search.rebuild_for_doctype", doctype=doctype)
+	capkpi.enqueue("capkpi.utils.global_search.rebuild_for_doctype", doctype=doctype)
 
 	if not via_console:
 		return rename_log
 
 
 def update_linked_doctypes(doctype, docname, linked_to, value, ignore_doctypes=None):
-	from frappe.model.utils.rename_doc import update_linked_doctypes
+	from capkpi.model.utils.rename_doc import update_linked_doctypes
 
 	show_deprecation_warning("update_linked_doctypes")
 
@@ -653,7 +653,7 @@ def update_linked_doctypes(doctype, docname, linked_to, value, ignore_doctypes=N
 
 
 def get_fetch_fields(doctype, linked_to, ignore_doctypes=None):
-	from frappe.model.utils.rename_doc import get_fetch_fields
+	from capkpi.model.utils.rename_doc import get_fetch_fields
 
 	show_deprecation_warning("get_fetch_fields")
 
@@ -664,7 +664,7 @@ def show_deprecation_warning(funct):
 	from click import secho
 
 	message = (
-		f"Function frappe.model.rename_doc.{funct} has been deprecated and "
-		"moved to the frappe.model.utils.rename_doc"
+		f"Function capkpi.model.rename_doc.{funct} has been deprecated and "
+		"moved to the capkpi.model.utils.rename_doc"
 	)
 	secho(message, fg="yellow")

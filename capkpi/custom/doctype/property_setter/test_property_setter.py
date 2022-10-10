@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
+import capkpi
 
-# test_records = frappe.get_test_records('Property Setter')
+# test_records = capkpi.get_test_records('Property Setter')
 
 
 class TestPropertySetter(unittest.TestCase):

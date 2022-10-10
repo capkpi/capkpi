@@ -1,14 +1,14 @@
-frappe.ui.form.on('User', {
+capkpi.ui.form.on('User', {
 	before_load: function(frm) {
 		var update_tz_select = function(user_language) {
-			frm.set_df_property("time_zone", "options", [""].concat(frappe.all_timezones));
+			frm.set_df_property("time_zone", "options", [""].concat(capkpi.all_timezones));
 		};
 
-		if(!frappe.all_timezones) {
-			frappe.call({
-				method: "frappe.core.doctype.user.user.get_timezones",
+		if(!capkpi.all_timezones) {
+			capkpi.call({
+				method: "capkpi.core.doctype.user.user.get_timezones",
 				callback: function(r) {
-					frappe.all_timezones = r.message.timezones;
+					capkpi.all_timezones = r.message.timezones;
 					update_tz_select();
 				}
 			});
@@ -20,8 +20,8 @@ frappe.ui.form.on('User', {
 
 	role_profile_name: function(frm) {
 		if(frm.doc.role_profile_name) {
-			frappe.call({
-				"method": "frappe.core.doctype.user.user.get_role_profile",
+			capkpi.call({
+				"method": "capkpi.core.doctype.user.user.get_role_profile",
 				args: {
 					role_profile: frm.doc.role_profile_name
 				},
@@ -39,8 +39,8 @@ frappe.ui.form.on('User', {
 
 	module_profile: function(frm) {
 		if (frm.doc.module_profile) {
-			frappe.call({
-				"method": "frappe.core.doctype.user.user.get_module_profile",
+			capkpi.call({
+				"method": "capkpi.core.doctype.user.user.get_module_profile",
 				args: {
 					module_profile: frm.doc.module_profile
 				},
@@ -68,12 +68,12 @@ frappe.ui.form.on('User', {
 				const role_area = $('<div class="role-editor">')
 					.appendTo(frm.fields_dict.roles_html.wrapper);
 
-				frm.roles_editor = new frappe.RoleEditor(role_area, frm, frm.doc.role_profile_name ? 1 : 0);
+				frm.roles_editor = new capkpi.RoleEditor(role_area, frm, frm.doc.role_profile_name ? 1 : 0);
 
 				if (frm.doc.user_type == 'System User') {
 					var module_area = $('<div>')
 						.appendTo(frm.fields_dict.modules_html.wrapper);
-					frm.module_editor = new frappe.ModuleEditor(frm, module_area);
+					frm.module_editor = new capkpi.ModuleEditor(frm, module_area);
 				}
 			} else {
 				frm.roles_editor.show();
@@ -88,11 +88,11 @@ frappe.ui.form.on('User', {
 			return;
 		}
 
-		if(doc.name===frappe.session.user && !doc.__unsaved
-			&& frappe.all_timezones
-			&& (doc.language || frappe.boot.user.language)
-			&& doc.language !== frappe.boot.user.language) {
-			frappe.msgprint(__("Refreshing..."));
+		if(doc.name===capkpi.session.user && !doc.__unsaved
+			&& capkpi.all_timezones
+			&& (doc.language || capkpi.boot.user.language)
+			&& doc.language !== capkpi.boot.user.language) {
+			capkpi.msgprint(__("Refreshing..."));
 			window.location.reload();
 		}
 
@@ -102,33 +102,33 @@ frappe.ui.form.on('User', {
 			if(has_access_to_edit_user()) {
 
 				frm.add_custom_button(__("Set User Permissions"), function() {
-					frappe.route_options = {
+					capkpi.route_options = {
 						"user": doc.name
 					};
-					frappe.set_route('List', 'User Permission');
+					capkpi.set_route('List', 'User Permission');
 				}, __("Permissions"));
 
 				frm.add_custom_button(__('View Permitted Documents'),
-					() => frappe.set_route('query-report', 'Permitted Documents For User',
+					() => capkpi.set_route('query-report', 'Permitted Documents For User',
 						{user: frm.doc.name}), __("Permissions"));
 
 				frm.toggle_display(['sb1', 'sb3', 'modules_access'], true);
 			}
 
 			frm.add_custom_button(__("Reset Password"), function() {
-				frappe.call({
-					method: "frappe.core.doctype.user.user.reset_password",
+				capkpi.call({
+					method: "capkpi.core.doctype.user.user.reset_password",
 					args: {
 						"user": frm.doc.name
 					}
 				});
 			}, __("Password"));
 
-			if (frappe.user.has_role("System Manager")) {
-				frappe.db.get_single_value("LDAP Settings", "enabled").then((value) => {
+			if (capkpi.user.has_role("System Manager")) {
+				capkpi.db.get_single_value("LDAP Settings", "enabled").then((value) => {
 					if (value === 1 && frm.doc.name != "Administrator") {
 						frm.add_custom_button(__("Reset LDAP Password"), function() {
-							const d = new frappe.ui.Dialog({
+							const d = new capkpi.ui.Dialog({
 								title: __("Reset LDAP Password"),
 								fields: [
 									{
@@ -152,10 +152,10 @@ frappe.ui.form.on('User', {
 								primary_action: (values) => {
 									d.hide();
 									if (values.new_password !== values.confirm_password) {
-										frappe.throw(__("Passwords do not match!"));
+										capkpi.throw(__("Passwords do not match!"));
 									}
-									frappe.call(
-										"frappe.integrations.doctype.ldap_settings.ldap_settings.reset_password", {
+									capkpi.call(
+										"capkpi.integrations.doctype.ldap_settings.ldap_settings.reset_password", {
 											user: frm.doc.email,
 											password: values.new_password,
 											logout: values.logout_sessions
@@ -169,8 +169,8 @@ frappe.ui.form.on('User', {
 			}
 
 			frm.add_custom_button(__("Reset OTP Secret"), function() {
-				frappe.call({
-					method: "frappe.twofactor.reset_otp_secret",
+				capkpi.call({
+					method: "capkpi.twofactor.reset_otp_secret",
 					args: {
 						"user": frm.doc.name
 					}
@@ -186,14 +186,14 @@ frappe.ui.form.on('User', {
 
 			frm.module_editor && frm.module_editor.refresh();
 
-			if(frappe.session.user==doc.name) {
+			if(capkpi.session.user==doc.name) {
 				// update display settings
 				if(doc.user_image) {
-					frappe.boot.user_info[frappe.session.user].image = frappe.utils.get_file_link(doc.user_image);
+					capkpi.boot.user_info[capkpi.session.user].image = capkpi.utils.get_file_link(doc.user_image);
 				}
 			}
 		}
-		if (frm.doc.user_emails && frappe.model.can_create("Email Account")) {
+		if (frm.doc.user_emails && capkpi.model.can_create("Email Account")) {
 			var found = 0;
 			for (var i = 0; i < frm.doc.user_emails.length; i++) {
 				if (frm.doc.email == frm.doc.user_emails[i].email_id) {
@@ -207,8 +207,8 @@ frappe.ui.form.on('User', {
 			}
 		}
 
-		if (frappe.route_flags.unsaved===1){
-			delete frappe.route_flags.unsaved;
+		if (capkpi.route_flags.unsaved===1){
+			delete capkpi.route_flags.unsaved;
 			for ( var i=0;i<frm.doc.user_emails.length;i++) {
 				frm.doc.user_emails[i].idx=frm.doc.user_emails[i].idx+1;
 			}
@@ -228,45 +228,45 @@ frappe.ui.form.on('User', {
 			frm.set_df_property('enabled', 'read_only', 0);
 		}
 
-		if(frappe.session.user!=="Administrator") {
+		if(capkpi.session.user!=="Administrator") {
 			frm.toggle_enable('email', frm.is_new());
 		}
 	},
 	create_user_email:function(frm) {
-		frappe.call({
-			method: 'frappe.core.doctype.user.user.has_email_account',
+		capkpi.call({
+			method: 'capkpi.core.doctype.user.user.has_email_account',
 			args: {
 				email: frm.doc.email
 			},
 			callback: function(r) {
 				if (!Array.isArray(r.message)) {
-					frappe.route_options = {
+					capkpi.route_options = {
 						"email_id": frm.doc.email,
 						"awaiting_password": 1,
 						"enable_incoming": 1
 					};
-					frappe.model.with_doctype("Email Account", function(doc) {
-						var doc = frappe.model.get_new_doc("Email Account");
-						frappe.route_flags.linked_user = frm.doc.name;
-						frappe.route_flags.delete_user_from_locals = true;
-						frappe.set_route("Form", "Email Account", doc.name);
+					capkpi.model.with_doctype("Email Account", function(doc) {
+						var doc = capkpi.model.get_new_doc("Email Account");
+						capkpi.route_flags.linked_user = frm.doc.name;
+						capkpi.route_flags.delete_user_from_locals = true;
+						capkpi.set_route("Form", "Email Account", doc.name);
 					});
 				} else {
-					frappe.route_flags.create_user_account = frm.doc.name;
-					frappe.set_route("Form", "Email Account", r.message[0]["name"]);
+					capkpi.route_flags.create_user_account = frm.doc.name;
+					capkpi.set_route("Form", "Email Account", r.message[0]["name"]);
 				}
 			}
 		});
 	},
 	generate_keys: function(frm) {
-		frappe.call({
-			method: 'frappe.core.doctype.user.user.generate_keys',
+		capkpi.call({
+			method: 'capkpi.core.doctype.user.user.generate_keys',
 			args: {
 				user: frm.doc.name
 			},
 			callback: function(r) {
 				if (r.message) {
-					frappe.msgprint(__("Save API Secret: {0}", [r.message.api_secret]));
+					capkpi.msgprint(__("Save API Secret: {0}", [r.message.api_secret]));
 					frm.reload_doc();
 				}
 			}
@@ -275,11 +275,11 @@ frappe.ui.form.on('User', {
 });
 
 function has_access_to_edit_user() {
-	return has_common(frappe.user_roles, get_roles_for_editing_user());
+	return has_common(capkpi.user_roles, get_roles_for_editing_user());
 }
 
 function get_roles_for_editing_user() {
-	return frappe.get_meta('User').permissions
+	return capkpi.get_meta('User').permissions
 		.filter(perm => perm.permlevel >= 1 && perm.write)
 		.map(perm => perm.role) || ['System Manager'];
 }

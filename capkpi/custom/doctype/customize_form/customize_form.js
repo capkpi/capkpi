@@ -1,9 +1,9 @@
 // Copyright (c) 2015, CapKPI Technologies Pvt. Ltd. and Contributors
 // MIT License. See license.txt
 
-frappe.provide("frappe.customize_form");
+capkpi.provide("capkpi.customize_form");
 
-frappe.ui.form.on("Customize Form", {
+capkpi.ui.form.on("Customize Form", {
 	setup: function(frm) {
 		// save the last setting if refreshing
 		window.addEventListener("beforeunload", () => {
@@ -25,13 +25,13 @@ frappe.ui.form.on("Customize Form", {
 						"DocType",
 						"name",
 						"not in",
-						frappe.model.core_doctypes_list
+						capkpi.model.core_doctypes_list
 					],
 					[
 						"DocType",
 						"restrict_to_domain",
 						"in",
-						frappe.boot.active_domains
+						capkpi.boot.active_domains
 					]
 				]
 			};
@@ -114,12 +114,12 @@ frappe.ui.form.on("Customize Form", {
 		frm.page.clear_icons();
 
 		if (frm.doc.doc_type) {
-			frappe.customize_form.set_primary_action(frm);
+			capkpi.customize_form.set_primary_action(frm);
 
 			frm.add_custom_button(
 				__("Go to {0} List", [__(frm.doc.doc_type)]),
 				function() {
-					frappe.set_route("List", frm.doc.doc_type);
+					capkpi.set_route("List", frm.doc.doc_type);
 				},
 				__("Actions")
 			);
@@ -135,7 +135,7 @@ frappe.ui.form.on("Customize Form", {
 			frm.add_custom_button(
 				__("Reset to defaults"),
 				function() {
-					frappe.customize_form.confirm(
+					capkpi.customize_form.confirm(
 						__("Remove all customizations?"),
 						frm
 					);
@@ -146,7 +146,7 @@ frappe.ui.form.on("Customize Form", {
 			frm.add_custom_button(
 				__("Set Permissions"),
 				function() {
-					frappe.set_route("permission-manager", frm.doc.doc_type);
+					capkpi.set_route("permission-manager", frm.doc.doc_type);
 				},
 				__("Actions")
 			);
@@ -159,9 +159,9 @@ frappe.ui.form.on("Customize Form", {
 
 	set_default_doc_type(frm) {
 		let doc_type;
-		if (frappe.route_options && frappe.route_options.doc_type) {
-			doc_type = frappe.route_options.doc_type;
-			frappe.route_options = null;
+		if (capkpi.route_options && capkpi.route_options.doc_type) {
+			doc_type = capkpi.route_options.doc_type;
+			capkpi.route_options = null;
 			localStorage.removeItem("customize_doctype");
 		}
 		if (!doc_type) {
@@ -173,11 +173,11 @@ frappe.ui.form.on("Customize Form", {
 	},
 
 	setup_export(frm) {
-		if (frappe.boot.developer_mode) {
+		if (capkpi.boot.developer_mode) {
 			frm.add_custom_button(
 				__("Export Customizations"),
 				function() {
-					frappe.prompt(
+					capkpi.prompt(
 						[
 							{
 								fieldtype: "Link",
@@ -200,8 +200,8 @@ frappe.ui.form.on("Customize Form", {
 							}
 						],
 						function(data) {
-							frappe.call({
-								method: "frappe.modules.utils.export_customizations",
+							capkpi.call({
+								method: "capkpi.modules.utils.export_customizations",
 								args: {
 									doctype: frm.doc.doc_type,
 									module: data.module,
@@ -222,7 +222,7 @@ frappe.ui.form.on("Customize Form", {
 		// sort order select
 		if (frm.doc.doc_type) {
 			var fields = $.map(frm.doc.fields, function(df) {
-				return frappe.model.is_value_type(df.fieldtype)
+				return capkpi.model.is_value_type(df.fieldtype)
 					? df.fieldname
 					: null;
 			});
@@ -233,51 +233,51 @@ frappe.ui.form.on("Customize Form", {
 });
 
 // can't delete standard fields
-frappe.ui.form.on("Customize Form Field", {
+capkpi.ui.form.on("Customize Form Field", {
 	before_fields_remove: function(frm, doctype, name) {
-		var row = frappe.get_doc(doctype, name);
+		var row = capkpi.get_doc(doctype, name);
 		if (!(row.is_custom_field || row.__islocal)) {
-			frappe.msgprint(__("Cannot delete standard field. You can hide it if you want"));
+			capkpi.msgprint(__("Cannot delete standard field. You can hide it if you want"));
 			throw "cannot delete standard field";
 		}
 	},
 	fields_add: function(frm, cdt, cdn) {
-		var f = frappe.model.get_doc(cdt, cdn);
+		var f = capkpi.model.get_doc(cdt, cdn);
 		f.is_custom_field = 1;
 	}
 });
 
 // can't delete standard links
-frappe.ui.form.on("DocType Link", {
+capkpi.ui.form.on("DocType Link", {
 	before_links_remove: function(frm, doctype, name) {
-		let row = frappe.get_doc(doctype, name);
+		let row = capkpi.get_doc(doctype, name);
 		if (!(row.custom || row.__islocal)) {
-			frappe.msgprint(__("Cannot delete standard link. You can hide it if you want"));
+			capkpi.msgprint(__("Cannot delete standard link. You can hide it if you want"));
 			throw "cannot delete standard link";
 		}
 	},
 	links_add: function(frm, cdt, cdn) {
-		let f = frappe.model.get_doc(cdt, cdn);
+		let f = capkpi.model.get_doc(cdt, cdn);
 		f.custom = 1;
 	}
 });
 
 // can't delete standard actions
-frappe.ui.form.on("DocType Action", {
+capkpi.ui.form.on("DocType Action", {
 	before_actions_remove: function(frm, doctype, name) {
-		let row = frappe.get_doc(doctype, name);
+		let row = capkpi.get_doc(doctype, name);
 		if (!(row.custom || row.__islocal)) {
-			frappe.msgprint(__("Cannot delete standard action. You can hide it if you want"));
+			capkpi.msgprint(__("Cannot delete standard action. You can hide it if you want"));
 			throw "cannot delete standard action";
 		}
 	},
 	actions_add: function(frm, cdt, cdn) {
-		let f = frappe.model.get_doc(cdt, cdn);
+		let f = capkpi.model.get_doc(cdt, cdn);
 		f.custom = 1;
 	}
 });
 
-frappe.customize_form.set_primary_action = function(frm) {
+capkpi.customize_form.set_primary_action = function(frm) {
 	frm.page.set_primary_action(__("Update"), function() {
 		if (frm.doc.doc_type) {
 			return frm.call({
@@ -287,7 +287,7 @@ frappe.customize_form.set_primary_action = function(frm) {
 				method: "save_customization",
 				callback: function(r) {
 					if (!r.exc) {
-						frappe.customize_form.clear_locals_and_refresh(frm);
+						capkpi.customize_form.clear_locals_and_refresh(frm);
 						frm.script_manager.trigger("doc_type");
 					}
 				}
@@ -296,10 +296,10 @@ frappe.customize_form.set_primary_action = function(frm) {
 	});
 };
 
-frappe.customize_form.confirm = function(msg, frm) {
+capkpi.customize_form.confirm = function(msg, frm) {
 	if (!frm.doc.doc_type) return;
 
-	var d = new frappe.ui.Dialog({
+	var d = new capkpi.ui.Dialog({
 		title: 'Reset To Defaults',
 		fields: [
 			{fieldtype:"HTML", options:__("All customizations will be removed. Please confirm.")},
@@ -310,25 +310,25 @@ frappe.customize_form.confirm = function(msg, frm) {
 				method: "reset_to_defaults",
 				callback: function(r) {
 					if (r.exc) {
-						frappe.msgprint(r.exc);
+						capkpi.msgprint(r.exc);
 					} else {
 						d.hide();
-						frappe.show_alert({message:__('Customizations Reset'), indicator:'green'});
-						frappe.customize_form.clear_locals_and_refresh(frm);
+						capkpi.show_alert({message:__('Customizations Reset'), indicator:'green'});
+						capkpi.customize_form.clear_locals_and_refresh(frm);
 					}
 				}
 			});
 		}
 	});
 
-	frappe.customize_form.confirm.dialog = d;
+	capkpi.customize_form.confirm.dialog = d;
 	d.show();
 }
 
-frappe.customize_form.clear_locals_and_refresh = function(frm) {
+capkpi.customize_form.clear_locals_and_refresh = function(frm) {
 	// clear doctype from locals
-	frappe.model.clear_doc("DocType", frm.doc.doc_type);
-	delete frappe.meta.docfield_copy[frm.doc.doc_type];
+	capkpi.model.clear_doc("DocType", frm.doc.doc_type);
+	delete capkpi.meta.docfield_copy[frm.doc.doc_type];
 
 	frm.refresh();
 }

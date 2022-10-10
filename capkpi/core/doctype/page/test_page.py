@@ -4,18 +4,18 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
+import capkpi
 
-test_records = frappe.get_test_records("Page")
+test_records = capkpi.get_test_records("Page")
 
 
 class TestPage(unittest.TestCase):
 	def test_naming(self):
 		self.assertRaises(
-			frappe.NameError,
-			frappe.get_doc(dict(doctype="Page", page_name="DocType", module="Core")).insert,
+			capkpi.NameError,
+			capkpi.get_doc(dict(doctype="Page", page_name="DocType", module="Core")).insert,
 		)
 		self.assertRaises(
-			frappe.NameError,
-			frappe.get_doc(dict(doctype="Page", page_name="Settings", module="Core")).insert,
+			capkpi.NameError,
+			capkpi.get_doc(dict(doctype="Page", page_name="Settings", module="Core")).insert,
 		)

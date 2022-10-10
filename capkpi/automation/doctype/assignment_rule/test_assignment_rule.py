@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
-from frappe.test_runner import make_test_records
-from frappe.utils import random_string
+import capkpi
+from capkpi.test_runner import make_test_records
+from capkpi.utils import random_string
 
 
 class TestAutoAssign(unittest.TestCase):
@@ -31,7 +31,7 @@ class TestAutoAssign(unittest.TestCase):
 
 		# check if auto assigned to first user
 		self.assertEqual(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open"), "owner"
 			),
 			"test@example.com",
@@ -41,7 +41,7 @@ class TestAutoAssign(unittest.TestCase):
 
 		# check if auto assigned to second user
 		self.assertEqual(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open"), "owner"
 			),
 			"test1@example.com",
@@ -54,7 +54,7 @@ class TestAutoAssign(unittest.TestCase):
 		# check if auto assigned to third user, even if
 		# previous assignments where closed
 		self.assertEqual(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open"), "owner"
 			),
 			"test2@example.com",
@@ -64,7 +64,7 @@ class TestAutoAssign(unittest.TestCase):
 		note = make_note(dict(public=1))
 
 		self.assertEqual(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open"), "owner"
 			),
 			"test@example.com",
@@ -79,12 +79,12 @@ class TestAutoAssign(unittest.TestCase):
 
 		# check if each user has 10 assignments (?)
 		for user in ("test@example.com", "test1@example.com", "test2@example.com"):
-			self.assertEqual(len(frappe.get_all("ToDo", dict(owner=user, reference_type="Note"))), 10)
+			self.assertEqual(len(capkpi.get_all("ToDo", dict(owner=user, reference_type="Note"))), 10)
 
 		# clear 5 assignments for first user
 		# can't do a limit in "delete" since postgres does not support it
-		for d in frappe.get_all("ToDo", dict(reference_type="Note", owner="test@example.com"), limit=5):
-			frappe.db.sql("delete from tabToDo where name = %s", d.name)
+		for d in capkpi.get_all("ToDo", dict(reference_type="Note", owner="test@example.com"), limit=5):
+			capkpi.db.sql("delete from tabToDo where name = %s", d.name)
 
 		# add 5 more assignments
 		for i in range(5):
@@ -92,41 +92,41 @@ class TestAutoAssign(unittest.TestCase):
 
 		# check if each user still has 10 assignments
 		for user in ("test@example.com", "test1@example.com", "test2@example.com"):
-			self.assertEqual(len(frappe.get_all("ToDo", dict(owner=user, reference_type="Note"))), 10)
+			self.assertEqual(len(capkpi.get_all("ToDo", dict(owner=user, reference_type="Note"))), 10)
 
 	def test_based_on_field(self):
 		self.assignment_rule.rule = "Based on Field"
 		self.assignment_rule.field = "owner"
 		self.assignment_rule.save()
 
-		frappe.set_user("test1@example.com")
+		capkpi.set_user("test1@example.com")
 		note = make_note(dict(public=1))
 		# check if auto assigned to doc owner, test1@example.com
 		self.assertEqual(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open"), "owner"
 			),
 			"test1@example.com",
 		)
 
-		frappe.set_user("test2@example.com")
+		capkpi.set_user("test2@example.com")
 		note = make_note(dict(public=1))
 		# check if auto assigned to doc owner, test2@example.com
 		self.assertEqual(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open"), "owner"
 			),
 			"test2@example.com",
 		)
 
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 
 	def test_assign_condition(self):
 		# check condition
 		note = make_note(dict(public=0))
 
 		self.assertEqual(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open"), "owner"
 			),
 			None,
@@ -136,11 +136,11 @@ class TestAutoAssign(unittest.TestCase):
 		note = make_note(dict(public=1))
 
 		# check if auto assigned to first user
-		todo = frappe.get_list(
+		todo = capkpi.get_list(
 			"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open")
 		)[0]
 
-		todo = frappe.get_doc("ToDo", todo["name"])
+		todo = capkpi.get_doc("ToDo", todo["name"])
 		self.assertEqual(todo.owner, "test@example.com")
 
 		# test auto unassign
@@ -156,11 +156,11 @@ class TestAutoAssign(unittest.TestCase):
 		note = make_note(dict(public=1, content="valid"))
 
 		# check if auto assigned
-		todo = frappe.get_list(
+		todo = capkpi.get_list(
 			"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open")
 		)[0]
 
-		todo = frappe.get_doc("ToDo", todo["name"])
+		todo = capkpi.get_doc("ToDo", todo["name"])
 		self.assertEqual(todo.owner, "test@example.com")
 
 		note.content = "Closed"
@@ -178,14 +178,14 @@ class TestAutoAssign(unittest.TestCase):
 
 		# check if auto assigned to test3 (2nd rule is applied, as it has higher priority)
 		self.assertEqual(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open"), "owner"
 			),
 			"test@example.com",
 		)
 
 	def check_assignment_rule_scheduling(self):
-		frappe.db.sql("DELETE FROM `tabAssignment Rule`")
+		capkpi.db.sql("DELETE FROM `tabAssignment Rule`")
 
 		days_1 = [dict(day="Sunday"), dict(day="Monday"), dict(day="Tuesday")]
 
@@ -193,36 +193,36 @@ class TestAutoAssign(unittest.TestCase):
 
 		get_assignment_rule([days_1, days_2], ["public == 1", "public == 1"])
 
-		frappe.flags.assignment_day = "Monday"
+		capkpi.flags.assignment_day = "Monday"
 		note = make_note(dict(public=1))
 
 		self.assertIn(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open"), "owner"
 			),
 			["test@example.com", "test1@example.com", "test2@example.com"],
 		)
 
-		frappe.flags.assignment_day = "Friday"
+		capkpi.flags.assignment_day = "Friday"
 		note = make_note(dict(public=1))
 
 		self.assertIn(
-			frappe.db.get_value(
+			capkpi.db.get_value(
 				"ToDo", dict(reference_type="Note", reference_name=note.name, status="Open"), "owner"
 			),
 			["test3@example.com"],
 		)
 
 	def test_assignment_rule_condition(self):
-		frappe.db.sql("DELETE FROM `tabAssignment Rule`")
+		capkpi.db.sql("DELETE FROM `tabAssignment Rule`")
 
 		# Add expiry_date custom field
-		from frappe.custom.doctype.custom_field.custom_field import create_custom_field
+		from capkpi.custom.doctype.custom_field.custom_field import create_custom_field
 
 		df = dict(fieldname="expiry_date", label="Expiry Date", fieldtype="Date")
 		create_custom_field("Note", df)
 
-		assignment_rule = frappe.get_doc(
+		assignment_rule = capkpi.get_doc(
 			dict(
 				name="Assignment with Due Date",
 				doctype="Assignment Rule",
@@ -236,45 +236,45 @@ class TestAutoAssign(unittest.TestCase):
 			)
 		).insert()
 
-		expiry_date = frappe.utils.add_days(frappe.utils.nowdate(), 2)
+		expiry_date = capkpi.utils.add_days(capkpi.utils.nowdate(), 2)
 		note1 = make_note({"expiry_date": expiry_date})
 		note2 = make_note({"expiry_date": expiry_date})
 
-		note1_todo = frappe.get_all(
+		note1_todo = capkpi.get_all(
 			"ToDo", filters=dict(reference_type="Note", reference_name=note1.name, status="Open")
 		)[0]
 
-		note1_todo_doc = frappe.get_doc("ToDo", note1_todo.name)
-		self.assertEqual(frappe.utils.get_date_str(note1_todo_doc.date), expiry_date)
+		note1_todo_doc = capkpi.get_doc("ToDo", note1_todo.name)
+		self.assertEqual(capkpi.utils.get_date_str(note1_todo_doc.date), expiry_date)
 
 		# due date should be updated if the reference doc's date is updated.
-		note1.expiry_date = frappe.utils.add_days(expiry_date, 2)
+		note1.expiry_date = capkpi.utils.add_days(expiry_date, 2)
 		note1.save()
 		note1_todo_doc.reload()
-		self.assertEqual(frappe.utils.get_date_str(note1_todo_doc.date), note1.expiry_date)
+		self.assertEqual(capkpi.utils.get_date_str(note1_todo_doc.date), note1.expiry_date)
 
 		# saving one note's expiry should not update other note todo's due date
-		note2_todo = frappe.get_all(
+		note2_todo = capkpi.get_all(
 			"ToDo",
 			filters=dict(reference_type="Note", reference_name=note2.name, status="Open"),
 			fields=["name", "date"],
 		)[0]
-		self.assertNotEqual(frappe.utils.get_date_str(note2_todo.date), note1.expiry_date)
-		self.assertEqual(frappe.utils.get_date_str(note2_todo.date), expiry_date)
+		self.assertNotEqual(capkpi.utils.get_date_str(note2_todo.date), note1.expiry_date)
+		self.assertEqual(capkpi.utils.get_date_str(note2_todo.date), expiry_date)
 		assignment_rule.delete()
 
 
 def clear_assignments():
-	frappe.db.sql("delete from tabToDo where reference_type = 'Note'")
+	capkpi.db.sql("delete from tabToDo where reference_type = 'Note'")
 
 
 def get_assignment_rule(days, assign=None):
-	frappe.delete_doc_if_exists("Assignment Rule", "For Note 1")
+	capkpi.delete_doc_if_exists("Assignment Rule", "For Note 1")
 
 	if not assign:
 		assign = ["public == 1", "notify_on_login == 1"]
 
-	assignment_rule = frappe.get_doc(
+	assignment_rule = capkpi.get_doc(
 		dict(
 			name="For Note 1",
 			doctype="Assignment Rule",
@@ -293,10 +293,10 @@ def get_assignment_rule(days, assign=None):
 		)
 	).insert()
 
-	frappe.delete_doc_if_exists("Assignment Rule", "For Note 2")
+	capkpi.delete_doc_if_exists("Assignment Rule", "For Note 2")
 
 	# 2nd rule
-	frappe.get_doc(
+	capkpi.get_doc(
 		dict(
 			name="For Note 2",
 			doctype="Assignment Rule",
@@ -314,7 +314,7 @@ def get_assignment_rule(days, assign=None):
 
 
 def make_note(values=None):
-	note = frappe.get_doc(dict(doctype="Note", title=random_string(10), content=random_string(20)))
+	note = capkpi.get_doc(dict(doctype="Note", title=random_string(10), content=random_string(20)))
 
 	if values:
 		note.update(values)

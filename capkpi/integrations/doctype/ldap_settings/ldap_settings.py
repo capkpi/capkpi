@@ -16,13 +16,13 @@ from ldap3.core.exceptions import (
 )
 from ldap3.utils.hashed import hashed
 
-import frappe
-from frappe import _, safe_encode
-from frappe.model.document import Document
-from frappe.twofactor import authenticate_for_2factor, confirm_otp_token, should_run_2fa
+import capkpi
+from capkpi import _, safe_encode
+from capkpi.model.document import Document
+from capkpi.twofactor import authenticate_for_2factor, confirm_otp_token, should_run_2fa
 
 if TYPE_CHECKING:
-	from frappe.core.doctype.user.user import User
+	from capkpi.core.doctype.user.user import User
 
 
 class LDAPSettings(Document):
@@ -58,19 +58,19 @@ class LDAPSettings(Document):
 						)
 
 				except LDAPAttributeError as ex:
-					frappe.throw(
+					capkpi.throw(
 						_("LDAP settings incorrect. validation response was: {0}").format(ex),
 						title=_("Misconfigured"),
 					)
 
 				except LDAPNoSuchObjectResult:
-					frappe.throw(
+					capkpi.throw(
 						_("Ensure the user and group search paths are correct."), title=_("Misconfigured")
 					)
 
 				if self.ldap_directory_server.lower() == "custom":
 					if not self.ldap_group_member_attribute or not self.ldap_group_objectclass:
-						frappe.throw(
+						capkpi.throw(
 							_(
 								"Custom LDAP Directoy Selected, please ensure 'LDAP Group Member attribute' and 'Group Object Class' are entered"
 							),
@@ -78,7 +78,7 @@ class LDAPSettings(Document):
 						)
 
 				if self.ldap_custom_group_search and "{0}" not in self.ldap_custom_group_search:
-					frappe.throw(
+					capkpi.throw(
 						_(
 							"Custom Group Search if filled needs to contain the user placeholder {0}, eg uid={0},ou=users,dc=example,dc=com"
 						),
@@ -86,7 +86,7 @@ class LDAPSettings(Document):
 					)
 
 			else:
-				frappe.throw(
+				capkpi.throw(
 					_(
 						"LDAP Search String must be enclosed in '()' and needs to contian the user placeholder {0}, eg sAMAccountName={0}"
 					)
@@ -120,20 +120,20 @@ class LDAPSettings(Document):
 
 		except ImportError:
 			msg = _("Please Install the ldap3 library via pip to use ldap functionality.")
-			frappe.throw(msg, title=_("LDAP Not Installed"))
+			capkpi.throw(msg, title=_("LDAP Not Installed"))
 		except LDAPInvalidCredentialsResult:
-			frappe.throw(_("Invalid username or password"))
+			capkpi.throw(_("Invalid username or password"))
 		except Exception as ex:
-			frappe.throw(_(str(ex)))
+			capkpi.throw(_(str(ex)))
 
 	@staticmethod
 	def get_ldap_client_settings() -> dict:
 		# return the settings to be used on the client side.
 		result = {"enabled": False}
-		ldap = frappe.get_doc("LDAP Settings")
+		ldap = capkpi.get_doc("LDAP Settings")
 		if ldap.enabled:
 			result["enabled"] = True
-			result["method"] = "frappe.integrations.doctype.ldap_settings.ldap_settings.login"
+			result["method"] = "capkpi.integrations.doctype.ldap_settings.ldap_settings.login"
 		return result
 
 	@classmethod
@@ -172,8 +172,8 @@ class LDAPSettings(Document):
 		user: "User" = None
 		role: str = None
 
-		if frappe.db.exists("User", user_data["email"]):
-			user = frappe.get_doc("User", user_data["email"])
+		if capkpi.db.exists("User", user_data["email"]):
+			user = capkpi.get_doc("User", user_data["email"])
 			LDAPSettings.update_user_fields(user=user, user_data=user_data)
 		else:
 			doc = user_data
@@ -185,13 +185,13 @@ class LDAPSettings(Document):
 					"user_type": self.default_user_type,
 				}
 			)
-			user = frappe.get_doc(doc)
+			user = capkpi.get_doc(doc)
 			user.insert(ignore_permissions=True)
 
 		if self.default_user_type == "System User":
 			role = self.default_role
 		else:
-			role = frappe.db.get_value("User Type", user.user_type, "role")
+			role = capkpi.db.get_value("User Type", user.user_type, "role")
 
 		if role:
 			user.add_roles(role)
@@ -270,7 +270,7 @@ class LDAPSettings(Document):
 
 	def authenticate(self, username: str, password: str):
 		if not self.enabled:
-			frappe.throw(_("LDAP is not enabled."))
+			capkpi.throw(_("LDAP is not enabled."))
 
 		user_filter = self.ldap_search_string.format(username)
 		ldap_attributes = self.get_ldap_attributes()
@@ -294,10 +294,10 @@ class LDAPSettings(Document):
 			raise LDAPInvalidCredentialsResult  # even though nothing foundor failed authentication raise invalid credentials
 
 		except LDAPInvalidFilterError:
-			frappe.throw(_("Please use a valid LDAP search filter"), title=_("Misconfigured"))
+			capkpi.throw(_("Please use a valid LDAP search filter"), title=_("Misconfigured"))
 
 		except LDAPInvalidCredentialsResult:
-			frappe.throw(_("Invalid username or password"))
+			capkpi.throw(_("Invalid username or password"))
 
 	def reset_password(self, user, password, logout_sessions=False):
 		search_filter = f"({self.ldap_email_field}={user})"
@@ -317,16 +317,16 @@ class LDAPSettings(Document):
 				changes = {"userPassword": [(MODIFY_REPLACE, [hashed_password])]}
 				if conn.modify(entry_dn, changes=changes):
 					if logout_sessions:
-						from frappe.sessions import clear_sessions
+						from capkpi.sessions import clear_sessions
 
 						clear_sessions(user=user, force=True)
-					frappe.msgprint(_("Password changed successfully."))
+					capkpi.msgprint(_("Password changed successfully."))
 				else:
-					frappe.throw(_("Failed to change password."))
+					capkpi.throw(_("Failed to change password."))
 			else:
-				frappe.throw(_("No Entry for the User {0} found within LDAP!").format(user))
+				capkpi.throw(_("No Entry for the User {0} found within LDAP!").format(user))
 		else:
-			frappe.throw(_("No LDAP User found for email: {0}").format(user))
+			capkpi.throw(_("No LDAP User found for email: {0}").format(user))
 
 	def convert_ldap_entry_to_dict(self, user_entry: Entry):
 		# support multiple email values
@@ -354,28 +354,28 @@ class LDAPSettings(Document):
 		return data
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def login():
 	# LDAP LOGIN LOGIC
-	args = frappe.form_dict
-	ldap: LDAPSettings = frappe.get_doc("LDAP Settings")
+	args = capkpi.form_dict
+	ldap: LDAPSettings = capkpi.get_doc("LDAP Settings")
 
-	user = ldap.authenticate(frappe.as_unicode(args.usr), frappe.as_unicode(args.pop("pwd", None)))
+	user = ldap.authenticate(capkpi.as_unicode(args.usr), capkpi.as_unicode(args.pop("pwd", None)))
 
-	frappe.local.login_manager.user = user.name
+	capkpi.local.login_manager.user = user.name
 	if should_run_2fa(user.name):
 		authenticate_for_2factor(user.name)
-		if not confirm_otp_token(frappe.local.login_manager):
+		if not confirm_otp_token(capkpi.local.login_manager):
 			return False
-	frappe.local.login_manager.post_login()
+	capkpi.local.login_manager.post_login()
 
 	# because of a GET request!
-	frappe.db.commit()
+	capkpi.db.commit()
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def reset_password(user, password, logout):
-	ldap: LDAPSettings = frappe.get_doc("LDAP Settings")
+	ldap: LDAPSettings = capkpi.get_doc("LDAP Settings")
 	if not ldap.enabled:
-		frappe.throw(_("LDAP is not enabled."))
+		capkpi.throw(_("LDAP is not enabled."))
 	ldap.reset_password(user, password, logout_sessions=int(logout))

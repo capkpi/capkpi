@@ -1,4 +1,4 @@
-frappe.listview_settings['Note'] = {
+capkpi.listview_settings['Note'] = {
 	onload: function(me) {
 		me.page.set_title(__("Notes"));
 	},

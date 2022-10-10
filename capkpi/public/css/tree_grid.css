@@ -14,9 +14,9 @@
 }
 
 .toggle.expand {
-	background: url("/assets/frappe/js/lib/slickgrid/images/expand.gif") no-repeat center center;
+	background: url("/assets/capkpi/js/lib/slickgrid/images/expand.gif") no-repeat center center;
 }
 
 .toggle.collapse {
-	background: url("/assets/frappe/js/lib/slickgrid/images/collapse.gif") no-repeat center center;
+	background: url("/assets/capkpi/js/lib/slickgrid/images/collapse.gif") no-repeat center center;
 }

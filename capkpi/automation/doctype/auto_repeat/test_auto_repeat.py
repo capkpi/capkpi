@@ -5,14 +5,14 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
-from frappe.automation.doctype.auto_repeat.auto_repeat import (
+import capkpi
+from capkpi.automation.doctype.auto_repeat.auto_repeat import (
 	create_repeated_entries,
 	get_auto_repeat_entries,
 	week_map,
 )
-from frappe.custom.doctype.custom_field.custom_field import create_custom_field
-from frappe.utils import add_days, add_months, getdate, today
+from capkpi.custom.doctype.custom_field.custom_field import create_custom_field
+from capkpi.utils import add_days, add_months, getdate, today
 
 
 def add_custom_fields():
@@ -31,13 +31,13 @@ def add_custom_fields():
 
 class TestAutoRepeat(unittest.TestCase):
 	def setUp(self):
-		if not frappe.db.sql(
+		if not capkpi.db.sql(
 			"SELECT `fieldname` FROM `tabCustom Field` WHERE `fieldname`='auto_repeat' and `dt`=%s", "Todo"
 		):
 			add_custom_fields()
 
 	def test_daily_auto_repeat(self):
-		todo = frappe.get_doc(
+		todo = capkpi.get_doc(
 			dict(doctype="ToDo", description="test recurring todo", assigned_by="Administrator")
 		).insert()
 
@@ -45,21 +45,21 @@ class TestAutoRepeat(unittest.TestCase):
 		self.assertEqual(doc.next_schedule_date, today())
 		data = get_auto_repeat_entries(getdate(today()))
 		create_repeated_entries(data)
-		frappe.db.commit()
+		capkpi.db.commit()
 
-		todo = frappe.get_doc(doc.reference_doctype, doc.reference_document)
+		todo = capkpi.get_doc(doc.reference_doctype, doc.reference_document)
 		self.assertEqual(todo.auto_repeat, doc.name)
 
-		new_todo = frappe.db.get_value(
+		new_todo = capkpi.db.get_value(
 			"ToDo", {"auto_repeat": doc.name, "name": ("!=", todo.name)}, "name"
 		)
 
-		new_todo = frappe.get_doc("ToDo", new_todo)
+		new_todo = capkpi.get_doc("ToDo", new_todo)
 
 		self.assertEqual(todo.get("description"), new_todo.get("description"))
 
 	def test_weekly_auto_repeat(self):
-		todo = frappe.get_doc(
+		todo = capkpi.get_doc(
 			dict(doctype="ToDo", description="test weekly todo", assigned_by="Administrator")
 		).insert()
 
@@ -73,21 +73,21 @@ class TestAutoRepeat(unittest.TestCase):
 		self.assertEqual(doc.next_schedule_date, today())
 		data = get_auto_repeat_entries(getdate(today()))
 		create_repeated_entries(data)
-		frappe.db.commit()
+		capkpi.db.commit()
 
-		todo = frappe.get_doc(doc.reference_doctype, doc.reference_document)
+		todo = capkpi.get_doc(doc.reference_doctype, doc.reference_document)
 		self.assertEqual(todo.auto_repeat, doc.name)
 
-		new_todo = frappe.db.get_value(
+		new_todo = capkpi.db.get_value(
 			"ToDo", {"auto_repeat": doc.name, "name": ("!=", todo.name)}, "name"
 		)
 
-		new_todo = frappe.get_doc("ToDo", new_todo)
+		new_todo = capkpi.get_doc("ToDo", new_todo)
 
 		self.assertEqual(todo.get("description"), new_todo.get("description"))
 
 	def test_weekly_auto_repeat_with_weekdays(self):
-		todo = frappe.get_doc(
+		todo = capkpi.get_doc(
 			dict(doctype="ToDo", description="test auto repeat with weekdays", assigned_by="Administrator")
 		).insert()
 
@@ -105,9 +105,9 @@ class TestAutoRepeat(unittest.TestCase):
 		self.assertEqual(doc.next_schedule_date, today())
 		data = get_auto_repeat_entries(getdate(today()))
 		create_repeated_entries(data)
-		frappe.db.commit()
+		capkpi.db.commit()
 
-		todo = frappe.get_doc(doc.reference_doctype, doc.reference_document)
+		todo = capkpi.get_doc(doc.reference_doctype, doc.reference_document)
 		self.assertEqual(todo.auto_repeat, doc.name)
 
 		doc.reload()
@@ -117,13 +117,13 @@ class TestAutoRepeat(unittest.TestCase):
 		start_date = today()
 		end_date = add_months(start_date, 12)
 
-		todo = frappe.get_doc(
+		todo = capkpi.get_doc(
 			dict(doctype="ToDo", description="test recurring todo", assigned_by="Administrator")
 		).insert()
 
 		self.monthly_auto_repeat("ToDo", todo.name, start_date, end_date)
 		# test without end_date
-		todo = frappe.get_doc(
+		todo = capkpi.get_doc(
 			dict(
 				doctype="ToDo", description="test recurring todo without end_date", assigned_by="Administrator"
 			)
@@ -147,21 +147,21 @@ class TestAutoRepeat(unittest.TestCase):
 
 		data = get_auto_repeat_entries(getdate(today()))
 		create_repeated_entries(data)
-		docnames = frappe.get_all(doc.reference_doctype, {"auto_repeat": doc.name})
+		docnames = capkpi.get_all(doc.reference_doctype, {"auto_repeat": doc.name})
 		self.assertEqual(len(docnames), 1)
 
-		doc = frappe.get_doc("Auto Repeat", doc.name)
+		doc = capkpi.get_doc("Auto Repeat", doc.name)
 		doc.db_set("disabled", 0)
 
 		months = get_months(getdate(start_date), getdate(today()))
 		data = get_auto_repeat_entries(getdate(today()))
 		create_repeated_entries(data)
 
-		docnames = frappe.get_all(doc.reference_doctype, {"auto_repeat": doc.name})
+		docnames = capkpi.get_all(doc.reference_doctype, {"auto_repeat": doc.name})
 		self.assertEqual(len(docnames), months)
 
 	def test_notification_is_attached(self):
-		todo = frappe.get_doc(
+		todo = capkpi.get_doc(
 			dict(
 				doctype="ToDo",
 				description="Test recurring notification attachment",
@@ -178,20 +178,20 @@ class TestAutoRepeat(unittest.TestCase):
 		)
 		data = get_auto_repeat_entries(getdate(today()))
 		create_repeated_entries(data)
-		frappe.db.commit()
+		capkpi.db.commit()
 
-		new_todo = frappe.db.get_value(
+		new_todo = capkpi.db.get_value(
 			"ToDo", {"auto_repeat": doc.name, "name": ("!=", todo.name)}, "name"
 		)
 
-		linked_comm = frappe.db.exists(
+		linked_comm = capkpi.db.exists(
 			"Communication", dict(reference_doctype="ToDo", reference_name=new_todo)
 		)
 		self.assertTrue(linked_comm)
 
 	def test_next_schedule_date(self):
 		current_date = getdate(today())
-		todo = frappe.get_doc(
+		todo = capkpi.get_doc(
 			dict(
 				doctype="ToDo", description="test next schedule date for monthly", assigned_by="Administrator"
 			)
@@ -204,7 +204,7 @@ class TestAutoRepeat(unittest.TestCase):
 		# it should not be a previous month's date
 		self.assertTrue((doc.next_schedule_date >= current_date))
 
-		todo = frappe.get_doc(
+		todo = capkpi.get_doc(
 			dict(
 				doctype="ToDo", description="test next schedule date for daily", assigned_by="Administrator"
 			)
@@ -219,7 +219,7 @@ class TestAutoRepeat(unittest.TestCase):
 		create_submittable_doctype(doctype)
 
 		current_date = getdate()
-		submittable_doc = frappe.get_doc(dict(doctype=doctype, test="test submit on creation")).insert()
+		submittable_doc = capkpi.get_doc(dict(doctype=doctype, test="test submit on creation")).insert()
 		submittable_doc.submit()
 		doc = make_auto_repeat(
 			frequency="Daily",
@@ -231,19 +231,19 @@ class TestAutoRepeat(unittest.TestCase):
 
 		data = get_auto_repeat_entries(current_date)
 		create_repeated_entries(data)
-		docnames = frappe.db.get_all(
+		docnames = capkpi.db.get_all(
 			doc.reference_doctype, filters={"auto_repeat": doc.name}, fields=["docstatus"], limit=1
 		)
 		self.assertEquals(docnames[0].docstatus, 1)
 
 
 def make_auto_repeat(**args):
-	args = frappe._dict(args)
-	doc = frappe.get_doc(
+	args = capkpi._dict(args)
+	doc = capkpi.get_doc(
 		{
 			"doctype": "Auto Repeat",
 			"reference_doctype": args.reference_doctype or "ToDo",
-			"reference_document": args.reference_document or frappe.db.get_value("ToDo", "name"),
+			"reference_document": args.reference_document or capkpi.db.get_value("ToDo", "name"),
 			"submit_on_creation": args.submit_on_creation or 0,
 			"frequency": args.frequency or "Daily",
 			"start_date": args.start_date or add_days(today(), -1),
@@ -260,10 +260,10 @@ def make_auto_repeat(**args):
 
 
 def create_submittable_doctype(doctype, submit_perms=1):
-	if frappe.db.exists("DocType", doctype):
+	if capkpi.db.exists("DocType", doctype):
 		return
 	else:
-		doc = frappe.get_doc(
+		doc = capkpi.get_doc(
 			{
 				"doctype": "DocType",
 				"__newname": doctype,

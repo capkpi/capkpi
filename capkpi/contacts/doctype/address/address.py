@@ -10,14 +10,14 @@ from jinja2 import TemplateSyntaxError
 from past.builtins import cmp
 from six import iteritems, string_types
 
-import frappe
-from frappe import _, throw
-from frappe.contacts.address_and_contact import set_link_title
-from frappe.core.doctype.dynamic_link.dynamic_link import deduplicate_dynamic_links
-from frappe.model.document import Document
-from frappe.model.naming import make_autoname
-from frappe.utils import cstr
-from frappe.utils.user import is_website_user
+import capkpi
+from capkpi import _, throw
+from capkpi.contacts.address_and_contact import set_link_title
+from capkpi.core.doctype.dynamic_link.dynamic_link import deduplicate_dynamic_links
+from capkpi.model.document import Document
+from capkpi.model.naming import make_autoname
+from capkpi.utils import cstr
+from capkpi.utils.user import is_website_user
 
 
 class Address(Document):
@@ -31,7 +31,7 @@ class Address(Document):
 
 		if self.address_title:
 			self.name = cstr(self.address_title).strip() + "-" + cstr(_(self.address_type)).strip()
-			if frappe.db.exists("Address", self.name):
+			if capkpi.db.exists("Address", self.name):
 				self.name = make_autoname(
 					cstr(self.address_title).strip() + "-" + cstr(self.address_type).strip() + "-.#"
 				)
@@ -47,9 +47,9 @@ class Address(Document):
 	def link_address(self):
 		"""Link address based on owner"""
 		if not self.links:
-			contact_name = frappe.db.get_value("Contact", {"email_id": self.owner})
+			contact_name = capkpi.db.get_value("Contact", {"email_id": self.owner})
 			if contact_name:
-				contact = frappe.get_cached_doc("Contact", contact_name)
+				contact = capkpi.get_cached_doc("Contact", contact_name)
 				for link in contact.links:
 					self.append("links", dict(link_doctype=link.link_doctype, link_name=link.link_name))
 				return True
@@ -86,7 +86,7 @@ class Address(Document):
 
 def get_preferred_address(doctype, name, preferred_key="is_primary_address"):
 	if preferred_key in ["is_shipping_address", "is_primary_address"]:
-		address = frappe.db.sql(
+		address = capkpi.db.sql(
 			""" SELECT
 				addr.name
 			FROM
@@ -107,13 +107,13 @@ def get_preferred_address(doctype, name, preferred_key="is_primary_address"):
 	return
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_default_address(doctype, name, sort_key="is_primary_address"):
 	"""Returns default Address name for the given doctype, name"""
 	if sort_key not in ["is_shipping_address", "is_primary_address"]:
 		return None
 
-	out = frappe.db.sql(
+	out = capkpi.db.sql(
 		""" SELECT
 			addr.name, addr.%s
 		FROM
@@ -132,20 +132,20 @@ def get_default_address(doctype, name, sort_key="is_primary_address"):
 		return None
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_address_display(address_dict):
 	if not address_dict:
 		return
 
 	if not isinstance(address_dict, dict):
-		address_dict = frappe.db.get_value("Address", address_dict, "*", as_dict=True, cache=True) or {}
+		address_dict = capkpi.db.get_value("Address", address_dict, "*", as_dict=True, cache=True) or {}
 
 	name, template = get_address_templates(address_dict)
 
 	try:
-		return frappe.render_template(template, address_dict)
+		return capkpi.render_template(template, address_dict)
 	except TemplateSyntaxError:
-		frappe.throw(_("There is an error in your Address Template {0}").format(name))
+		capkpi.throw(_("There is an error in your Address Template {0}").format(name))
 
 
 def get_territory_from_address(address):
@@ -154,12 +154,12 @@ def get_territory_from_address(address):
 		return
 
 	if isinstance(address, string_types):
-		address = frappe.get_cached_doc("Address", address)
+		address = capkpi.get_cached_doc("Address", address)
 
 	territory = None
 	for fieldname in ("city", "state", "country"):
 		if address.get(fieldname):
-			territory = frappe.db.get_value("Territory", address.get(fieldname))
+			territory = capkpi.db.get_value("Territory", address.get(fieldname))
 			if territory:
 				break
 
@@ -176,9 +176,9 @@ def get_list_context(context=None):
 
 
 def get_address_list(doctype, txt, filters, limit_start, limit_page_length=20, order_by=None):
-	from frappe.www.list import get_list
+	from capkpi.www.list import get_list
 
-	user = frappe.session.user
+	user = capkpi.session.user
 	ignore_permissions = True
 
 	if not filters:
@@ -192,12 +192,12 @@ def get_address_list(doctype, txt, filters, limit_start, limit_page_length=20, o
 
 def has_website_permission(doc, ptype, user, verbose=False):
 	"""Returns true if there is a related lead or contact related to this document"""
-	contact_name = frappe.db.get_value("Contact", {"email_id": frappe.session.user})
+	contact_name = capkpi.db.get_value("Contact", {"email_id": capkpi.session.user})
 	if contact_name:
-		contact = frappe.get_doc("Contact", contact_name)
+		contact = capkpi.get_doc("Contact", contact_name)
 		return contact.has_common_link(doc)
 
-		lead_name = frappe.db.get_value("Lead", {"email_id": frappe.session.user})
+		lead_name = capkpi.db.get_value("Lead", {"email_id": capkpi.session.user})
 		if lead_name:
 			return doc.has_link("Lead", lead_name)
 
@@ -205,15 +205,15 @@ def has_website_permission(doc, ptype, user, verbose=False):
 
 
 def get_address_templates(address):
-	result = frappe.db.get_value(
+	result = capkpi.db.get_value(
 		"Address Template", {"country": address.get("country")}, ["name", "template"]
 	)
 
 	if not result:
-		result = frappe.db.get_value("Address Template", {"is_default": 1}, ["name", "template"])
+		result = capkpi.db.get_value("Address Template", {"is_default": 1}, ["name", "template"])
 
 	if not result:
-		frappe.throw(
+		capkpi.throw(
 			_(
 				"No default Address Template found. Please create a new one from Setup > Printing and Branding > Address Template."
 			)
@@ -223,30 +223,30 @@ def get_address_templates(address):
 
 
 def get_company_address(company):
-	ret = frappe._dict()
+	ret = capkpi._dict()
 	ret.company_address = get_default_address("Company", company)
 	ret.company_address_display = get_address_display(ret.company_address)
 
 	return ret
 
 
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
+@capkpi.whitelist()
+@capkpi.validate_and_sanitize_search_inputs
 def address_query(doctype, txt, searchfield, start, page_len, filters):
-	from frappe.desk.reportview import get_match_cond
+	from capkpi.desk.reportview import get_match_cond
 
 	link_doctype = filters.pop("link_doctype")
 	link_name = filters.pop("link_name")
 
 	condition = ""
-	meta = frappe.get_meta("Address")
+	meta = capkpi.get_meta("Address")
 	for fieldname, value in iteritems(filters):
-		if meta.get_field(fieldname) or fieldname in frappe.db.DEFAULT_COLUMNS:
-			condition += " and {field}={value}".format(field=fieldname, value=frappe.db.escape(value))
+		if meta.get_field(fieldname) or fieldname in capkpi.db.DEFAULT_COLUMNS:
+			condition += " and {field}={value}".format(field=fieldname, value=capkpi.db.escape(value))
 
 	searchfields = meta.get_search_fields()
 
-	if searchfield and (meta.get_field(searchfield) or searchfield in frappe.db.DEFAULT_COLUMNS):
+	if searchfield and (meta.get_field(searchfield) or searchfield in capkpi.db.DEFAULT_COLUMNS):
 		searchfields.append(searchfield)
 
 	search_condition = ""
@@ -256,7 +256,7 @@ def address_query(doctype, txt, searchfield, start, page_len, filters):
 		else:
 			search_condition += " or `tabAddress`.`{field}` like %(txt)s".format(field=field)
 
-	return frappe.db.sql(
+	return capkpi.db.sql(
 		"""select
 			`tabAddress`.name, `tabAddress`.city, `tabAddress`.country
 		from
@@ -295,4 +295,4 @@ def get_condensed_address(doc):
 
 
 def update_preferred_address(address, field):
-	frappe.db.set_value("Address", address, field, 0)
+	capkpi.db.set_value("Address", address, field, 0)

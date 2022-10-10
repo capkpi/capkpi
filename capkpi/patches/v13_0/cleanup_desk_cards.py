@@ -2,31 +2,31 @@ from json import loads
 
 from six import string_types
 
-import frappe
-from frappe.desk.doctype.workspace.workspace import get_link_type, get_report_type
+import capkpi
+from capkpi.desk.doctype.workspace.workspace import get_link_type, get_report_type
 
 
 def execute():
-	frappe.reload_doc("desk", "doctype", "workspace")
+	capkpi.reload_doc("desk", "doctype", "workspace")
 
-	pages = frappe.db.sql("Select `name` from `tabDesk Page`")
-	# pages = frappe.get_all("Workspace", filters={"is_standard": 0}, pluck="name")
+	pages = capkpi.db.sql("Select `name` from `tabDesk Page`")
+	# pages = capkpi.get_all("Workspace", filters={"is_standard": 0}, pluck="name")
 
 	for page in pages:
 		rebuild_links(page[0])
 
-	frappe.delete_doc("DocType", "Desk Card")
+	capkpi.delete_doc("DocType", "Desk Card")
 
 
 def rebuild_links(page):
 	# Empty links table
 
 	try:
-		doc = frappe.get_doc("Workspace", page)
-	except frappe.DoesNotExistError:
+		doc = capkpi.get_doc("Workspace", page)
+	except capkpi.DoesNotExistError:
 		db_doc = get_doc_from_db(page)
 
-		doc = frappe.get_doc(db_doc)
+		doc = capkpi.get_doc(db_doc)
 		doc.insert(ignore_permissions=True)
 
 	doc.links = []
@@ -43,7 +43,7 @@ def rebuild_links(page):
 		)
 
 		for link in links:
-			if not frappe.db.exists(get_link_type(link.get("type")), link.get("name")):
+			if not capkpi.db.exists(get_link_type(link.get("type")), link.get("name")):
 				continue
 
 			doc.append(
@@ -63,15 +63,15 @@ def rebuild_links(page):
 
 		try:
 			doc.save(ignore_permissions=True)
-		except frappe.LinkValidationError:
+		except capkpi.LinkValidationError:
 			print(doc.as_dict())
 
 
 def get_doc_from_db(page):
-	result = frappe.db.sql("SELECT * FROM `tabDesk Page` WHERE name=%s", [page], as_dict=True)
+	result = capkpi.db.sql("SELECT * FROM `tabDesk Page` WHERE name=%s", [page], as_dict=True)
 	if result:
 		return result[0].update({"doctype": "Workspace"})
 
 
 def get_all_cards(page):
-	return frappe.db.get_all("Desk Card", filters={"parent": page}, fields=["*"], order_by="idx")
+	return capkpi.db.get_all("Desk Card", filters={"parent": page}, fields=["*"], order_by="idx")

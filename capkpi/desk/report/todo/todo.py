@@ -3,15 +3,15 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.utils import getdate
+import capkpi
+from capkpi import _
+from capkpi.utils import getdate
 
 
 def execute(filters=None):
 	priority_map = {"High": 3, "Medium": 2, "Low": 1}
 
-	todo_list = frappe.get_list(
+	todo_list = capkpi.get_list(
 		"ToDo",
 		fields=[
 			"name",
@@ -46,7 +46,7 @@ def execute(filters=None):
 
 	result = []
 	for todo in todo_list:
-		if todo.owner == frappe.session.user or todo.assigned_by == frappe.session.user:
+		if todo.owner == capkpi.session.user or todo.assigned_by == capkpi.session.user:
 			if todo.reference_type:
 				todo.reference = """<a href="/app/Form/%s/%s">%s: %s</a>""" % (
 					todo.reference_type,

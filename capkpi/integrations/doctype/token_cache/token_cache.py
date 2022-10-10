@@ -6,10 +6,10 @@ from __future__ import unicode_literals
 
 from datetime import timedelta
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
-from frappe.utils import cint, cstr
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
+from capkpi.utils import cint, cstr
 
 
 class TokenCache(Document):
@@ -18,7 +18,7 @@ class TokenCache(Document):
 			headers = {"Authorization": "Bearer " + self.get_password("access_token")}
 			return headers
 
-		raise frappe.exceptions.DoesNotExistError
+		raise capkpi.exceptions.DoesNotExistError
 
 	def update_data(self, data):
 		"""
@@ -29,7 +29,7 @@ class TokenCache(Document):
 		"""
 		token_type = cstr(data.get("token_type", "")).lower()
 		if token_type not in ["bearer", "mac"]:
-			frappe.throw(_("Received an invalid token type."))
+			capkpi.throw(_("Received an invalid token type."))
 		# 'Bearer' or 'MAC'
 		token_type = token_type.title() if token_type == "bearer" else token_type.upper()
 
@@ -49,12 +49,12 @@ class TokenCache(Document):
 
 		self.state = None
 		self.save(ignore_permissions=True)
-		frappe.db.commit()
+		capkpi.db.commit()
 		return self
 
 	def get_expires_in(self):
-		expiry_time = frappe.utils.get_datetime(self.modified) + timedelta(seconds=self.expires_in)
-		return (expiry_time - frappe.utils.now_datetime()).total_seconds()
+		expiry_time = capkpi.utils.get_datetime(self.modified) + timedelta(seconds=self.expires_in)
+		return (expiry_time - capkpi.utils.now_datetime()).total_seconds()
 
 	def is_expired(self):
 		return self.get_expires_in() < 0

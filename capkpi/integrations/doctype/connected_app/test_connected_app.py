@@ -8,14 +8,14 @@ from urllib.parse import urljoin
 
 import requests
 
-import frappe
-from frappe.integrations.doctype.social_login_key.test_social_login_key import (
+import capkpi
+from capkpi.integrations.doctype.social_login_key.test_social_login_key import (
 	create_or_update_social_login_key,
 )
 
 
 def get_user(usr, pwd):
-	user = frappe.new_doc("User")
+	user = capkpi.new_doc("User")
 	user.email = usr
 	user.enabled = 1
 	user.first_name = "_Test"
@@ -29,8 +29,8 @@ def get_user(usr, pwd):
 
 def get_connected_app():
 	doctype = "Connected App"
-	connected_app = frappe.new_doc(doctype)
-	connected_app.provider_name = "frappe"
+	connected_app = capkpi.new_doc(doctype)
+	connected_app.provider_name = "capkpi"
 	connected_app.scopes = []
 	connected_app.append("scopes", {"scope": "all"})
 	connected_app.insert()
@@ -39,7 +39,7 @@ def get_connected_app():
 
 
 def get_oauth_client():
-	oauth_client = frappe.new_doc("OAuth Client")
+	oauth_client = capkpi.new_doc("OAuth Client")
 	oauth_client.app_name = "_Test Connected App"
 	oauth_client.redirect_uris = "to be replaced"
 	oauth_client.default_redirect_uri = "to be replaced"
@@ -73,7 +73,7 @@ class TestConnectedApp(unittest.TestCase):
 		social_login_key = create_or_update_social_login_key()
 		self.base_url = social_login_key.get("base_url")
 
-		frappe.db.commit()
+		capkpi.db.commit()
 		self.connected_app.reload()
 		self.oauth_client.reload()
 
@@ -91,7 +91,7 @@ class TestConnectedApp(unittest.TestCase):
 		)
 		self.connected_app.save()
 
-		frappe.db.commit()
+		capkpi.db.commit()
 		self.connected_app.reload()
 		self.oauth_client.reload()
 
@@ -122,7 +122,7 @@ class TestConnectedApp(unittest.TestCase):
 		self.assertNotEqual(token, None)
 
 		oauth2_session = self.connected_app.get_oauth2_session(self.user_name)
-		resp = oauth2_session.get(urljoin(self.base_url, "/api/method/frappe.auth.get_logged_user"))
+		resp = oauth2_session.get(urljoin(self.base_url, "/api/method/capkpi.auth.get_logged_user"))
 		self.assertEqual(resp.json().get("message"), self.user_name)
 
 	def tearDown(self):
@@ -135,17 +135,17 @@ class TestConnectedApp(unittest.TestCase):
 		delete_if_exists("connected_app")
 
 		if getattr(self, "oauth_client", None):
-			tokens = frappe.get_all("OAuth Bearer Token", filters={"client": self.oauth_client.name})
+			tokens = capkpi.get_all("OAuth Bearer Token", filters={"client": self.oauth_client.name})
 			for token in tokens:
-				doc = frappe.get_doc("OAuth Bearer Token", token.name)
+				doc = capkpi.get_doc("OAuth Bearer Token", token.name)
 				doc.delete()
 
-			codes = frappe.get_all("OAuth Authorization Code", filters={"client": self.oauth_client.name})
+			codes = capkpi.get_all("OAuth Authorization Code", filters={"client": self.oauth_client.name})
 			for code in codes:
-				doc = frappe.get_doc("OAuth Authorization Code", code.name)
+				doc = capkpi.get_doc("OAuth Authorization Code", code.name)
 				doc.delete()
 
 		delete_if_exists("user")
 		delete_if_exists("oauth_client")
 
-		frappe.db.commit()
+		capkpi.db.commit()

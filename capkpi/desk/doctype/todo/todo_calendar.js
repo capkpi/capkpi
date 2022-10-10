@@ -1,7 +1,7 @@
 // Copyright (c) 2015, CapKPI Technologies Pvt. Ltd. and Contributors
 // License: GNU General Public License v3. See license.txt
 
-frappe.views.calendar["ToDo"] = {
+capkpi.views.calendar["ToDo"] = {
 	field_map: {
 		"start": "date",
 		"end": "date",
@@ -26,6 +26,6 @@ frappe.views.calendar["ToDo"] = {
 		}
 
 	],
-	get_events_method: "frappe.desk.calendar.get_events"
+	get_events_method: "capkpi.desk.calendar.get_events"
 };
 

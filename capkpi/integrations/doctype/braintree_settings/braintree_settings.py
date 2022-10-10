@@ -7,11 +7,11 @@ from __future__ import unicode_literals
 import braintree
 from six.moves.urllib.parse import urlencode
 
-import frappe
-from frappe import _
-from frappe.integrations.utils import create_payment_gateway, create_request_log
-from frappe.model.document import Document
-from frappe.utils import call_hook_method, get_url
+import capkpi
+from capkpi import _
+from capkpi.integrations.utils import create_payment_gateway, create_request_log
+from capkpi.model.document import Document
+from capkpi.utils import call_hook_method, get_url
 
 
 class BraintreeSettings(Document):
@@ -178,7 +178,7 @@ class BraintreeSettings(Document):
 
 	def validate_transaction_currency(self, currency):
 		if currency not in self.supported_currencies:
-			frappe.throw(
+			capkpi.throw(
 				_(
 					"Please select another payment method. Stripe does not support transactions in currency '{0}'"
 				).format(currency)
@@ -188,16 +188,16 @@ class BraintreeSettings(Document):
 		return get_url("./integrations/braintree_checkout?{0}".format(urlencode(kwargs)))
 
 	def create_payment_request(self, data):
-		self.data = frappe._dict(data)
+		self.data = capkpi._dict(data)
 
 		try:
 			self.integration_request = create_request_log(self.data, "Host", "Braintree")
 			return self.create_charge_on_braintree()
 
 		except Exception:
-			frappe.log_error(frappe.get_traceback())
+			capkpi.log_error(capkpi.get_traceback())
 			return {
-				"redirect_to": frappe.redirect_to_message(
+				"redirect_to": capkpi.redirect_to_message(
 					_("Server Error"),
 					_(
 						"There seems to be an issue with the server's braintree configuration. Don't worry, in case of failure, the amount will get refunded to your account."
@@ -227,7 +227,7 @@ class BraintreeSettings(Document):
 
 		elif result.transaction:
 			self.integration_request.db_set("status", "Failed", update_modified=False)
-			error_log = frappe.log_error(
+			error_log = capkpi.log_error(
 				"code: "
 				+ str(result.transaction.processor_response_code)
 				+ " | text: "
@@ -238,7 +238,7 @@ class BraintreeSettings(Document):
 		else:
 			self.integration_request.db_set("status", "Failed", update_modified=False)
 			for error in result.errors.deep_errors:
-				error_log = frappe.log_error(
+				error_log = capkpi.log_error(
 					"code: " + str(error.code) + " | message: " + str(error.message), "Braintree Payment Error"
 				)
 				self.integration_request.db_set("error", error_log.error, update_modified=False)
@@ -248,14 +248,14 @@ class BraintreeSettings(Document):
 			if self.data.reference_doctype and self.data.reference_docname:
 				custom_redirect_to = None
 				try:
-					custom_redirect_to = frappe.get_doc(
+					custom_redirect_to = capkpi.get_doc(
 						self.data.reference_doctype, self.data.reference_docname
 					).run_method("on_payment_authorized", self.flags.status_changed_to)
-					braintree_success_page = frappe.get_hooks("braintree_success_page")
+					braintree_success_page = capkpi.get_hooks("braintree_success_page")
 					if braintree_success_page:
-						custom_redirect_to = frappe.get_attr(braintree_success_page[-1])(self.data)
+						custom_redirect_to = capkpi.get_attr(braintree_success_page[-1])(self.data)
 				except Exception:
-					frappe.log_error(frappe.get_traceback())
+					capkpi.log_error(capkpi.get_traceback())
 
 				if custom_redirect_to:
 					redirect_to = custom_redirect_to
@@ -274,8 +274,8 @@ class BraintreeSettings(Document):
 
 
 def get_gateway_controller(doc):
-	payment_request = frappe.get_doc("Payment Request", doc)
-	gateway_controller = frappe.db.get_value(
+	payment_request = capkpi.get_doc("Payment Request", doc)
+	gateway_controller = capkpi.db.get_value(
 		"Payment Gateway", payment_request.payment_gateway, "gateway_controller"
 	)
 	return gateway_controller
@@ -283,7 +283,7 @@ def get_gateway_controller(doc):
 
 def get_client_token(doc):
 	gateway_controller = get_gateway_controller(doc)
-	settings = frappe.get_doc("Braintree Settings", gateway_controller)
+	settings = capkpi.get_doc("Braintree Settings", gateway_controller)
 	settings.configure_braintree()
 
 	return braintree.ClientToken.generate()

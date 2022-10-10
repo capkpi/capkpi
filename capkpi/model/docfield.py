@@ -5,12 +5,12 @@ from __future__ import unicode_literals
 
 """docfield utililtes"""
 
-import frappe
+import capkpi
 
 
 def rename(doctype, fieldname, newname):
 	"""rename docfield"""
-	df = frappe.db.sql(
+	df = capkpi.db.sql(
 		"""select * from tabDocField where parent=%s and fieldname=%s""", (doctype, fieldname), as_dict=1
 	)
 	if not df:
@@ -18,7 +18,7 @@ def rename(doctype, fieldname, newname):
 
 	df = df[0]
 
-	if frappe.db.get_value("DocType", doctype, "issingle"):
+	if capkpi.db.get_value("DocType", doctype, "issingle"):
 		update_single(df, newname)
 	else:
 		update_table(df, newname)
@@ -27,35 +27,35 @@ def rename(doctype, fieldname, newname):
 
 def update_single(f, new):
 	"""update in tabSingles"""
-	frappe.db.begin()
-	frappe.db.sql(
+	capkpi.db.begin()
+	capkpi.db.sql(
 		"""update tabSingles set field=%s where doctype=%s and field=%s""",
 		(new, f["parent"], f["fieldname"]),
 	)
-	frappe.db.commit()
+	capkpi.db.commit()
 
 
 def update_table(f, new):
 	"""update table"""
 	query = get_change_column_query(f, new)
 	if query:
-		frappe.db.sql(query)
+		capkpi.db.sql(query)
 
 
 def update_parent_field(f, new):
 	"""update 'parentfield' in tables"""
-	if f["fieldtype"] in frappe.model.table_fields:
-		frappe.db.begin()
-		frappe.db.sql(
+	if f["fieldtype"] in capkpi.model.table_fields:
+		capkpi.db.begin()
+		capkpi.db.sql(
 			"""update `tab%s` set parentfield=%s where parentfield=%s""" % (f["options"], "%s", "%s"),
 			(new, f["fieldname"]),
 		)
-		frappe.db.commit()
+		capkpi.db.commit()
 
 
 def get_change_column_query(f, new):
 	"""generate change fieldname query"""
-	desc = frappe.db.sql("desc `tab%s`" % f["parent"])
+	desc = capkpi.db.sql("desc `tab%s`" % f["parent"])
 	for d in desc:
 		if d[0] == f["fieldname"]:
 			return "alter table `tab%s` change `%s` `%s` %s" % (f["parent"], f["fieldname"], new, d[1])

@@ -4,11 +4,11 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.core.utils import set_timeline_doc
-from frappe.model.document import Document
-from frappe.utils import get_fullname, now
+import capkpi
+from capkpi import _
+from capkpi.core.utils import set_timeline_doc
+from capkpi.model.document import Document
+from capkpi.utils import get_fullname, now
 
 
 class ActivityLog(Document):
@@ -30,13 +30,13 @@ class ActivityLog(Document):
 
 def on_doctype_update():
 	"""Add indexes in `tabActivity Log`"""
-	frappe.db.add_index("Activity Log", ["reference_doctype", "reference_name"])
-	frappe.db.add_index("Activity Log", ["timeline_doctype", "timeline_name"])
-	frappe.db.add_index("Activity Log", ["link_doctype", "link_name"])
+	capkpi.db.add_index("Activity Log", ["reference_doctype", "reference_name"])
+	capkpi.db.add_index("Activity Log", ["timeline_doctype", "timeline_name"])
+	capkpi.db.add_index("Activity Log", ["link_doctype", "link_name"])
 
 
 def add_authentication_log(subject, user, operation="Login", status="Success"):
-	frappe.get_doc(
+	capkpi.get_doc(
 		{
 			"doctype": "Activity Log",
 			"user": user,
@@ -53,7 +53,7 @@ def clear_activity_logs(days=None):
 	if not days:
 		days = 90
 
-	frappe.db.sql(
+	capkpi.db.sql(
 		"""delete from `tabActivity Log` where \
 		creation< (NOW() - INTERVAL '{0}' DAY)""".format(
 			days

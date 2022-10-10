@@ -3,6 +3,6 @@
 
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
-test_records = frappe.get_test_records("Country")
+test_records = capkpi.get_test_records("Country")

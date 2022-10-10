@@ -1,10 +1,10 @@
-import frappe
+import capkpi
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_print_settings_to_show(doctype, docname):
-	doc = frappe.get_doc(doctype, docname)
-	print_settings = frappe.get_single("Print Settings")
+	doc = capkpi.get_doc(doctype, docname)
+	print_settings = capkpi.get_single("Print Settings")
 
 	if hasattr(doc, "get_print_settings"):
 		fields = doc.get_print_settings() or []

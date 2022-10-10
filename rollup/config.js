@@ -13,7 +13,7 @@ const vue = require('rollup-plugin-vue');
 const capkpi_html = require('./capkpi-html-plugin');
 const less_loader = require('./less-loader');
 
-const production = process.env.FRAPPE_ENV === 'production';
+const production = process.env.CAPKPI_ENV === 'production';
 
 const {
 	apps_list,

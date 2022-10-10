@@ -5,8 +5,8 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
-from frappe.desk.form.linked_with import get_linked_docs, get_linked_doctypes
+import capkpi
+from capkpi.desk.form.linked_with import get_linked_docs, get_linked_doctypes
 
 
 class TestForm(unittest.TestCase):
@@ -17,5 +17,5 @@ class TestForm(unittest.TestCase):
 
 
 if __name__ == "__main__":
-	frappe.connect()
+	capkpi.connect()
 	unittest.main()

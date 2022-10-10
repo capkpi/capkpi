@@ -6,29 +6,29 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe import _
-from frappe.desk.doctype.bulk_update.bulk_update import show_progress
-from frappe.model.document import Document
+import capkpi
+from capkpi import _
+from capkpi.desk.doctype.bulk_update.bulk_update import show_progress
+from capkpi.model.document import Document
 
 
 class DeletedDocument(Document):
 	pass
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def restore(name, alert=True):
-	deleted = frappe.get_doc("Deleted Document", name)
+	deleted = capkpi.get_doc("Deleted Document", name)
 
 	if deleted.restored:
-		frappe.throw(_("Document {0} Already Restored").format(name), exc=frappe.DocumentAlreadyRestored)
+		capkpi.throw(_("Document {0} Already Restored").format(name), exc=capkpi.DocumentAlreadyRestored)
 
-	doc = frappe.get_doc(json.loads(deleted.data))
+	doc = capkpi.get_doc(json.loads(deleted.data))
 
 	try:
 		doc.insert()
-	except frappe.DocstatusTransitionError:
-		frappe.msgprint(_("Cancelled Document restored as Draft"))
+	except capkpi.DocstatusTransitionError:
+		capkpi.msgprint(_("Cancelled Document restored as Draft"))
 		doc.docstatus = 0
 		doc.insert()
 
@@ -39,12 +39,12 @@ def restore(name, alert=True):
 	deleted.db_update()
 
 	if alert:
-		frappe.msgprint(_("Document Restored"))
+		capkpi.msgprint(_("Document Restored"))
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def bulk_restore(docnames):
-	docnames = frappe.parse_json(docnames)
+	docnames = capkpi.parse_json(docnames)
 	message = _("Restoring Deleted Document")
 	restored, invalid, failed = [], [], []
 
@@ -52,16 +52,16 @@ def bulk_restore(docnames):
 		try:
 			show_progress(docnames, message, i + 1, d)
 			restore(d, alert=False)
-			frappe.db.commit()
+			capkpi.db.commit()
 			restored.append(d)
 
-		except frappe.DocumentAlreadyRestored:
-			frappe.message_log.pop()
+		except capkpi.DocumentAlreadyRestored:
+			capkpi.message_log.pop()
 			invalid.append(d)
 
 		except Exception:
-			frappe.message_log.pop()
+			capkpi.message_log.pop()
 			failed.append(d)
-			frappe.db.rollback()
+			capkpi.db.rollback()
 
 	return {"restored": restored, "invalid": invalid, "failed": failed}

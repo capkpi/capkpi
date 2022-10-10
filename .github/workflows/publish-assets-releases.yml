@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          path: 'frappe'
+          path: 'capkpi'
       - uses: actions/setup-node@v1
         with:
           python-version: '12.x'
@@ -25,14 +25,14 @@ jobs:
       - name: Set up bench for current push
         run: |
           npm install -g yarn
-          pip3 install -U frappe-bench
-          bench init frappe-bench --no-procfile --no-backups --skip-assets --skip-redis-config-generation --python $(which python) --frappe-path $GITHUB_WORKSPACE/frappe
-          cd frappe-bench && bench build
+          pip3 install -U capkpi-bench
+          bench init capkpi-bench --no-procfile --no-backups --skip-assets --skip-redis-config-generation --python $(which python) --capkpi-path $GITHUB_WORKSPACE/capkpi
+          cd capkpi-bench && bench build
 
       - name: Package assets
         run: |
           mkdir -p $GITHUB_WORKSPACE/build
-          tar -cvpzf $GITHUB_WORKSPACE/build/assets.tar.gz ./frappe-bench/sites/assets/js ./frappe-bench/sites/assets/css*
+          tar -cvpzf $GITHUB_WORKSPACE/build/assets.tar.gz ./capkpi-bench/sites/assets/js ./capkpi-bench/sites/assets/css*
 
       - name: Get release
         id: get_release

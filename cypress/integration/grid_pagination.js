@@ -6,20 +6,20 @@ context('Grid Pagination', () => {
 	before(() => {
 		cy.login();
 		cy.visit('/app/website');
-		return cy.window().its('frappe').then(frappe => {
-			return frappe.call("frappe.tests.ui_test_helpers.create_contact_phone_nos_records");
+		return cy.window().its('capkpi').then(capkpi => {
+			return capkpi.call("capkpi.tests.ui_test_helpers.create_contact_phone_nos_records");
 		});
 	});
 	it('creates pages for child table', () => {
 		cy.visit('/app/contact/Test Contact');
-		cy.get('.frappe-control[data-fieldname="phone_nos"]').as('table');
+		cy.get('.capkpi-control[data-fieldname="phone_nos"]').as('table');
 		cy.get('@table').find('.current-page-number').should('have.value', '1');
 		cy.get('@table').find('.total-page-number').should('contain', '20');
 		cy.get('@table').find('.grid-body .grid-row').should('have.length', 50);
 	});
 	it('goes to the next and previous page', () => {
 		cy.visit('/app/contact/Test Contact');
-		cy.get('.frappe-control[data-fieldname="phone_nos"]').as('table');
+		cy.get('.capkpi-control[data-fieldname="phone_nos"]').as('table');
 		cy.get('@table').find('.next-page').click();
 		cy.get('@table').find('.current-page-number').should('have.value', '2');
 		cy.get('@table').find('.grid-body .grid-row').first().should('have.attr', 'data-idx', '51');
@@ -29,7 +29,7 @@ context('Grid Pagination', () => {
 	});
 	it('adds and deletes rows and changes page', () => {
 		cy.visit('/app/contact/Test Contact');
-		cy.get('.frappe-control[data-fieldname="phone_nos"]').as('table');
+		cy.get('.capkpi-control[data-fieldname="phone_nos"]').as('table');
 		cy.get('@table').findByRole('button', {name: 'Add Row'}).click();
 		cy.get('@table').find('.grid-body .row-index').should('contain', 1001);
 		cy.get('@table').find('.current-page-number').should('have.value', '21');
@@ -42,7 +42,7 @@ context('Grid Pagination', () => {
 	});
 	it('go to specific page, use up and down arrow, type characters, 0 page and more than existing page', () => {
 		cy.visit('/app/contact/Test Contact');
-		cy.get('.frappe-control[data-fieldname="phone_nos"]').as('table');
+		cy.get('.capkpi-control[data-fieldname="phone_nos"]').as('table');
 		cy.get('@table').find('.current-page-number').focus().clear().type('17').blur();
 		cy.get('@table').find('.grid-body .row-index').should('contain', 801);
 
@@ -63,7 +63,7 @@ context('Grid Pagination', () => {
 	});
 	// it('deletes all rows', ()=> {
 	// 	cy.visit('/app/contact/Test Contact');
-	// 	cy.get('.frappe-control[data-fieldname="phone_nos"]').as('table');
+	// 	cy.get('.capkpi-control[data-fieldname="phone_nos"]').as('table');
 	// 	cy.get('@table').find('.grid-heading-row .grid-row-check').click({force: true});
 	// 	cy.get('@table').find('button.grid-remove-all-rows').click();
 	// 	cy.get('.modal-dialog .btn-primary').contains('Yes').click();

@@ -9,7 +9,7 @@
 
 Example:
 
-	from frappe.integrations.utils import get_payment_gateway_controller
+	from capkpi.integrations.utils import get_payment_gateway_controller
 
 	controller = get_payment_gateway_controller("Razorpay")
 	controller().validate_transaction_currency(currency)
@@ -69,16 +69,16 @@ import json
 import razorpay
 from six.moves.urllib.parse import urlencode
 
-import frappe
-from frappe import _
-from frappe.integrations.utils import (
+import capkpi
+from capkpi import _
+from capkpi.integrations.utils import (
 	create_payment_gateway,
 	create_request_log,
 	make_get_request,
 	make_post_request,
 )
-from frappe.model.document import Document
-from frappe.utils import call_hook_method, cint, get_timestamp, get_url
+from capkpi.model.document import Document
+from capkpi.utils import call_hook_method, cint, get_timestamp, get_url
 
 
 class RazorpaySettings(Document):
@@ -103,11 +103,11 @@ class RazorpaySettings(Document):
 					auth=(self.api_key, self.get_password(fieldname="api_secret", raise_exception=False)),
 				)
 			except Exception:
-				frappe.throw(_("Seems API Key or API Secret is wrong !!!"))
+				capkpi.throw(_("Seems API Key or API Secret is wrong !!!"))
 
 	def validate_transaction_currency(self, currency):
 		if currency not in self.supported_currencies:
-			frappe.throw(
+			capkpi.throw(
 				_(
 					"Please select another payment method. Razorpay does not support transactions in currency '{0}'"
 				).format(currency)
@@ -131,7 +131,7 @@ class RazorpaySettings(Document):
 		)
 
 		try:
-			if not frappe.conf.converted_rupee_to_paisa:
+			if not capkpi.conf.converted_rupee_to_paisa:
 				convert_rupee_to_paisa(**kwargs)
 
 			for addon in kwargs.get("addons"):
@@ -142,9 +142,9 @@ class RazorpaySettings(Document):
 					headers={"content-type": "application/json"},
 				)
 				if not resp.get("id"):
-					frappe.log_error(str(resp), "Razorpay Failed while creating subscription")
+					capkpi.log_error(str(resp), "Razorpay Failed while creating subscription")
 		except Exception:
-			frappe.log_error(frappe.get_traceback())
+			capkpi.log_error(capkpi.get_traceback())
 			# failed
 			pass
 
@@ -178,13 +178,13 @@ class RazorpaySettings(Document):
 
 			if resp.get("status") == "created":
 				kwargs["subscription_id"] = resp.get("id")
-				frappe.flags.status = "created"
+				capkpi.flags.status = "created"
 				return kwargs
 			else:
-				frappe.log_error(str(resp), "Razorpay Failed while creating subscription")
+				capkpi.log_error(str(resp), "Razorpay Failed while creating subscription")
 
 		except Exception:
-			frappe.log_error(frappe.get_traceback())
+			capkpi.log_error(capkpi.get_traceback())
 			# failed
 			pass
 
@@ -192,7 +192,7 @@ class RazorpaySettings(Document):
 		if not kwargs.get("subscription_id"):
 			kwargs = self.setup_subscription(settings, **kwargs)
 
-		if frappe.flags.status != "created":
+		if capkpi.flags.status != "created":
 			kwargs["subscription_id"] = None
 
 		return kwargs
@@ -227,21 +227,21 @@ class RazorpaySettings(Document):
 				order["integration_request"] = integration_request.name
 				return order  # Order returned to be consumed by razorpay.js
 			except Exception:
-				frappe.log(frappe.get_traceback())
-				frappe.throw(_("Could not create razorpay order"))
+				capkpi.log(capkpi.get_traceback())
+				capkpi.throw(_("Could not create razorpay order"))
 
 	def create_request(self, data):
-		self.data = frappe._dict(data)
+		self.data = capkpi._dict(data)
 
 		try:
-			self.integration_request = frappe.get_doc("Integration Request", self.data.token)
+			self.integration_request = capkpi.get_doc("Integration Request", self.data.token)
 			self.integration_request.update_status(self.data, "Queued")
 			return self.authorize_payment()
 
 		except Exception:
-			frappe.log_error(frappe.get_traceback())
+			capkpi.log_error(capkpi.get_traceback())
 			return {
-				"redirect_to": frappe.redirect_to_message(
+				"redirect_to": capkpi.redirect_to_message(
 					_("Server Error"),
 					_(
 						"Seems issue with server's razorpay config. Don't worry, in case of failure amount will get refunded to your account."
@@ -283,14 +283,14 @@ class RazorpaySettings(Document):
 					self.flags.status_changed_to = "Verified"
 
 			else:
-				frappe.log_error(str(resp), "Razorpay Payment not authorized")
+				capkpi.log_error(str(resp), "Razorpay Payment not authorized")
 
 		except Exception:
-			frappe.log_error(frappe.get_traceback())
+			capkpi.log_error(capkpi.get_traceback())
 			# failed
 			pass
 
-		status = frappe.flags.integration_request.status_code
+		status = capkpi.flags.integration_request.status_code
 
 		redirect_to = data.get("redirect_to") or None
 		redirect_message = data.get("redirect_message") or None
@@ -298,13 +298,13 @@ class RazorpaySettings(Document):
 			if self.data.reference_doctype and self.data.reference_docname:
 				custom_redirect_to = None
 				try:
-					frappe.flags.data = data
-					custom_redirect_to = frappe.get_doc(
+					capkpi.flags.data = data
+					custom_redirect_to = capkpi.get_doc(
 						self.data.reference_doctype, self.data.reference_docname
 					).run_method("on_payment_authorized", self.flags.status_changed_to)
 
 				except Exception:
-					frappe.log_error(frappe.get_traceback())
+					capkpi.log_error(capkpi.get_traceback())
 
 				if custom_redirect_to:
 					redirect_to = custom_redirect_to
@@ -323,7 +323,7 @@ class RazorpaySettings(Document):
 		return {"redirect_to": redirect_url, "status": status}
 
 	def get_settings(self, data):
-		settings = frappe._dict(
+		settings = capkpi._dict(
 			{
 				"api_key": self.api_key,
 				"api_secret": self.get_password(fieldname="api_secret", raise_exception=False),
@@ -333,8 +333,8 @@ class RazorpaySettings(Document):
 		if cint(data.get("notes", {}).get("use_sandbox")) or data.get("use_sandbox"):
 			settings.update(
 				{
-					"api_key": frappe.conf.sandbox_api_key,
-					"api_secret": frappe.conf.sandbox_api_secret,
+					"api_key": capkpi.conf.sandbox_api_key,
+					"api_secret": capkpi.conf.sandbox_api_secret,
 				}
 			)
 
@@ -349,7 +349,7 @@ class RazorpaySettings(Document):
 				auth=(settings.api_key, settings.api_secret),
 			)
 		except Exception:
-			frappe.log_error(frappe.get_traceback())
+			capkpi.log_error(capkpi.get_traceback())
 
 	def verify_signature(self, body, signature, key):
 		key = bytes(key, "utf-8")
@@ -361,7 +361,7 @@ class RazorpaySettings(Document):
 		result = hmac.compare_digest(generated_signature, signature)
 
 		if not result:
-			frappe.throw(_("Razorpay Signature Verification Failed"), exc=frappe.PermissionError)
+			capkpi.throw(_("Razorpay Signature Verification Failed"), exc=capkpi.PermissionError)
 
 		return result
 
@@ -374,9 +374,9 @@ def capture_payment(is_sandbox=False, sanbox_response=None):
 
 	Note: Attempting to capture a payment whose status is not authorized will produce an error.
 	"""
-	controller = frappe.get_doc("Razorpay Settings")
+	controller = capkpi.get_doc("Razorpay Settings")
 
-	for doc in frappe.get_all(
+	for doc in capkpi.get_all(
 		"Integration Request",
 		filters={"status": "Authorized", "integration_request_service": "Razorpay"},
 		fields=["name", "data"],
@@ -402,34 +402,34 @@ def capture_payment(is_sandbox=False, sanbox_response=None):
 					)
 
 			if resp.get("status") == "captured":
-				frappe.db.set_value("Integration Request", doc.name, "status", "Completed")
+				capkpi.db.set_value("Integration Request", doc.name, "status", "Completed")
 
 		except Exception:
-			doc = frappe.get_doc("Integration Request", doc.name)
+			doc = capkpi.get_doc("Integration Request", doc.name)
 			doc.status = "Failed"
-			doc.error = frappe.get_traceback()
-			frappe.log_error(doc.error, "{0} Failed".format(doc.name))
+			doc.error = capkpi.get_traceback()
+			capkpi.log_error(doc.error, "{0} Failed".format(doc.name))
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def get_api_key():
-	controller = frappe.get_doc("Razorpay Settings")
+	controller = capkpi.get_doc("Razorpay Settings")
 	return controller.api_key
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def get_order(doctype, docname):
 	# Order returned to be consumed by razorpay.js
-	doc = frappe.get_doc(doctype, docname)
+	doc = capkpi.get_doc(doctype, docname)
 	try:
 		# Do not use run_method here as it fails silently
 		return doc.get_razorpay_order()
 	except AttributeError:
-		frappe.log_error(frappe.get_traceback(), _("Controller method get_razorpay_order missing"))
-		frappe.throw(_("Could not create Razorpay order. Please contact Administrator"))
+		capkpi.log_error(capkpi.get_traceback(), _("Controller method get_razorpay_order missing"))
+		capkpi.throw(_("Could not create Razorpay order. Please contact Administrator"))
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def order_payment_success(integration_request, params):
 	"""Called by razorpay.js on order payment success, the params
 	contains razorpay_payment_id, razorpay_order_id, razorpay_signature
@@ -440,24 +440,24 @@ def order_payment_success(integration_request, params):
 	        params (string): Params to be updated for integration request.
 	"""
 	params = json.loads(params)
-	integration = frappe.get_doc("Integration Request", integration_request)
+	integration = capkpi.get_doc("Integration Request", integration_request)
 
 	# Update integration request
 	integration.update_status(params, integration.status)
 	integration.reload()
 
 	data = json.loads(integration.data)
-	controller = frappe.get_doc("Razorpay Settings")
+	controller = capkpi.get_doc("Razorpay Settings")
 
 	# Update payment and integration data for payment controller object
 	controller.integration_request = integration
-	controller.data = frappe._dict(data)
+	controller.data = capkpi._dict(data)
 
 	# Authorize payment
 	controller.authorize_payment()
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def order_payment_failure(integration_request, params):
 	"""Called by razorpay.js on failure
 
@@ -465,9 +465,9 @@ def order_payment_failure(integration_request, params):
 	        integration_request (TYPE): Description
 	        params (TYPE): error data to be updated
 	"""
-	frappe.log_error(params, "Razorpay Payment Failure")
+	capkpi.log_error(params, "Razorpay Payment Failure")
 	params = json.loads(params)
-	integration = frappe.get_doc("Integration Request", integration_request)
+	integration = capkpi.get_doc("Integration Request", integration_request)
 	integration.update_status(params, integration.status)
 
 
@@ -475,52 +475,52 @@ def convert_rupee_to_paisa(**kwargs):
 	for addon in kwargs.get("addons"):
 		addon["item"]["amount"] *= 100
 
-	frappe.conf.converted_rupee_to_paisa = True
+	capkpi.conf.converted_rupee_to_paisa = True
 
 
-@frappe.whitelist(allow_guest=True)
+@capkpi.whitelist(allow_guest=True)
 def razorpay_subscription_callback():
 	try:
-		data = frappe.local.form_dict
+		data = capkpi.local.form_dict
 
 		validate_payment_callback(data)
 
 		data.update({"payment_gateway": "Razorpay"})
 
-		doc = frappe.get_doc(
+		doc = capkpi.get_doc(
 			{
-				"data": json.dumps(frappe.local.form_dict),
+				"data": json.dumps(capkpi.local.form_dict),
 				"doctype": "Integration Request",
 				"integration_type": "Subscription Notification",
 				"status": "Queued",
 			}
 		).insert(ignore_permissions=True)
-		frappe.db.commit()
+		capkpi.db.commit()
 
-		frappe.enqueue(
-			method="frappe.integrations.doctype.razorpay_settings.razorpay_settings.handle_subscription_notification",
+		capkpi.enqueue(
+			method="capkpi.integrations.doctype.razorpay_settings.razorpay_settings.handle_subscription_notification",
 			queue="long",
 			timeout=600,
 			is_async=True,
 			**{"doctype": "Integration Request", "docname": doc.name}
 		)
 
-	except frappe.InvalidStatusError:
+	except capkpi.InvalidStatusError:
 		pass
 	except Exception as e:
-		frappe.log(frappe.log_error(title=e))
+		capkpi.log(capkpi.log_error(title=e))
 
 
 def validate_payment_callback(data):
 	def _throw():
-		frappe.throw(_("Invalid Subscription"), exc=frappe.InvalidStatusError)
+		capkpi.throw(_("Invalid Subscription"), exc=capkpi.InvalidStatusError)
 
 	subscription_id = data.get("payload").get("subscription").get("entity").get("id")
 
 	if not (subscription_id):
 		_throw()
 
-	controller = frappe.get_doc("Razorpay Settings")
+	controller = capkpi.get_doc("Razorpay Settings")
 
 	settings = controller.get_settings(data)
 

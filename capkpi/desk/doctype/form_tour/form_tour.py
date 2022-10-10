@@ -1,16 +1,16 @@
 # Copyright (c) 2021, CapKPI Technologies and contributors
 # For license information, please see license.txt
 
-import frappe
-from frappe.model.document import Document
+import capkpi
+from capkpi.model.document import Document
 
 
 class FormTour(Document):
 	pass
 
 
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
+@capkpi.whitelist()
+@capkpi.validate_and_sanitize_search_inputs
 def get_docfield_list(doctype, txt, searchfield, start, page_len, filters):
 	or_filters = [
 		["fieldname", "like", "%" + txt + "%"],
@@ -22,7 +22,7 @@ def get_docfield_list(doctype, txt, searchfield, start, page_len, filters):
 	excluded_fieldtypes = ["Column Break"]
 	excluded_fieldtypes += filters.get("excluded_fieldtypes", [])
 
-	docfields = frappe.get_all(
+	docfields = capkpi.get_all(
 		doctype,
 		fields=["name as value", "label", "fieldtype"],
 		filters={"parent": parent_doctype, "fieldtype": ["not in", excluded_fieldtypes]},

@@ -12,9 +12,9 @@ from email.mime.multipart import MIMEMultipart
 
 from six import iteritems, string_types, text_type
 
-import frappe
-from frappe.email.smtp import get_outgoing_email_account
-from frappe.utils import (
+import capkpi
+from capkpi.email.smtp import get_outgoing_email_account
+from capkpi.utils import (
 	cint,
 	expand_relative_urls,
 	get_url,
@@ -26,7 +26,7 @@ from frappe.utils import (
 	strip,
 	to_markdown,
 )
-from frappe.utils.pdf import get_pdf
+from capkpi.utils.pdf import get_pdf
 
 
 def get_email(
@@ -237,7 +237,7 @@ class EMail:
 
 	def attach_file(self, n):
 		"""attach a file from the `FileData` table"""
-		_file = frappe.get_doc("File", {"file_name": n})
+		_file = capkpi.get_doc("File", {"file_name": n})
 		content = _file.get_content()
 		if not content:
 			return
@@ -259,7 +259,7 @@ class EMail:
 
 	def validate(self):
 		"""validate the Email Addresses"""
-		from frappe.utils import validate_email_address
+		from capkpi.utils import validate_email_address
 
 		if not self.sender:
 			self.sender = self.email_account.default_sender
@@ -327,8 +327,8 @@ class EMail:
 				self.set_header(key, val)
 
 		# call hook to enable apps to modify msg_root before sending
-		for hook in frappe.get_hooks("make_email_body_message"):
-			frappe.get_attr(hook)(self)
+		for hook in capkpi.get_hooks("make_email_body_message"):
+			capkpi.get_attr(hook)(self)
 
 	def set_header(self, key, value):
 		if key in self.msg_root:
@@ -360,7 +360,7 @@ def get_formatted_html(
 	if not email_account:
 		email_account = get_outgoing_email_account(False, sender=sender)
 
-	rendered_email = frappe.get_template("templates/emails/standard.html").render(
+	rendered_email = capkpi.get_template("templates/emails/standard.html").render(
 		{
 			"brand_logo": get_brand_logo(email_account) if with_container or header else None,
 			"with_container": with_container,
@@ -382,7 +382,7 @@ def get_formatted_html(
 	return inline_style_in_html(html)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_email_html(template, args, subject, header=None, with_container=False):
 	import json
 
@@ -390,7 +390,7 @@ def get_email_html(template, args, subject, header=None, with_container=False):
 	args = json.loads(args)
 	if header and header.startswith("["):
 		header = json.loads(header)
-	email = frappe.utils.jinja.get_email_from_template(template, args)
+	email = capkpi.utils.jinja.get_email_from_template(template, args)
 	return get_formatted_html(subject, email[0], header=header, with_container=with_container)
 
 
@@ -398,12 +398,12 @@ def inline_style_in_html(html):
 	"""Convert email.css and html to inline-styled html"""
 	from premailer import Premailer
 
-	apps = frappe.get_installed_apps()
+	apps = capkpi.get_installed_apps()
 
-	# add frappe email css file
+	# add capkpi email css file
 	css_files = ["assets/css/email.css"]
-	if "frappe" in apps:
-		apps.remove("frappe")
+	if "capkpi" in apps:
+		apps.remove("capkpi")
 
 	for app in apps:
 		path = "assets/{0}/css/email.css".format(app)
@@ -466,7 +466,7 @@ def add_attachment(fname, fcontent, content_type=None, parent=None, content_id=N
 def get_message_id():
 	"""Returns Message ID created from doctype and name"""
 	return "<{unique}@{site}>".format(
-		site=frappe.local.site,
+		site=capkpi.local.site,
 		unique=email.utils.make_msgid(random_string(10)).split("@")[0].split("<")[1],
 	)
 
@@ -487,21 +487,21 @@ def get_footer(email_account, footer=None):
 	if email_account and email_account.footer:
 		args.update({"email_account_footer": email_account.footer})
 
-	sender_address = frappe.db.get_default("email_footer_address")
+	sender_address = capkpi.db.get_default("email_footer_address")
 
 	if sender_address:
 		args.update({"sender_address": sender_address})
 
-	if not cint(frappe.db.get_default("disable_standard_email_footer")):
-		args.update({"default_mail_footer": frappe.get_hooks("default_mail_footer")})
+	if not cint(capkpi.db.get_default("disable_standard_email_footer")):
+		args.update({"default_mail_footer": capkpi.get_hooks("default_mail_footer")})
 
-	footer += frappe.utils.jinja.get_email_from_template("email_footer", args)[0]
+	footer += capkpi.utils.jinja.get_email_from_template("email_footer", args)[0]
 
 	return footer
 
 
 def replace_filename_with_cid(message):
-	"""Replaces <img embed="assets/frappe/images/filename.jpg" ...> with
+	"""Replaces <img embed="assets/capkpi/images/filename.jpg" ...> with
 	<img src="cid:content_id" ...> and return the modified message and
 	a list of inline_images with {filename, filecontent, content_id}
 	"""
@@ -548,10 +548,10 @@ def get_filecontent_from_path(path):
 		full_path = os.path.abspath(path)
 	elif path.startswith("files/"):
 		# public file
-		full_path = frappe.get_site_path("public", path)
+		full_path = capkpi.get_site_path("public", path)
 	elif path.startswith("private/files/"):
 		# private file
-		full_path = frappe.get_site_path(path)
+		full_path = capkpi.get_site_path(path)
 	else:
 		full_path = path
 
@@ -566,7 +566,7 @@ def get_filecontent_from_path(path):
 
 def get_header(header=None):
 	"""Build header from template"""
-	from frappe.utils.jinja import get_email_from_template
+	from capkpi.utils.jinja import get_email_from_template
 
 	if not header:
 		return None
@@ -581,7 +581,7 @@ def get_header(header=None):
 	title, indicator = header
 
 	if not title:
-		title = frappe.get_hooks("app_title")[-1]
+		title = capkpi.get_hooks("app_title")[-1]
 
 	email_header, text = get_email_from_template(
 		"email_header", {"header_title": title, "indicator": indicator}

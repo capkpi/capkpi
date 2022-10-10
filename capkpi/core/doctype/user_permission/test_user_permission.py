@@ -5,29 +5,29 @@ from __future__ import unicode_literals
 
 import unittest
 
-import frappe
-from frappe.core.doctype.doctype.test_doctype import new_doctype
-from frappe.core.doctype.user_permission.user_permission import (
+import capkpi
+from capkpi.core.doctype.doctype.test_doctype import new_doctype
+from capkpi.core.doctype.user_permission.user_permission import (
 	add_user_permissions,
 	remove_applicable,
 )
-from frappe.permissions import has_user_permission
-from frappe.website.doctype.blog_post.test_blog_post import make_test_blog
+from capkpi.permissions import has_user_permission
+from capkpi.website.doctype.blog_post.test_blog_post import make_test_blog
 
 
 class TestUserPermission(unittest.TestCase):
 	def setUp(self):
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""DELETE FROM `tabUser Permission`
 			WHERE `user` in (
 				'test_bulk_creation_update@example.com',
 				'test_user_perm1@example.com',
 				'nested_doc_user@example.com')"""
 		)
-		frappe.delete_doc_if_exists("DocType", "Person")
-		frappe.db.sql_ddl("DROP TABLE IF EXISTS `tabPerson`")
-		frappe.delete_doc_if_exists("DocType", "Doc A")
-		frappe.db.sql_ddl("DROP TABLE IF EXISTS `tabDoc A`")
+		capkpi.delete_doc_if_exists("DocType", "Person")
+		capkpi.db.sql_ddl("DROP TABLE IF EXISTS `tabPerson`")
+		capkpi.delete_doc_if_exists("DocType", "Doc A")
+		capkpi.db.sql_ddl("DROP TABLE IF EXISTS `tabDoc A`")
 
 	def test_default_user_permission_validation(self):
 		user = create_user("test_default_permission@example.com")
@@ -36,7 +36,7 @@ class TestUserPermission(unittest.TestCase):
 		# create a duplicate entry with default
 		perm_user = create_user("test_user_perm@example.com")
 		param = get_params(user, "User", perm_user.name, is_default=1)
-		self.assertRaises(frappe.ValidationError, add_user_permissions, param)
+		self.assertRaises(capkpi.ValidationError, add_user_permissions, param)
 
 	def test_default_user_permission_corectness(self):
 		user = create_user("test_default_corectness_permission_1@example.com")
@@ -47,15 +47,15 @@ class TestUserPermission(unittest.TestCase):
 		test_blog = make_test_blog()
 		param = get_params(perm_user, "Blog Post", test_blog.name, is_default=1, hide_descendants=1)
 		add_user_permissions(param)
-		frappe.db.delete("User Permission", filters={"for_value": test_blog.name})
-		frappe.delete_doc("Blog Post", test_blog.name)
+		capkpi.db.delete("User Permission", filters={"for_value": test_blog.name})
+		capkpi.delete_doc("Blog Post", test_blog.name)
 
 	def test_default_user_permission(self):
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 		user = create_user("test_user_perm1@example.com", "Website Manager")
 		for category in ["general", "public"]:
-			if not frappe.db.exists("Blog Category", category):
-				frappe.get_doc({"doctype": "Blog Category", "title": category}).insert()
+			if not capkpi.db.exists("Blog Category", category):
+				capkpi.get_doc({"doctype": "Blog Category", "title": category}).insert()
 
 		param = get_params(user, "Blog Category", "general", is_default=1)
 		add_user_permissions(param)
@@ -63,11 +63,11 @@ class TestUserPermission(unittest.TestCase):
 		param = get_params(user, "Blog Category", "public")
 		add_user_permissions(param)
 
-		frappe.set_user("test_user_perm1@example.com")
-		doc = frappe.new_doc("Blog Post")
+		capkpi.set_user("test_user_perm1@example.com")
+		doc = capkpi.new_doc("Blog Post")
 
 		self.assertEquals(doc.blog_category, "general")
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 
 	def test_apply_to_all(self):
 		"""Create User permission for User having access to all applicable Doctypes"""
@@ -100,13 +100,13 @@ class TestUserPermission(unittest.TestCase):
 		self.assertEquals(is_created, 1)
 
 		is_created = add_user_permissions(param)
-		frappe.db.commit()
+		capkpi.db.commit()
 
-		removed_apply_to_all = frappe.db.exists("User Permission", get_exists_param(user))
-		is_created_applicable_first = frappe.db.exists(
+		removed_apply_to_all = capkpi.db.exists("User Permission", get_exists_param(user))
+		is_created_applicable_first = capkpi.db.exists(
 			"User Permission", get_exists_param(user, applicable="Comment")
 		)
-		is_created_applicable_second = frappe.db.exists(
+		is_created_applicable_second = capkpi.db.exists(
 			"User Permission", get_exists_param(user, applicable="Contact")
 		)
 
@@ -131,11 +131,11 @@ class TestUserPermission(unittest.TestCase):
 		self.assertEquals(is_created, 1)
 
 		is_created = add_user_permissions(param)
-		is_created_apply_to_all = frappe.db.exists("User Permission", get_exists_param(user))
-		removed_applicable_first = frappe.db.exists(
+		is_created_apply_to_all = capkpi.db.exists("User Permission", get_exists_param(user))
+		removed_applicable_first = capkpi.db.exists(
 			"User Permission", get_exists_param(user, applicable="Comment")
 		)
-		removed_applicable_second = frappe.db.exists(
+		removed_applicable_second = capkpi.db.exists(
 			"User Permission", get_exists_param(user, applicable="Contact")
 		)
 
@@ -149,10 +149,10 @@ class TestUserPermission(unittest.TestCase):
 
 	def test_user_perm_for_nested_doctype(self):
 		"""Test if descendants' visibility is controlled for a nested DocType."""
-		from frappe.core.doctype.doctype.test_doctype import new_doctype
+		from capkpi.core.doctype.doctype.test_doctype import new_doctype
 
 		user = create_user("nested_doc_user@example.com", "Blogger")
-		if not frappe.db.exists("DocType", "Person"):
+		if not capkpi.db.exists("DocType", "Person"):
 			doc = new_doctype(
 				"Person",
 				fields=[{"label": "Person Name", "fieldname": "person_name", "fieldtype": "Data"}],
@@ -161,11 +161,11 @@ class TestUserPermission(unittest.TestCase):
 			doc.is_tree = 1
 			doc.insert()
 
-		parent_record = frappe.get_doc(
+		parent_record = capkpi.get_doc(
 			{"doctype": "Person", "person_name": "Parent", "is_group": 1}
 		).insert()
 
-		child_record = frappe.get_doc(
+		child_record = capkpi.get_doc(
 			{
 				"doctype": "Person",
 				"person_name": "Child",
@@ -177,26 +177,26 @@ class TestUserPermission(unittest.TestCase):
 		add_user_permissions(get_params(user, "Person", parent_record.name))
 
 		# check if adding perm on a group record, makes child record visible
-		self.assertTrue(has_user_permission(frappe.get_doc("Person", parent_record.name), user.name))
-		self.assertTrue(has_user_permission(frappe.get_doc("Person", child_record.name), user.name))
+		self.assertTrue(has_user_permission(capkpi.get_doc("Person", parent_record.name), user.name))
+		self.assertTrue(has_user_permission(capkpi.get_doc("Person", child_record.name), user.name))
 
-		frappe.db.set_value(
+		capkpi.db.set_value(
 			"User Permission", {"allow": "Person", "for_value": parent_record.name}, "hide_descendants", 1
 		)
-		frappe.cache().delete_value("user_permissions")
+		capkpi.cache().delete_value("user_permissions")
 
 		# check if adding perm on a group record with hide_descendants enabled,
 		# hides child records
-		self.assertTrue(has_user_permission(frappe.get_doc("Person", parent_record.name), user.name))
-		self.assertFalse(has_user_permission(frappe.get_doc("Person", child_record.name), user.name))
+		self.assertTrue(has_user_permission(capkpi.get_doc("Person", parent_record.name), user.name))
+		self.assertFalse(has_user_permission(capkpi.get_doc("Person", child_record.name), user.name))
 
 	def test_user_perm_on_new_doc_with_field_default(self):
-		"""Test User Perm impact on frappe.new_doc. with *field* default value"""
-		frappe.set_user("Administrator")
+		"""Test User Perm impact on capkpi.new_doc. with *field* default value"""
+		capkpi.set_user("Administrator")
 		user = create_user("new_doc_test@example.com", "Blogger")
 
 		# make a doctype "Doc A" with 'doctype' link field and default value ToDo
-		if not frappe.db.exists("DocType", "Doc A"):
+		if not capkpi.db.exists("DocType", "Doc A"):
 			doc = new_doctype(
 				"Doc A",
 				fields=[
@@ -214,29 +214,29 @@ class TestUserPermission(unittest.TestCase):
 
 		# make User Perm on DocType 'ToDo' in Assignment Rule (unrelated doctype)
 		add_user_permissions(get_params(user, "DocType", "ToDo", applicable=["Assignment Rule"]))
-		frappe.set_user("new_doc_test@example.com")
+		capkpi.set_user("new_doc_test@example.com")
 
-		new_doc = frappe.new_doc("Doc A")
+		new_doc = capkpi.new_doc("Doc A")
 
 		# User perm is created on ToDo but for doctype Assignment Rule only
 		# it should not have impact on Doc A
 		self.assertEquals(new_doc.doc, "ToDo")
 
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 		remove_applicable(["Assignment Rule"], "new_doc_test@example.com", "DocType", "ToDo")
 
 	def test_user_perm_on_new_doc_with_user_default(self):
-		"""Test User Perm impact on frappe.new_doc. with *user* default value"""
-		from frappe.core.doctype.session_default_settings.session_default_settings import (
+		"""Test User Perm impact on capkpi.new_doc. with *user* default value"""
+		from capkpi.core.doctype.session_default_settings.session_default_settings import (
 			clear_session_defaults,
 			set_session_default_values,
 		)
 
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 		user = create_user("user_default_test@example.com", "Blogger")
 
 		# make a doctype "Doc A" with 'doctype' link field
-		if not frappe.db.exists("DocType", "Doc A"):
+		if not capkpi.db.exists("DocType", "Doc A"):
 			doc = new_doctype(
 				"Doc A",
 				fields=[
@@ -252,8 +252,8 @@ class TestUserPermission(unittest.TestCase):
 			doc.insert()
 
 		# create a 'DocType' session default field
-		if not frappe.db.exists("Session Default", {"ref_doctype": "DocType"}):
-			settings = frappe.get_single("Session Default Settings")
+		if not capkpi.db.exists("Session Default", {"ref_doctype": "DocType"}):
+			settings = capkpi.get_single("Session Default Settings")
 			settings.append("session_defaults", {"ref_doctype": "DocType"})
 			settings.save()
 
@@ -261,26 +261,26 @@ class TestUserPermission(unittest.TestCase):
 		add_user_permissions(get_params(user, "DocType", "ToDo", applicable=["Assignment Rule"]))
 
 		# User default Doctype value is ToDo via Session Defaults
-		frappe.set_user("user_default_test@example.com")
+		capkpi.set_user("user_default_test@example.com")
 		set_session_default_values({"doc": "ToDo"})
 
-		new_doc = frappe.new_doc("Doc A")
+		new_doc = capkpi.new_doc("Doc A")
 
 		# User perm is created on ToDo but for doctype Assignment Rule only
 		# it should not have impact on Doc A
 		self.assertEquals(new_doc.doc, "ToDo")
 
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 		clear_session_defaults()
 		remove_applicable(["Assignment Rule"], "user_default_test@example.com", "DocType", "ToDo")
 
 
 def create_user(email, *roles):
 	"""create user with role system manager"""
-	if frappe.db.exists("User", email):
-		return frappe.get_doc("User", email)
+	if capkpi.db.exists("User", email):
+		return capkpi.get_doc("User", email)
 
-	user = frappe.new_doc("User")
+	user = capkpi.new_doc("User")
 	user.email = email
 	user.first_name = email.split("@")[0]
 

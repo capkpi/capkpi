@@ -1,10 +1,10 @@
 from datetime import datetime
 
-import frappe
-from frappe.utils import getdate
+import capkpi
+from capkpi.utils import getdate
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_energy_points_heatmap_data(user, date):
 	try:
 		date = getdate(date)
@@ -12,7 +12,7 @@ def get_energy_points_heatmap_data(user, date):
 		date = getdate()
 
 	return dict(
-		frappe.db.sql(
+		capkpi.db.sql(
 			"""select unix_timestamp(date(creation)), sum(points)
 		from `tabEnergy Point Log`
 		where
@@ -29,9 +29,9 @@ def get_energy_points_heatmap_data(user, date):
 	)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_energy_points_percentage_chart_data(user, field):
-	result = frappe.db.get_all(
+	result = capkpi.db.get_all(
 		"Energy Point Log",
 		filters={"user": user, "type": ["!=", "Review"]},
 		group_by=field,
@@ -46,10 +46,10 @@ def get_energy_points_percentage_chart_data(user, field):
 	}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_user_rank(user):
 	month_start = datetime.today().replace(day=1)
-	monthly_rank = frappe.db.get_all(
+	monthly_rank = capkpi.db.get_all(
 		"Energy Point Log",
 		group_by="user",
 		filters={"creation": [">", month_start], "type": ["!=", "Review"]},
@@ -58,7 +58,7 @@ def get_user_rank(user):
 		as_list=True,
 	)
 
-	all_time_rank = frappe.db.get_all(
+	all_time_rank = capkpi.db.get_all(
 		"Energy Point Log",
 		group_by="user",
 		filters={"type": ["!=", "Review"]},
@@ -73,24 +73,24 @@ def get_user_rank(user):
 	}
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def update_profile_info(profile_info):
-	profile_info = frappe.parse_json(profile_info)
+	profile_info = capkpi.parse_json(profile_info)
 	keys = ["location", "interest", "user_image", "bio"]
 
 	for key in keys:
 		if key not in profile_info:
 			profile_info[key] = None
 
-	user = frappe.get_doc("User", frappe.session.user)
+	user = capkpi.get_doc("User", capkpi.session.user)
 	user.update(profile_info)
 	user.save()
 	return user
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_energy_points_list(start, limit, user):
-	return frappe.db.get_list(
+	return capkpi.db.get_list(
 		"Energy Point Log",
 		filters={"user": user, "type": ["!=", "Review"]},
 		fields=[

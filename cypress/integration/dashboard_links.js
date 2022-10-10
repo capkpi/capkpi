@@ -11,8 +11,8 @@ context('Dashboard links', () => {
 		cy.insert_doc('DocType', child_table_doctype, true);
 		cy.insert_doc('DocType', doctype_with_child_table, true);
 		cy.insert_doc('DocType', doctype_to_link, true);
-		return cy.window().its('frappe').then(frappe => {
-			return frappe.xcall("frappe.tests.ui_test_helpers.update_child_table", {
+		return cy.window().its('capkpi').then(capkpi => {
+			return capkpi.xcall("capkpi.tests.ui_test_helpers.update_child_table", {
 				name: child_table_doctype_name
 			});
 		});
@@ -63,7 +63,7 @@ context('Dashboard links', () => {
 		cy.findByRole("button", {name: "Save"}).click();
 
 		cy.get('.document-link .btn-new').click();
-		cy.get('.frappe-control[data-fieldname="child_table"] .rows .data-row .col[data-fieldname="doctype_to_link"]')
+		cy.get('.capkpi-control[data-fieldname="child_table"] .rows .data-row .col[data-fieldname="doctype_to_link"]')
 			.should('contain.text', 'Test Linking');
 	});
 	

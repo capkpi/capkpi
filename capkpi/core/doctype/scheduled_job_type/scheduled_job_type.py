@@ -8,10 +8,10 @@ from typing import Dict, List
 
 from croniter import croniter
 
-import frappe
-from frappe.model.document import Document
-from frappe.utils import get_datetime, now_datetime
-from frappe.utils.background_jobs import enqueue, get_jobs
+import capkpi
+from capkpi.model.document import Document
+from capkpi.utils import get_datetime, now_datetime
+from capkpi.utils.background_jobs import enqueue, get_jobs
 
 
 class ScheduledJobType(Document):
@@ -26,15 +26,15 @@ class ScheduledJobType(Document):
 	def enqueue(self, force=False):
 		# enqueue event if last execution is done
 		if self.is_event_due() or force:
-			if frappe.flags.enqueued_jobs:
-				frappe.flags.enqueued_jobs.append(self.method)
+			if capkpi.flags.enqueued_jobs:
+				capkpi.flags.enqueued_jobs.append(self.method)
 
-			if frappe.flags.execute_job:
+			if capkpi.flags.execute_job:
 				self.execute()
 			else:
 				if not self.is_job_in_queue():
 					enqueue(
-						"frappe.core.doctype.scheduled_job_type.scheduled_job_type.run_scheduled_job",
+						"capkpi.core.doctype.scheduled_job_type.scheduled_job_type.run_scheduled_job",
 						queue=self.get_queue_name(),
 						job_type=self.method,
 					)
@@ -48,7 +48,7 @@ class ScheduledJobType(Document):
 		return self.get_next_execution() <= (current_time or now_datetime())
 
 	def is_job_in_queue(self):
-		queued_jobs = get_jobs(site=frappe.local.site, key="job_type")[frappe.local.site]
+		queued_jobs = get_jobs(site=capkpi.local.site, key="job_type")[capkpi.local.site]
 		return self.method in queued_jobs
 
 	def get_next_execution(self):
@@ -63,7 +63,7 @@ class ScheduledJobType(Document):
 			"Daily Long": "0 0 * * *",
 			"Hourly": "0 * * * *",
 			"Hourly Long": "0 * * * *",
-			"All": "0/" + str((frappe.get_conf().scheduler_interval or 240) // 60) + " * * * *",
+			"All": "0/" + str((capkpi.get_conf().scheduler_interval or 240) // 60) + " * * * *",
 		}
 
 		if not self.cron_format:
@@ -78,20 +78,20 @@ class ScheduledJobType(Document):
 		try:
 			self.log_status("Start")
 			if self.server_script:
-				script_name = frappe.db.get_value("Server Script", self.server_script)
+				script_name = capkpi.db.get_value("Server Script", self.server_script)
 				if script_name:
-					frappe.get_doc("Server Script", script_name).execute_scheduled_method()
+					capkpi.get_doc("Server Script", script_name).execute_scheduled_method()
 			else:
-				frappe.get_attr(self.method)()
-			frappe.db.commit()
+				capkpi.get_attr(self.method)()
+			capkpi.db.commit()
 			self.log_status("Complete")
 		except Exception:
-			frappe.db.rollback()
+			capkpi.db.rollback()
 			self.log_status("Failed")
 
 	def log_status(self, status):
 		# log file
-		frappe.logger("scheduler").info(f"Scheduled Job {status}: {self.method} for {frappe.local.site}")
+		capkpi.logger("scheduler").info(f"Scheduled Job {status}: {self.method} for {capkpi.local.site}")
 		self.update_scheduler_log(status)
 
 	def update_scheduler_log(self, status):
@@ -99,45 +99,45 @@ class ScheduledJobType(Document):
 			# self.get_next_execution will work properly iff self.last_execution is properly set
 			if self.frequency == "All" and status == "Start":
 				self.db_set("last_execution", now_datetime(), update_modified=False)
-				frappe.db.commit()
+				capkpi.db.commit()
 			return
 		if not self.scheduler_log:
-			self.scheduler_log = frappe.get_doc(
+			self.scheduler_log = capkpi.get_doc(
 				dict(doctype="Scheduled Job Log", scheduled_job_type=self.name)
 			).insert(ignore_permissions=True)
 		self.scheduler_log.db_set("status", status)
 		if status == "Failed":
-			self.scheduler_log.db_set("details", frappe.get_traceback())
+			self.scheduler_log.db_set("details", capkpi.get_traceback())
 		if status == "Start":
 			self.db_set("last_execution", now_datetime(), update_modified=False)
-		frappe.db.commit()
+		capkpi.db.commit()
 
 	def get_queue_name(self):
 		return "long" if ("Long" in self.frequency) else "default"
 
 	def on_trash(self):
-		frappe.db.sql("delete from `tabScheduled Job Log` where scheduled_job_type=%s", self.name)
+		capkpi.db.sql("delete from `tabScheduled Job Log` where scheduled_job_type=%s", self.name)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def execute_event(doc: str):
-	frappe.only_for("System Manager")
+	capkpi.only_for("System Manager")
 	doc = json.loads(doc)
-	frappe.get_doc("Scheduled Job Type", doc.get("name")).enqueue(force=True)
+	capkpi.get_doc("Scheduled Job Type", doc.get("name")).enqueue(force=True)
 	return doc
 
 
 def run_scheduled_job(job_type: str):
 	"""This is a wrapper function that runs a hooks.scheduler_events method"""
 	try:
-		frappe.get_doc("Scheduled Job Type", dict(method=job_type)).execute()
+		capkpi.get_doc("Scheduled Job Type", dict(method=job_type)).execute()
 	except Exception:
-		print(frappe.get_traceback())
+		print(capkpi.get_traceback())
 
 
 def sync_jobs(hooks: Dict = None):
-	frappe.reload_doc("core", "doctype", "scheduled_job_type")
-	scheduler_events = hooks or frappe.get_hooks("scheduler_events")
+	capkpi.reload_doc("core", "doctype", "scheduled_job_type")
+	scheduler_events = hooks or capkpi.get_hooks("scheduler_events")
 	all_events = insert_events(scheduler_events)
 	clear_events(all_events)
 
@@ -174,7 +174,7 @@ def insert_event_jobs(events: List, event_type: str) -> List:
 
 def insert_single_event(frequency: str, event: str, cron_format: str = None):
 	cron_expr = {"cron_format": cron_format} if cron_format else {}
-	doc = frappe.get_doc(
+	doc = capkpi.get_doc(
 		{
 			"doctype": "Scheduled Job Type",
 			"method": event,
@@ -183,20 +183,20 @@ def insert_single_event(frequency: str, event: str, cron_format: str = None):
 		}
 	)
 
-	if not frappe.db.exists(
+	if not capkpi.db.exists(
 		"Scheduled Job Type", {"method": event, "frequency": frequency, **cron_expr}
 	):
 		try:
 			doc.insert()
-		except frappe.DuplicateEntryError:
+		except capkpi.DuplicateEntryError:
 			doc.delete()
 			doc.insert()
 
 
 def clear_events(all_events: List):
-	for event in frappe.get_all("Scheduled Job Type", fields=["name", "method", "server_script"]):
+	for event in capkpi.get_all("Scheduled Job Type", fields=["name", "method", "server_script"]):
 		is_server_script = event.server_script
 		is_defined_in_hooks = event.method in all_events
 
 		if not (is_defined_in_hooks or is_server_script):
-			frappe.delete_doc("Scheduled Job Type", event.name)
+			capkpi.delete_doc("Scheduled Job Type", event.name)

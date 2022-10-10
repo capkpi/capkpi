@@ -110,4 +110,4 @@ jobs:
 
       - name: Run Tests
         if: ${{ steps.check-build.outputs.build == 'strawberry' }}
-        run: cd ~/frappe-bench/ && bench --site test_site run-parallel-tests
+        run: cd ~/capkpi-bench/ && bench --site test_site run-parallel-tests

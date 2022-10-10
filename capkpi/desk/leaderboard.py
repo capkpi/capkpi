@@ -1,14 +1,14 @@
 from __future__ import print_function, unicode_literals
 
-import frappe
-from frappe.utils import get_fullname
+import capkpi
+from capkpi.utils import get_fullname
 
 
 def get_leaderboards():
 	leaderboards = {
 		"User": {
 			"fields": ["points"],
-			"method": "frappe.desk.leaderboard.get_energy_point_leaderboard",
+			"method": "capkpi.desk.leaderboard.get_energy_point_leaderboard",
 			"company_disabled": 1,
 			"icon": "users",
 		}
@@ -16,9 +16,9 @@ def get_leaderboards():
 	return leaderboards
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_energy_point_leaderboard(date_range, company=None, field=None, limit=None):
-	all_users = frappe.db.get_all(
+	all_users = capkpi.db.get_all(
 		"User",
 		filters={
 			"name": ["not in", ["Administrator", "Guest"]],
@@ -31,9 +31,9 @@ def get_energy_point_leaderboard(date_range, company=None, field=None, limit=Non
 
 	filters = [["type", "!=", "Review"], ["user", "in", all_users_list]]
 	if date_range:
-		date_range = frappe.parse_json(date_range)
+		date_range = capkpi.parse_json(date_range)
 		filters.append(["creation", "between", [date_range[0], date_range[1]]])
-	energy_point_users = frappe.db.get_all(
+	energy_point_users = capkpi.db.get_all(
 		"Energy Point Log",
 		fields=["user as name", "sum(points) as value"],
 		filters=filters,

@@ -4,17 +4,17 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
-from frappe.utils import cint
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
+from capkpi.utils import cint
 
 
 class BulkUpdate(Document):
 	pass
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def update(doctype, field, value, condition="", limit=500):
 	if not limit or cint(limit) > 500:
 		limit = 500
@@ -23,9 +23,9 @@ def update(doctype, field, value, condition="", limit=500):
 		condition = " where " + condition
 
 	if ";" in condition:
-		frappe.throw(_("; not allowed in condition"))
+		capkpi.throw(_("; not allowed in condition"))
 
-	docnames = frappe.db.sql_list(
+	docnames = capkpi.db.sql_list(
 		"""select name from `tab{0}`{1} limit 0, {2}""".format(doctype, condition, limit)
 	)
 	data = {}
@@ -33,17 +33,17 @@ def update(doctype, field, value, condition="", limit=500):
 	return submit_cancel_or_update_docs(doctype, docnames, "update", data)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def submit_cancel_or_update_docs(doctype, docnames, action="submit", data=None):
-	docnames = frappe.parse_json(docnames)
+	docnames = capkpi.parse_json(docnames)
 
 	if data:
-		data = frappe.parse_json(data)
+		data = capkpi.parse_json(data)
 
 	failed = []
 
 	for i, d in enumerate(docnames, 1):
-		doc = frappe.get_doc(doctype, d)
+		doc = capkpi.get_doc(doctype, d)
 		try:
 			message = ""
 			if action == "submit" and doc.docstatus == 0:
@@ -58,12 +58,12 @@ def submit_cancel_or_update_docs(doctype, docnames, action="submit", data=None):
 				message = _("Updating {0}").format(doctype)
 			else:
 				failed.append(d)
-			frappe.db.commit()
+			capkpi.db.commit()
 			show_progress(docnames, message, i, d)
 
 		except Exception:
 			failed.append(d)
-			frappe.db.rollback()
+			capkpi.db.rollback()
 
 	return failed
 
@@ -71,4 +71,4 @@ def submit_cancel_or_update_docs(doctype, docnames, action="submit", data=None):
 def show_progress(docnames, message, i, description):
 	n = len(docnames)
 	if n >= 10:
-		frappe.publish_progress(float(i) * 100 / n, title=message, description=description)
+		capkpi.publish_progress(float(i) * 100 / n, title=message, description=description)

@@ -1,19 +1,19 @@
 # Copyright (c) 2021, CapKPI Technologies and contributors
 # For license information, please see license.txt
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
 
 
 class NetworkPrinterSettings(Document):
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def get_printers_list(self, ip="localhost", port=631):
 		printer_list = []
 		try:
 			import cups
 		except ImportError:
-			frappe.throw(
+			capkpi.throw(
 				_(
 					"""This feature can not be used as dependencies are missing.
 				Please contact your system manager to enable this by installing pycups!"""
@@ -29,12 +29,12 @@ class NetworkPrinterSettings(Document):
 				printer_list.append({"value": printer_id, "label": printer["printer-make-and-model"]})
 
 		except RuntimeError:
-			frappe.throw(_("Failed to connect to server"))
-		except frappe.ValidationError:
-			frappe.throw(_("Failed to connect to server"))
+			capkpi.throw(_("Failed to connect to server"))
+		except capkpi.ValidationError:
+			capkpi.throw(_("Failed to connect to server"))
 		return printer_list
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_network_printer_settings():
-	return frappe.db.get_list("Network Printer Settings", pluck="name")
+	return capkpi.db.get_list("Network Printer Settings", pluck="name")

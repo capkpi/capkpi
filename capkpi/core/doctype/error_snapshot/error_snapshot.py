@@ -4,8 +4,8 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.model.document import Document
+import capkpi
+from capkpi.model.document import Document
 
 
 class ErrorSnapshot(Document):
@@ -15,13 +15,13 @@ class ErrorSnapshot(Document):
 		if not self.parent_error_snapshot:
 			self.db_set("seen", True, update_modified=False)
 
-			for relapsed in frappe.get_all("Error Snapshot", filters={"parent_error_snapshot": self.name}):
-				frappe.db.set_value("Error Snapshot", relapsed.name, "seen", True, update_modified=False)
+			for relapsed in capkpi.get_all("Error Snapshot", filters={"parent_error_snapshot": self.name}):
+				capkpi.db.set_value("Error Snapshot", relapsed.name, "seen", True, update_modified=False)
 
-			frappe.local.flags.commit = True
+			capkpi.local.flags.commit = True
 
 	def validate(self):
-		parent = frappe.get_all(
+		parent = capkpi.get_all(
 			"Error Snapshot",
 			filters={"evalue": self.evalue, "parent_error_snapshot": ""},
 			fields=["name", "relapses", "seen"],
@@ -31,6 +31,6 @@ class ErrorSnapshot(Document):
 		if parent:
 			parent = parent[0]
 			self.update({"parent_error_snapshot": parent["name"]})
-			frappe.db.set_value("Error Snapshot", parent["name"], "relapses", parent["relapses"] + 1)
+			capkpi.db.set_value("Error Snapshot", parent["name"], "relapses", parent["relapses"] + 1)
 			if parent["seen"]:
-				frappe.db.set_value("Error Snapshot", parent["name"], "seen", False)
+				capkpi.db.set_value("Error Snapshot", parent["name"], "seen", False)

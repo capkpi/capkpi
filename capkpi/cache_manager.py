@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe.desk.notifications import clear_notifications, delete_notification_count_for
-from frappe.model.document import Document
+import capkpi
+from capkpi.desk.notifications import clear_notifications, delete_notification_count_for
+from capkpi.model.document import Document
 
 common_default_keys = ["__default", "__global"]
 
@@ -72,7 +72,7 @@ doctype_cache_keys = (
 
 
 def clear_user_cache(user=None):
-	cache = frappe.cache()
+	cache = capkpi.cache()
 
 	# this will automatically reload the global cache
 	# so it is important to clear this first
@@ -91,39 +91,39 @@ def clear_user_cache(user=None):
 
 
 def clear_domain_cache(user=None):
-	cache = frappe.cache()
+	cache = capkpi.cache()
 	domain_cache_keys = ("domain_restricted_doctypes", "domain_restricted_pages")
 	cache.delete_value(domain_cache_keys)
 
 
 def clear_global_cache():
-	from frappe.website.render import clear_cache as clear_website_cache
+	from capkpi.website.render import clear_cache as clear_website_cache
 
 	clear_doctype_cache()
 	clear_website_cache()
-	frappe.cache().delete_value(global_cache_keys)
-	frappe.setup_module_map()
+	capkpi.cache().delete_value(global_cache_keys)
+	capkpi.setup_module_map()
 
 
 def clear_defaults_cache(user=None):
 	if user:
 		for p in [user] + common_default_keys:
-			frappe.cache().hdel("defaults", p)
-	elif frappe.flags.in_install != "frappe":
-		frappe.cache().delete_key("defaults")
+			capkpi.cache().hdel("defaults", p)
+	elif capkpi.flags.in_install != "capkpi":
+		capkpi.cache().delete_key("defaults")
 
 
 def clear_doctype_cache(doctype=None):
 	clear_controller_cache(doctype)
-	cache = frappe.cache()
+	cache = capkpi.cache()
 
-	if getattr(frappe.local, "meta_cache") and (doctype in frappe.local.meta_cache):
-		del frappe.local.meta_cache[doctype]
+	if getattr(capkpi.local, "meta_cache") and (doctype in capkpi.local.meta_cache):
+		del capkpi.local.meta_cache[doctype]
 
 	for key in ("is_table", "doctype_modules", "document_cache"):
 		cache.delete_value(key)
 
-	frappe.local.document_cache = {}
+	capkpi.local.document_cache = {}
 
 	def clear_single(dt):
 		for name in doctype_cache_keys:
@@ -134,8 +134,8 @@ def clear_doctype_cache(doctype=None):
 
 		# clear all parent doctypes
 
-		for dt in frappe.db.get_all(
-			"DocField", "parent", dict(fieldtype=["in", frappe.model.table_fields], options=doctype)
+		for dt in capkpi.db.get_all(
+			"DocField", "parent", dict(fieldtype=["in", capkpi.model.table_fields], options=doctype)
 		):
 			clear_single(dt.parent)
 
@@ -150,17 +150,17 @@ def clear_doctype_cache(doctype=None):
 
 def clear_controller_cache(doctype=None):
 	if not doctype:
-		del frappe.controllers
-		frappe.controllers = {}
+		del capkpi.controllers
+		capkpi.controllers = {}
 		return
 
-	for site_controllers in frappe.controllers.values():
+	for site_controllers in capkpi.controllers.values():
 		site_controllers.pop(doctype, None)
 
 
 def get_doctype_map(doctype, name, filters=None, order_by=None):
-	cache = frappe.cache()
-	cache_key = frappe.scrub(doctype) + "_map"
+	cache = capkpi.cache()
+	cache_key = capkpi.scrub(doctype) + "_map"
 	doctype_map = cache.hget(cache_key, name)
 
 	if doctype_map is not None:
@@ -169,9 +169,9 @@ def get_doctype_map(doctype, name, filters=None, order_by=None):
 	else:
 		# non cached, build cache
 		try:
-			items = frappe.get_all(doctype, filters=filters, order_by=order_by)
+			items = capkpi.get_all(doctype, filters=filters, order_by=order_by)
 			cache.hset(cache_key, name, json.dumps(items))
-		except frappe.db.TableMissingError:
+		except capkpi.db.TableMissingError:
 			# executed from inside patch, ignore
 			items = []
 
@@ -179,25 +179,25 @@ def get_doctype_map(doctype, name, filters=None, order_by=None):
 
 
 def clear_doctype_map(doctype, name):
-	frappe.cache().hdel(frappe.scrub(doctype) + "_map", name)
+	capkpi.cache().hdel(capkpi.scrub(doctype) + "_map", name)
 
 
 def build_table_count_cache():
 	if (
-		frappe.flags.in_patch
-		or frappe.flags.in_install
-		or frappe.flags.in_migrate
-		or frappe.flags.in_import
-		or frappe.flags.in_setup_wizard
+		capkpi.flags.in_patch
+		or capkpi.flags.in_install
+		or capkpi.flags.in_migrate
+		or capkpi.flags.in_import
+		or capkpi.flags.in_setup_wizard
 	):
 		return
 
-	_cache = frappe.cache()
-	table_name = frappe.qb.Field("table_name").as_("name")
-	table_rows = frappe.qb.Field("table_rows").as_("count")
-	information_schema = frappe.qb.Schema("information_schema")
+	_cache = capkpi.cache()
+	table_name = capkpi.qb.Field("table_name").as_("name")
+	table_rows = capkpi.qb.Field("table_rows").as_("count")
+	information_schema = capkpi.qb.Schema("information_schema")
 
-	data = (frappe.qb.from_(information_schema.tables).select(table_name, table_rows)).run(
+	data = (capkpi.qb.from_(information_schema.tables).select(table_name, table_rows)).run(
 		as_dict=True
 	)
 	counts = {d.get("name").lstrip("tab"): d.get("count", None) for d in data}
@@ -208,16 +208,16 @@ def build_table_count_cache():
 
 def build_domain_restriced_doctype_cache(*args, **kwargs):
 	if (
-		frappe.flags.in_patch
-		or frappe.flags.in_install
-		or frappe.flags.in_migrate
-		or frappe.flags.in_import
-		or frappe.flags.in_setup_wizard
+		capkpi.flags.in_patch
+		or capkpi.flags.in_install
+		or capkpi.flags.in_migrate
+		or capkpi.flags.in_import
+		or capkpi.flags.in_setup_wizard
 	):
 		return
-	_cache = frappe.cache()
-	active_domains = frappe.get_active_domains()
-	doctypes = frappe.get_all("DocType", filters={"restrict_to_domain": ("IN", active_domains)})
+	_cache = capkpi.cache()
+	active_domains = capkpi.get_active_domains()
+	doctypes = capkpi.get_all("DocType", filters={"restrict_to_domain": ("IN", active_domains)})
 	doctypes = [doc.name for doc in doctypes]
 	_cache.set_value("domain_restricted_doctypes", doctypes)
 
@@ -226,16 +226,16 @@ def build_domain_restriced_doctype_cache(*args, **kwargs):
 
 def build_domain_restriced_page_cache(*args, **kwargs):
 	if (
-		frappe.flags.in_patch
-		or frappe.flags.in_install
-		or frappe.flags.in_migrate
-		or frappe.flags.in_import
-		or frappe.flags.in_setup_wizard
+		capkpi.flags.in_patch
+		or capkpi.flags.in_install
+		or capkpi.flags.in_migrate
+		or capkpi.flags.in_import
+		or capkpi.flags.in_setup_wizard
 	):
 		return
-	_cache = frappe.cache()
-	active_domains = frappe.get_active_domains()
-	pages = frappe.get_all("Page", filters={"restrict_to_domain": ("IN", active_domains)})
+	_cache = capkpi.cache()
+	active_domains = capkpi.get_active_domains()
+	pages = capkpi.get_all("Page", filters={"restrict_to_domain": ("IN", active_domains)})
 	pages = [page.name for page in pages]
 	_cache.set_value("domain_restricted_pages", pages)
 

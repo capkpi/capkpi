@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 
-import frappe
-from frappe.frappeclient import CapKPIClient
+import capkpi
+from capkpi.capkpiclient import CapKPIClient
 
 from .base import BaseConnection
 
@@ -15,12 +15,12 @@ class CapKPIConnection(BaseConnection):
 		self.name_field = "name"
 
 	def insert(self, doctype, doc):
-		doc = frappe._dict(doc)
+		doc = capkpi._dict(doc)
 		doc.doctype = doctype
 		return self.connection.insert(doc)
 
 	def update(self, doctype, doc, migration_id):
-		doc = frappe._dict(doc)
+		doc = capkpi._dict(doc)
 		doc.doctype = doctype
 		doc.name = migration_id
 		return self.connection.update(doc)

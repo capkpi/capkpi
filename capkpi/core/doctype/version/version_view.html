@@ -17,7 +17,7 @@
 	<tbody>
 		{% for item in data.changed %}
 		<tr>
-			<td>{{ frappe.meta.get_label(doc.ref_doctype, item[0]) }}</td>
+			<td>{{ capkpi.meta.get_label(doc.ref_doctype, item[0]) }}</td>
 			<td class="danger">{{ item[1] }}</td>
 			<td class="success">{{ item[2] }}</td>
 		</tr>
@@ -42,7 +42,7 @@
 			{% var values = data[key]; %}
 			{% for item in values %}
 			<tr>
-				<td>{{ frappe.meta.get_label(doc.ref_doctype, item[0]) }}</td>
+				<td>{{ capkpi.meta.get_label(doc.ref_doctype, item[0]) }}</td>
 				<td class="{{
 					key==="added" ? __("success") : __("danger") }}">
 					{% var item_keys = Object.keys(item[1]).sort(); %}
@@ -83,7 +83,7 @@
 			{% var _changed = table_info[3]; %}
 			{% for item in _changed %}
 			<tr>
-				<td>{{ frappe.meta.get_label(doc.ref_doctype, table_info[0]) }}</td>
+				<td>{{ capkpi.meta.get_label(doc.ref_doctype, table_info[0]) }}</td>
 				<td>{{ table_info[1] }}</td>
 				<td>{{ item[0] }}</td>
 				<td class="danger">{{ item[1] }}</td>

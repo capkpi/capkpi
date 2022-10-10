@@ -8,54 +8,54 @@ from __future__ import unicode_literals
 
 
 def setup_database(force, source_sql=None, verbose=None, no_mariadb_socket=False):
-	import frappe
+	import capkpi
 
-	if frappe.conf.db_type == "postgres":
-		import frappe.database.postgres.setup_db
+	if capkpi.conf.db_type == "postgres":
+		import capkpi.database.postgres.setup_db
 
-		return frappe.database.postgres.setup_db.setup_database(force, source_sql, verbose)
+		return capkpi.database.postgres.setup_db.setup_database(force, source_sql, verbose)
 	else:
-		import frappe.database.mariadb.setup_db
+		import capkpi.database.mariadb.setup_db
 
-		return frappe.database.mariadb.setup_db.setup_database(
+		return capkpi.database.mariadb.setup_db.setup_database(
 			force, source_sql, verbose, no_mariadb_socket=no_mariadb_socket
 		)
 
 
 def drop_user_and_database(db_name, root_login=None, root_password=None):
-	import frappe
+	import capkpi
 
-	if frappe.conf.db_type == "postgres":
+	if capkpi.conf.db_type == "postgres":
 		pass
 	else:
-		import frappe.database.mariadb.setup_db
+		import capkpi.database.mariadb.setup_db
 
-		return frappe.database.mariadb.setup_db.drop_user_and_database(
+		return capkpi.database.mariadb.setup_db.drop_user_and_database(
 			db_name, root_login, root_password
 		)
 
 
 def get_db(host=None, user=None, password=None, port=None):
-	import frappe
+	import capkpi
 
-	if frappe.conf.db_type == "postgres":
-		import frappe.database.postgres.database
+	if capkpi.conf.db_type == "postgres":
+		import capkpi.database.postgres.database
 
-		return frappe.database.postgres.database.PostgresDatabase(host, user, password, port=port)
+		return capkpi.database.postgres.database.PostgresDatabase(host, user, password, port=port)
 	else:
-		import frappe.database.mariadb.database
+		import capkpi.database.mariadb.database
 
-		return frappe.database.mariadb.database.MariaDBDatabase(host, user, password, port=port)
+		return capkpi.database.mariadb.database.MariaDBDatabase(host, user, password, port=port)
 
 
 def setup_help_database(help_db_name):
-	import frappe
+	import capkpi
 
-	if frappe.conf.db_type == "postgres":
-		import frappe.database.postgres.setup_db
+	if capkpi.conf.db_type == "postgres":
+		import capkpi.database.postgres.setup_db
 
-		return frappe.database.postgres.setup_db.setup_help_database(help_db_name)
+		return capkpi.database.postgres.setup_db.setup_help_database(help_db_name)
 	else:
-		import frappe.database.mariadb.setup_db
+		import capkpi.database.mariadb.setup_db
 
-		return frappe.database.mariadb.setup_db.setup_help_database(help_db_name)
+		return capkpi.database.mariadb.setup_db.setup_help_database(help_db_name)

@@ -7,47 +7,47 @@ from __future__ import unicode_literals
 import json
 import unittest
 
-import frappe
-import frappe.defaults
-from frappe.desk.doctype.event.event import get_events
-from frappe.test_runner import make_test_objects
+import capkpi
+import capkpi.defaults
+from capkpi.desk.doctype.event.event import get_events
+from capkpi.test_runner import make_test_objects
 
-test_records = frappe.get_test_records("Event")
+test_records = capkpi.get_test_records("Event")
 
 
 class TestEvent(unittest.TestCase):
 	def setUp(self):
-		frappe.db.sql("delete from tabEvent")
+		capkpi.db.sql("delete from tabEvent")
 		make_test_objects("Event", reset=True)
 
-		self.test_records = frappe.get_test_records("Event")
+		self.test_records = capkpi.get_test_records("Event")
 		self.test_user = "test1@example.com"
 
 	def tearDown(self):
-		frappe.set_user("Administrator")
+		capkpi.set_user("Administrator")
 
 	def test_allowed_public(self):
-		frappe.set_user(self.test_user)
-		doc = frappe.get_doc("Event", frappe.db.get_value("Event", {"subject": "_Test Event 1"}))
-		self.assertTrue(frappe.has_permission("Event", doc=doc))
+		capkpi.set_user(self.test_user)
+		doc = capkpi.get_doc("Event", capkpi.db.get_value("Event", {"subject": "_Test Event 1"}))
+		self.assertTrue(capkpi.has_permission("Event", doc=doc))
 
 	def test_not_allowed_private(self):
-		frappe.set_user(self.test_user)
-		doc = frappe.get_doc("Event", frappe.db.get_value("Event", {"subject": "_Test Event 2"}))
-		self.assertFalse(frappe.has_permission("Event", doc=doc))
+		capkpi.set_user(self.test_user)
+		doc = capkpi.get_doc("Event", capkpi.db.get_value("Event", {"subject": "_Test Event 2"}))
+		self.assertFalse(capkpi.has_permission("Event", doc=doc))
 
 	def test_allowed_private_if_in_event_user(self):
-		name = frappe.db.get_value("Event", {"subject": "_Test Event 3"})
-		frappe.share.add("Event", name, self.test_user, "read")
-		frappe.set_user(self.test_user)
-		doc = frappe.get_doc("Event", name)
-		self.assertTrue(frappe.has_permission("Event", doc=doc))
-		frappe.set_user("Administrator")
-		frappe.share.remove("Event", name, self.test_user)
+		name = capkpi.db.get_value("Event", {"subject": "_Test Event 3"})
+		capkpi.share.add("Event", name, self.test_user, "read")
+		capkpi.set_user(self.test_user)
+		doc = capkpi.get_doc("Event", name)
+		self.assertTrue(capkpi.has_permission("Event", doc=doc))
+		capkpi.set_user("Administrator")
+		capkpi.share.remove("Event", name, self.test_user)
 
 	def test_event_list(self):
-		frappe.set_user(self.test_user)
-		res = frappe.get_list(
+		capkpi.set_user(self.test_user)
+		res = capkpi.get_list(
 			"Event", filters=[["Event", "subject", "like", "_Test Event%"]], fields=["name", "subject"]
 		)
 		self.assertEqual(len(res), 1)
@@ -57,21 +57,21 @@ class TestEvent(unittest.TestCase):
 		self.assertFalse("_Test Event 2" in subjects)
 
 	def test_revert_logic(self):
-		ev = frappe.get_doc(self.test_records[0]).insert()
+		ev = capkpi.get_doc(self.test_records[0]).insert()
 		name = ev.name
 
-		frappe.delete_doc("Event", ev.name)
+		capkpi.delete_doc("Event", ev.name)
 
 		# insert again
-		ev = frappe.get_doc(self.test_records[0]).insert()
+		ev = capkpi.get_doc(self.test_records[0]).insert()
 
 		# the name should be same!
 		self.assertEqual(ev.name, name)
 
 	def test_assign(self):
-		from frappe.desk.form.assign_to import add
+		from capkpi.desk.form.assign_to import add
 
-		ev = frappe.get_doc(self.test_records[0]).insert()
+		ev = capkpi.get_doc(self.test_records[0]).insert()
 
 		add(
 			{
@@ -82,7 +82,7 @@ class TestEvent(unittest.TestCase):
 			}
 		)
 
-		ev = frappe.get_doc("Event", ev.name)
+		ev = capkpi.get_doc("Event", ev.name)
 
 		self.assertEqual(ev._assign, json.dumps(["test@example.com"]))
 
@@ -96,25 +96,25 @@ class TestEvent(unittest.TestCase):
 			}
 		)
 
-		ev = frappe.get_doc("Event", ev.name)
+		ev = capkpi.get_doc("Event", ev.name)
 
 		self.assertEqual(set(json.loads(ev._assign)), set(["test@example.com", self.test_user]))
 
 		# Remove an assignment
-		todo = frappe.get_doc(
+		todo = capkpi.get_doc(
 			"ToDo", {"reference_type": ev.doctype, "reference_name": ev.name, "owner": self.test_user}
 		)
 		todo.status = "Cancelled"
 		todo.save()
 
-		ev = frappe.get_doc("Event", ev.name)
+		ev = capkpi.get_doc("Event", ev.name)
 		self.assertEqual(ev._assign, json.dumps(["test@example.com"]))
 
 		# cleanup
 		ev.delete()
 
 	def test_recurring(self):
-		ev = frappe.get_doc(
+		ev = capkpi.get_doc(
 			{
 				"doctype": "Event",
 				"subject": "_Test Event",

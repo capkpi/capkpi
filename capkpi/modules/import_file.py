@@ -4,11 +4,11 @@ import hashlib
 import json
 import os
 
-import frappe
-from frappe.model.base_document import get_controller
-from frappe.modules import get_module_path, scrub_dt_dn
-from frappe.query_builder import DocType
-from frappe.utils import get_datetime, now
+import capkpi
+from capkpi.model.base_document import get_controller
+from capkpi.modules import get_module_path, scrub_dt_dn
+from capkpi.query_builder import DocType
+from capkpi.utils import get_datetime, now
 
 
 def calculate_hash(path: str) -> str:
@@ -107,7 +107,7 @@ def import_file_by_path(
 	Returns:
 	        [bool]: True if import takes place. False if it wasn't imported.
 	"""
-	frappe.flags.dt = frappe.flags.dt or []
+	capkpi.flags.dt = capkpi.flags.dt or []
 	try:
 		docs = read_doc_from_file(path)
 	except IOError:
@@ -123,16 +123,16 @@ def import_file_by_path(
 		for doc in docs:
 
 			# modified timestamp in db, none if doctype's first import
-			db_modified_timestamp = frappe.db.get_value(doc["doctype"], doc["name"], "modified")
+			db_modified_timestamp = capkpi.db.get_value(doc["doctype"], doc["name"], "modified")
 			is_db_timestamp_latest = db_modified_timestamp and (
 				get_datetime(doc.get("modified")) <= get_datetime(db_modified_timestamp)
 			)
 
 			if not force or db_modified_timestamp:
 				try:
-					stored_hash = frappe.db.get_value(doc["doctype"], doc["name"], "migration_hash")
+					stored_hash = capkpi.db.get_value(doc["doctype"], doc["name"], "migration_hash")
 				except Exception:
-					frappe.flags.dt += [doc["doctype"]]
+					capkpi.flags.dt += [doc["doctype"]]
 					stored_hash = None
 
 				# if hash exists and is equal no need to update
@@ -155,7 +155,7 @@ def import_file_by_path(
 
 			if doc["doctype"] == "DocType":
 				doctype_table = DocType("DocType")
-				frappe.qb.update(doctype_table).set(doctype_table.migration_hash, calculated_hash).where(
+				capkpi.qb.update(doctype_table).set(doctype_table.migration_hash, calculated_hash).where(
 					doctype_table.name == doc["name"]
 				).run()
 
@@ -173,7 +173,7 @@ def import_file_by_path(
 
 def is_timestamp_changed(doc):
 	# check if timestamps match
-	db_modified = frappe.db.get_value(doc["doctype"], doc["name"], "modified")
+	db_modified = capkpi.db.get_value(doc["doctype"], doc["name"], "modified")
 	return not (db_modified and get_datetime(doc.get("modified")) == get_datetime(db_modified))
 
 
@@ -197,13 +197,13 @@ def update_modified(original_modified, doc):
 	if doc["doctype"] == doc["name"] and doc["name"] != "DocType":
 		singles_table = DocType("Singles")
 
-		frappe.qb.update(singles_table).set(singles_table.value, original_modified).where(
+		capkpi.qb.update(singles_table).set(singles_table.value, original_modified).where(
 			singles_table["field"] == "modified",  # singles_table.field is a method of pypika Selectable
 		).where(singles_table.doctype == doc["name"]).run()
 	else:
 		doctype_table = DocType(doc["doctype"])
 
-		frappe.qb.update(doctype_table).set(doctype_table.modified, original_modified).where(
+		capkpi.qb.update(doctype_table).set(doctype_table.modified, original_modified).where(
 			doctype_table.name == doc["name"]
 		).run()
 
@@ -217,7 +217,7 @@ def import_doc(
 	reset_permissions=False,
 	path=None,
 ):
-	frappe.flags.in_import = True
+	capkpi.flags.in_import = True
 	docdict["__islocal"] = 1
 
 	controller = get_controller(docdict["doctype"])
@@ -228,7 +228,7 @@ def import_doc(
 	):
 		controller.prepare_for_import(docdict)
 
-	doc = frappe.get_doc(docdict)
+	doc = capkpi.get_doc(docdict)
 
 	# Note on Tree DocTypes:
 	# The tree structure is maintained in the database via the fields "lft" and
@@ -247,9 +247,9 @@ def import_doc(
 
 	ignore = []
 
-	if frappe.db.exists(doc.doctype, doc.name):
+	if capkpi.db.exists(doc.doctype, doc.name):
 
-		old_doc = frappe.get_doc(doc.doctype, doc.name)
+		old_doc = capkpi.get_doc(doc.doctype, doc.name)
 
 		if doc.doctype in ignore_values:
 			# update ignore values
@@ -263,7 +263,7 @@ def import_doc(
 				ignore.append(df.options)
 
 		# delete old
-		frappe.delete_doc(doc.doctype, doc.name, force=1, ignore_doctypes=ignore, for_reload=True)
+		capkpi.delete_doc(doc.doctype, doc.name, force=1, ignore_doctypes=ignore, for_reload=True)
 
 	doc.flags.ignore_children_type = ignore
 	doc.flags.ignore_links = True
@@ -274,4 +274,4 @@ def import_doc(
 
 	doc.insert()
 
-	frappe.flags.in_import = False
+	capkpi.flags.in_import = False

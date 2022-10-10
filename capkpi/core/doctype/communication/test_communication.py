@@ -6,11 +6,11 @@ import unittest
 
 from six.moves.urllib.parse import quote
 
-import frappe
-from frappe.core.doctype.communication.communication import get_emails
-from frappe.email.doctype.email_queue.email_queue import EmailQueue
+import capkpi
+from capkpi.core.doctype.communication.communication import get_emails
+from capkpi.email.doctype.email_queue.email_queue import EmailQueue
 
-test_records = frappe.get_test_records("Communication")
+test_records = capkpi.get_test_records("Communication")
 
 
 class TestCommunication(unittest.TestCase):
@@ -36,10 +36,10 @@ class TestCommunication(unittest.TestCase):
 		]
 
 		for x in valid_email_list:
-			self.assertTrue(frappe.utils.parse_addr(x)[1])
+			self.assertTrue(capkpi.utils.parse_addr(x)[1])
 
 		for x in invalid_email_list:
-			self.assertFalse(frappe.utils.parse_addr(x)[0])
+			self.assertFalse(capkpi.utils.parse_addr(x)[0])
 
 	def test_name(self):
 		valid_email_list = [
@@ -63,13 +63,13 @@ class TestCommunication(unittest.TestCase):
 		]
 
 		for x in valid_email_list:
-			self.assertTrue(frappe.utils.parse_addr(x)[0])
+			self.assertTrue(capkpi.utils.parse_addr(x)[0])
 
 		for x in invalid_email_list:
-			self.assertFalse(frappe.utils.parse_addr(x)[0])
+			self.assertFalse(capkpi.utils.parse_addr(x)[0])
 
 	def test_circular_linking(self):
-		a = frappe.get_doc(
+		a = capkpi.get_doc(
 			{
 				"doctype": "Communication",
 				"communication_type": "Communication",
@@ -77,7 +77,7 @@ class TestCommunication(unittest.TestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		b = frappe.get_doc(
+		b = capkpi.get_doc(
 			{
 				"doctype": "Communication",
 				"communication_type": "Communication",
@@ -87,7 +87,7 @@ class TestCommunication(unittest.TestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		c = frappe.get_doc(
+		c = capkpi.get_doc(
 			{
 				"doctype": "Communication",
 				"communication_type": "Communication",
@@ -97,16 +97,16 @@ class TestCommunication(unittest.TestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		a = frappe.get_doc("Communication", a.name)
+		a = capkpi.get_doc("Communication", a.name)
 		a.reference_doctype = "Communication"
 		a.reference_name = c.name
 
-		self.assertRaises(frappe.CircularLinkingError, a.save)
+		self.assertRaises(capkpi.CircularLinkingError, a.save)
 
 	def test_deduplication_timeline_links(self):
-		frappe.delete_doc_if_exists("Note", "deduplication timeline links")
+		capkpi.delete_doc_if_exists("Note", "deduplication timeline links")
 
-		note = frappe.get_doc(
+		note = capkpi.get_doc(
 			{
 				"doctype": "Note",
 				"title": "deduplication timeline links",
@@ -114,7 +114,7 @@ class TestCommunication(unittest.TestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		comm = frappe.get_doc(
+		comm = capkpi.get_doc(
 			{
 				"doctype": "Communication",
 				"communication_type": "Communication",
@@ -127,12 +127,12 @@ class TestCommunication(unittest.TestCase):
 		comm.add_link(link_doctype="Note", link_name=note.name, autosave=True)
 		comm.add_link(link_doctype="Note", link_name=note.name, autosave=True)
 
-		comm = frappe.get_doc("Communication", comm.name)
+		comm = capkpi.get_doc("Communication", comm.name)
 
 		self.assertNotEqual(2, len(comm.timeline_links))
 
 	def test_contacts_attached(self):
-		contact_sender = frappe.get_doc(
+		contact_sender = capkpi.get_doc(
 			{
 				"doctype": "Contact",
 				"first_name": "contact_sender",
@@ -141,7 +141,7 @@ class TestCommunication(unittest.TestCase):
 		contact_sender.add_email("comm_sender@example.com")
 		contact_sender.insert(ignore_permissions=True)
 
-		contact_recipient = frappe.get_doc(
+		contact_recipient = capkpi.get_doc(
 			{
 				"doctype": "Contact",
 				"first_name": "contact_recipient",
@@ -150,7 +150,7 @@ class TestCommunication(unittest.TestCase):
 		contact_recipient.add_email("comm_recipient@example.com")
 		contact_recipient.insert(ignore_permissions=True)
 
-		contact_cc = frappe.get_doc(
+		contact_cc = capkpi.get_doc(
 			{
 				"doctype": "Contact",
 				"first_name": "contact_cc",
@@ -159,7 +159,7 @@ class TestCommunication(unittest.TestCase):
 		contact_cc.add_email("comm_cc@example.com")
 		contact_cc.insert(ignore_permissions=True)
 
-		comm = frappe.get_doc(
+		comm = capkpi.get_doc(
 			{
 				"doctype": "Communication",
 				"communication_medium": "Email",
@@ -170,7 +170,7 @@ class TestCommunication(unittest.TestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		comm = frappe.get_doc("Communication", comm.name)
+		comm = capkpi.get_doc("Communication", comm.name)
 
 		contact_links = []
 		for timeline_link in comm.timeline_links:
@@ -181,15 +181,15 @@ class TestCommunication(unittest.TestCase):
 		self.assertIn(contact_cc.name, contact_links)
 
 	def test_get_communication_data(self):
-		from frappe.desk.form.load import get_communication_data
+		from capkpi.desk.form.load import get_communication_data
 
-		frappe.delete_doc_if_exists("Note", "get communication data")
+		capkpi.delete_doc_if_exists("Note", "get communication data")
 
-		note = frappe.get_doc(
+		note = capkpi.get_doc(
 			{"doctype": "Note", "title": "get communication data", "content": "get communication data"}
 		).insert(ignore_permissions=True)
 
-		comm_note_1 = frappe.get_doc(
+		comm_note_1 = capkpi.get_doc(
 			{
 				"doctype": "Communication",
 				"communication_type": "Communication",
@@ -200,7 +200,7 @@ class TestCommunication(unittest.TestCase):
 
 		comm_note_1.add_link(link_doctype="Note", link_name=note.name, autosave=True)
 
-		comm_note_2 = frappe.get_doc(
+		comm_note_2 = capkpi.get_doc(
 			{
 				"doctype": "Communication",
 				"communication_type": "Communication",
@@ -221,11 +221,11 @@ class TestCommunication(unittest.TestCase):
 		self.assertIn(comm_note_2.name, data)
 
 	def test_link_in_email(self):
-		frappe.delete_doc_if_exists("Note", "test document link in email")
+		capkpi.delete_doc_if_exists("Note", "test document link in email")
 
 		create_email_account()
 
-		note = frappe.get_doc(
+		note = capkpi.get_doc(
 			{
 				"doctype": "Note",
 				"title": "test document link in email",
@@ -233,7 +233,7 @@ class TestCommunication(unittest.TestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		comm = frappe.get_doc(
+		comm = capkpi.get_doc(
 			{
 				"doctype": "Communication",
 				"communication_medium": "Email",
@@ -264,12 +264,12 @@ class TestCommunication(unittest.TestCase):
 
 
 def create_email_account():
-	frappe.delete_doc_if_exists("Email Account", "_Test Comm Account 1")
+	capkpi.delete_doc_if_exists("Email Account", "_Test Comm Account 1")
 
-	frappe.flags.mute_emails = False
-	frappe.flags.sent_mail = None
+	capkpi.flags.mute_emails = False
+	capkpi.flags.sent_mail = None
 
-	email_account = frappe.get_doc(
+	email_account = capkpi.get_doc(
 		{
 			"is_default": 1,
 			"is_global": 1,

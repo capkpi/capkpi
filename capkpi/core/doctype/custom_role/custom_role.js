@@ -1,7 +1,7 @@
 // Copyright (c) 2016, CapKPI Technologies and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Custom Role', {
+capkpi.ui.form.on('Custom Role', {
 	refresh: function(frm) {
 
 	}

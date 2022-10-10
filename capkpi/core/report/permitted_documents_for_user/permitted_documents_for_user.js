@@ -1,7 +1,7 @@
 // Copyright (c) 2015, CapKPI Technologies Pvt. Ltd. and Contributors
 // MIT License. See license.txt
 
-frappe.query_reports["Permitted Documents For User"] = {
+capkpi.query_reports["Permitted Documents For User"] = {
 	"filters": [
 		{
 			"fieldname": "user",
@@ -18,9 +18,9 @@ frappe.query_reports["Permitted Documents For User"] = {
 			"reqd": 1,
 			"get_query": function () {
 				return {
-					"query": "frappe.core.report.permitted_documents_for_user.permitted_documents_for_user.query_doctypes",
+					"query": "capkpi.core.report.permitted_documents_for_user.permitted_documents_for_user.query_doctypes",
 					"filters": {
-						"user": frappe.query_report.get_filter_value('user')
+						"user": capkpi.query_report.get_filter_value('user')
 					}
 				}
 			}

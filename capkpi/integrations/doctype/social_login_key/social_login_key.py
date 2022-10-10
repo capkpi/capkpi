@@ -6,62 +6,62 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-from frappe import _
-from frappe.model.document import Document
+import capkpi
+from capkpi import _
+from capkpi.model.document import Document
 
 
-class BaseUrlNotSetError(frappe.ValidationError):
+class BaseUrlNotSetError(capkpi.ValidationError):
 	pass
 
 
-class AuthorizeUrlNotSetError(frappe.ValidationError):
+class AuthorizeUrlNotSetError(capkpi.ValidationError):
 	pass
 
 
-class AccessTokenUrlNotSetError(frappe.ValidationError):
+class AccessTokenUrlNotSetError(capkpi.ValidationError):
 	pass
 
 
-class RedirectUrlNotSetError(frappe.ValidationError):
+class RedirectUrlNotSetError(capkpi.ValidationError):
 	pass
 
 
-class ClientIDNotSetError(frappe.ValidationError):
+class ClientIDNotSetError(capkpi.ValidationError):
 	pass
 
 
-class ClientSecretNotSetError(frappe.ValidationError):
+class ClientSecretNotSetError(capkpi.ValidationError):
 	pass
 
 
 class SocialLoginKey(Document):
 	def autoname(self):
-		self.name = frappe.scrub(self.provider_name)
+		self.name = capkpi.scrub(self.provider_name)
 
 	def validate(self):
 		self.set_icon()
 		if self.custom_base_url and not self.base_url:
-			frappe.throw(_("Please enter Base URL"), exc=BaseUrlNotSetError)
+			capkpi.throw(_("Please enter Base URL"), exc=BaseUrlNotSetError)
 		if not self.authorize_url:
-			frappe.throw(_("Please enter Authorize URL"), exc=AuthorizeUrlNotSetError)
+			capkpi.throw(_("Please enter Authorize URL"), exc=AuthorizeUrlNotSetError)
 		if not self.access_token_url:
-			frappe.throw(_("Please enter Access Token URL"), exc=AccessTokenUrlNotSetError)
+			capkpi.throw(_("Please enter Access Token URL"), exc=AccessTokenUrlNotSetError)
 		if not self.redirect_url:
-			frappe.throw(_("Please enter Redirect URL"), exc=RedirectUrlNotSetError)
+			capkpi.throw(_("Please enter Redirect URL"), exc=RedirectUrlNotSetError)
 		if self.enable_social_login and not self.client_id:
-			frappe.throw(
+			capkpi.throw(
 				_("Please enter Client ID before social login is enabled"), exc=ClientIDNotSetError
 			)
 		if self.enable_social_login and not self.client_secret:
-			frappe.throw(
+			capkpi.throw(
 				_("Please enter Client Secret before social login is enabled"), exc=ClientSecretNotSetError
 			)
 
 	def set_icon(self):
 		icon_map = {
 			"Google": "google.svg",
-			"CapKPI": "frappe.svg",
+			"CapKPI": "capkpi.svg",
 			"Facebook": "facebook.svg",
 			"Office 365": "office_365.svg",
 			"GitHub": "github.svg",
@@ -71,9 +71,9 @@ class SocialLoginKey(Document):
 
 		if self.provider_name in icon_map:
 			icon_file = icon_map[self.provider_name]
-			self.icon = "/assets/frappe/icons/social/{0}".format(icon_file)
+			self.icon = "/assets/capkpi/icons/social/{0}".format(icon_file)
 
-	@frappe.whitelist()
+	@capkpi.whitelist()
 	def get_social_login_provider(self, provider, initialize=False):
 		providers = {}
 
@@ -85,7 +85,7 @@ class SocialLoginKey(Document):
 			"icon": "fa fa-windows",
 			"authorize_url": "https://login.microsoftonline.com/common/oauth2/authorize",
 			"access_token_url": "https://login.microsoftonline.com/common/oauth2/token",
-			"redirect_url": "/api/method/frappe.integrations.oauth2_logins.login_via_office365",
+			"redirect_url": "/api/method/capkpi.integrations.oauth2_logins.login_via_office365",
 			"api_endpoint": None,
 			"api_endpoint_args": None,
 			"auth_url_data": json.dumps({"response_type": "code", "scope": "openid"}),
@@ -99,7 +99,7 @@ class SocialLoginKey(Document):
 			"icon": "fa fa-github",
 			"authorize_url": "https://github.com/login/oauth/authorize",
 			"access_token_url": "https://github.com/login/oauth/access_token",
-			"redirect_url": "/api/method/frappe.www.login.login_via_github",
+			"redirect_url": "/api/method/capkpi.www.login.login_via_github",
 			"api_endpoint": "user",
 			"api_endpoint_args": None,
 			"auth_url_data": None,
@@ -113,7 +113,7 @@ class SocialLoginKey(Document):
 			"icon": "fa fa-google",
 			"authorize_url": "https://accounts.google.com/o/oauth2/auth",
 			"access_token_url": "https://accounts.google.com/o/oauth2/token",
-			"redirect_url": "/api/method/frappe.www.login.login_via_google",
+			"redirect_url": "/api/method/capkpi.www.login.login_via_google",
 			"api_endpoint": "oauth2/v2/userinfo",
 			"api_endpoint_args": None,
 			"auth_url_data": json.dumps(
@@ -132,7 +132,7 @@ class SocialLoginKey(Document):
 			"icon": "fa fa-facebook",
 			"authorize_url": "https://www.facebook.com/dialog/oauth",
 			"access_token_url": "https://graph.facebook.com/oauth/access_token",
-			"redirect_url": "/api/method/frappe.www.login.login_via_facebook",
+			"redirect_url": "/api/method/capkpi.www.login.login_via_facebook",
 			"api_endpoint": "/v2.5/me",
 			"api_endpoint_args": json.dumps(
 				{"fields": "first_name,last_name,email,gender,location,verified,picture"}
@@ -146,12 +146,12 @@ class SocialLoginKey(Document):
 			"provider_name": "CapKPI",
 			"enable_social_login": 1,
 			"custom_base_url": 1,
-			"icon": "/assets/frappe/images/frappe-favicon.svg",
-			"redirect_url": "/api/method/frappe.www.login.login_via_frappe",
-			"api_endpoint": "/api/method/frappe.integrations.oauth2.openid_profile",
+			"icon": "/assets/capkpi/images/capkpi-favicon.svg",
+			"redirect_url": "/api/method/capkpi.www.login.login_via_capkpi",
+			"api_endpoint": "/api/method/capkpi.integrations.oauth2.openid_profile",
 			"api_endpoint_args": None,
-			"authorize_url": "/api/method/frappe.integrations.oauth2.authorize",
-			"access_token_url": "/api/method/frappe.integrations.oauth2.get_token",
+			"authorize_url": "/api/method/capkpi.integrations.oauth2.authorize",
+			"access_token_url": "/api/method/capkpi.integrations.oauth2.get_token",
 			"auth_url_data": json.dumps({"response_type": "code", "scope": "openid"}),
 		}
 
@@ -161,7 +161,7 @@ class SocialLoginKey(Document):
 			"base_url": "https://login.salesforce.com",
 			"custom_base_url": 0,
 			"icon": "fa fa-cloud",  # https://github.com/FortAwesome/Font-Awesome/issues/1744
-			"redirect_url": "/api/method/frappe.integrations.oauth2_logins.login_via_salesforce",
+			"redirect_url": "/api/method/capkpi.integrations.oauth2_logins.login_via_salesforce",
 			"api_endpoint": "https://login.salesforce.com/services/oauth2/userinfo",
 			"api_endpoint_args": None,
 			"authorize_url": "https://login.salesforce.com/services/oauth2/authorize",
@@ -175,7 +175,7 @@ class SocialLoginKey(Document):
 			"base_url": "https://id.fairkom.net/auth/realms/fairlogin/",
 			"custom_base_url": 0,
 			"icon": "fa fa-key",
-			"redirect_url": "/api/method/frappe.integrations.oauth2_logins.login_via_fairlogin",
+			"redirect_url": "/api/method/capkpi.integrations.oauth2_logins.login_via_fairlogin",
 			"api_endpoint": "https://id.fairkom.net/auth/realms/fairlogin/protocol/openid-connect/userinfo",
 			"api_endpoint_args": None,
 			"authorize_url": "https://id.fairkom.net/auth/realms/fairlogin/protocol/openid-connect/auth",

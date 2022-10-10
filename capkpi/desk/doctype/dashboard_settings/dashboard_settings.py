@@ -6,47 +6,47 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
+import capkpi
 
-# import frappe
-from frappe.model.document import Document
+# import capkpi
+from capkpi.model.document import Document
 
 
 class DashboardSettings(Document):
 	pass
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def create_dashboard_settings(user):
-	if not frappe.db.exists("Dashboard Settings", user):
-		doc = frappe.new_doc("Dashboard Settings")
+	if not capkpi.db.exists("Dashboard Settings", user):
+		doc = capkpi.new_doc("Dashboard Settings")
 		doc.name = user
 		doc.insert(ignore_permissions=True)
-		frappe.db.commit()
+		capkpi.db.commit()
 		return doc
 
 
 def get_permission_query_conditions(user):
 	if not user:
-		user = frappe.session.user
+		user = capkpi.session.user
 
-	return """(`tabDashboard Settings`.name = {user})""".format(user=frappe.db.escape(user))
+	return """(`tabDashboard Settings`.name = {user})""".format(user=capkpi.db.escape(user))
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def save_chart_config(reset, config, chart_name):
-	reset = frappe.parse_json(reset)
-	doc = frappe.get_doc("Dashboard Settings", frappe.session.user)
-	chart_config = frappe.parse_json(doc.chart_config) or {}
+	reset = capkpi.parse_json(reset)
+	doc = capkpi.get_doc("Dashboard Settings", capkpi.session.user)
+	chart_config = capkpi.parse_json(doc.chart_config) or {}
 
 	if reset:
 		chart_config[chart_name] = {}
 	else:
-		config = frappe.parse_json(config)
+		config = capkpi.parse_json(config)
 		if not chart_name in chart_config:
 			chart_config[chart_name] = {}
 		chart_config[chart_name].update(config)
 
-	frappe.db.set_value(
-		"Dashboard Settings", frappe.session.user, "chart_config", json.dumps(chart_config)
+	capkpi.db.set_value(
+		"Dashboard Settings", capkpi.session.user, "chart_config", json.dumps(chart_config)
 	)

@@ -17,7 +17,7 @@ def fetch_pr_data(pr_number, repo, endpoint):
 	res = urllib.request.urlopen(req)
 	return json.loads(res.read().decode('utf8'))
 
-def get_files_list(pr_number, repo="frappe/frappe"):
+def get_files_list(pr_number, repo="capkpi/capkpi"):
 	return [change["filename"] for change in fetch_pr_data(pr_number, repo, "files")]
 
 def get_output(command, shell=True):
@@ -25,7 +25,7 @@ def get_output(command, shell=True):
 	command = shlex.split(command)
 	return subprocess.check_output(command, shell=shell, encoding="utf8").strip()
 
-def has_skip_ci_label(pr_number, repo="frappe/frappe"):
+def has_skip_ci_label(pr_number, repo="capkpi/capkpi"):
 	return any([label["name"] for label in fetch_pr_data(pr_number, repo, "")["labels"] if label["name"] == "Skip CI"])
 
 def is_py(file):

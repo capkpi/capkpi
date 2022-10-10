@@ -15,8 +15,8 @@ from requests import head
 from requests.exceptions import HTTPError
 from simple_chalk import green
 
-import frappe
-from frappe.utils.minify import JavascriptMinify
+import capkpi
+from capkpi.utils.minify import JavascriptMinify
 
 timestamps = {}
 app_paths = None
@@ -48,14 +48,14 @@ def build_missing_files():
 	# check which files dont exist yet from the build.json and tell build.js to build only those!
 	missing_assets = []
 	current_asset_files = []
-	frappe_build = os.path.join("..", "apps", "frappe", "frappe", "public", "build.json")
+	capkpi_build = os.path.join("..", "apps", "capkpi", "capkpi", "public", "build.json")
 
 	for type in ["css", "js"]:
 		current_asset_files.extend(
 			["{0}/{1}".format(type, name) for name in os.listdir(os.path.join(sites_path, "assets", type))]
 		)
 
-	with open(frappe_build) as f:
+	with open(capkpi_build) as f:
 		all_asset_files = json.load(f).keys()
 
 	for asset in all_asset_files:
@@ -68,32 +68,32 @@ def build_missing_files():
 
 		click.secho("\nBuilding missing assets...\n", fg="yellow")
 		command = split("node rollup/build.js --files {0} --no-concat".format(",".join(missing_assets)))
-		check_call(command, cwd=os.path.join("..", "apps", "frappe"))
+		check_call(command, cwd=os.path.join("..", "apps", "capkpi"))
 
 
-def get_assets_link(frappe_head) -> str:
+def get_assets_link(capkpi_head) -> str:
 	tag = getoutput(
-		r"cd ../apps/frappe && git show-ref --tags -d | grep %s | sed -e 's,.*"
-		r" refs/tags/,,' -e 's/\^{}//'" % frappe_head
+		r"cd ../apps/capkpi && git show-ref --tags -d | grep %s | sed -e 's,.*"
+		r" refs/tags/,,' -e 's/\^{}//'" % capkpi_head
 	)
 
 	if tag:
 		# if tag exists, download assets from github release
-		url = f"https://github.com/frappe/frappe/releases/download/{tag}/assets.tar.gz"
+		url = f"https://github.com/capkpi/capkpi/releases/download/{tag}/assets.tar.gz"
 	else:
-		url = f"http://assets.frappeframework.com/{frappe_head}.tar.gz"
+		url = f"http://assets.capkpiframework.com/{capkpi_head}.tar.gz"
 
 	if not head(url):
-		reference = f"Release {tag}" if tag else f"Commit {frappe_head}"
+		reference = f"Release {tag}" if tag else f"Commit {capkpi_head}"
 		raise AssetsDontExistError(f"Assets for {reference} don't exist")
 
 	return url
 
 
-def fetch_assets(url, frappe_head):
+def fetch_assets(url, capkpi_head):
 	click.secho("Retrieving assets...", fg="yellow")
 
-	prefix = mkdtemp(prefix="frappe-assets-", suffix=frappe_head)
+	prefix = mkdtemp(prefix="capkpi-assets-", suffix=capkpi_head)
 	assets_archive = download_file(url, prefix)
 
 	if not assets_archive:
@@ -113,7 +113,7 @@ def setup_assets(assets_archive):
 	with tarfile.open(assets_archive) as tar:
 		for file in tar:
 			if not file.isdir():
-				dest = "." + file.name.replace("./frappe-bench/sites", "")
+				dest = "." + file.name.replace("./capkpi-bench/sites", "")
 				asset_directory = os.path.dirname(dest)
 				show = dest.replace("./assets/", "")
 
@@ -128,19 +128,19 @@ def setup_assets(assets_archive):
 	return directories_created
 
 
-def download_frappe_assets(verbose=True):
+def download_capkpi_assets(verbose=True):
 	"""Downloads and sets up CapKPI assets if they exist based on the current
 	commit HEAD.
 	Returns True if correctly setup else returns False.
 	"""
-	frappe_head = getoutput("cd ../apps/frappe && git rev-parse HEAD")
+	capkpi_head = getoutput("cd ../apps/capkpi && git rev-parse HEAD")
 
-	if not frappe_head:
+	if not capkpi_head:
 		return False
 
 	try:
-		url = get_assets_link(frappe_head)
-		assets_archive = fetch_assets(url, frappe_head)
+		url = get_assets_link(capkpi_head)
+		assets_archive = fetch_assets(url, capkpi_head)
 		setup_assets(assets_archive)
 		build_missing_files()
 		return True
@@ -208,13 +208,13 @@ def setup():
 	global app_paths, assets_path
 
 	pymodules = []
-	for app in frappe.get_all_apps(True):
+	for app in capkpi.get_all_apps(True):
 		try:
-			pymodules.append(frappe.get_module(app))
+			pymodules.append(capkpi.get_module(app))
 		except ImportError:
 			pass
 	app_paths = [os.path.dirname(pymodule.__file__) for pymodule in pymodules]
-	assets_path = os.path.join(frappe.local.sites_path, "assets")
+	assets_path = os.path.join(capkpi.local.sites_path, "assets")
 
 
 def get_node_pacman():
@@ -224,7 +224,7 @@ def get_node_pacman():
 	raise ValueError("Yarn not found")
 
 
-def bundle(no_compress, app=None, hard_link=False, verbose=False, skip_frappe=False):
+def bundle(no_compress, app=None, hard_link=False, verbose=False, skip_capkpi=False):
 	"""concat / minify js files"""
 	setup()
 	make_asset_dirs(hard_link=hard_link)
@@ -236,12 +236,12 @@ def bundle(no_compress, app=None, hard_link=False, verbose=False, skip_frappe=Fa
 	if app:
 		command += " --app {app}".format(app=app)
 
-	if skip_frappe:
-		command += " --skip_frappe"
+	if skip_capkpi:
+		command += " --skip_capkpi"
 
-	frappe_app_path = os.path.abspath(os.path.join(app_paths[0], ".."))
+	capkpi_app_path = os.path.abspath(os.path.join(app_paths[0], ".."))
 	check_yarn()
-	frappe.commands.popen(command, cwd=frappe_app_path, env=get_node_env(), raise_err=True)
+	capkpi.commands.popen(command, cwd=capkpi_app_path, env=get_node_env(), raise_err=True)
 
 
 def watch(no_compress):
@@ -250,11 +250,11 @@ def watch(no_compress):
 
 	pacman = get_node_pacman()
 
-	frappe_app_path = os.path.abspath(os.path.join(app_paths[0], ".."))
+	capkpi_app_path = os.path.abspath(os.path.join(app_paths[0], ".."))
 	check_yarn()
-	frappe_app_path = frappe.get_app_path("frappe", "..")
-	frappe.commands.popen(
-		"{pacman} run watch".format(pacman=pacman), cwd=frappe_app_path, env=get_node_env()
+	capkpi_app_path = capkpi.get_app_path("capkpi", "..")
+	capkpi.commands.popen(
+		"{pacman} run watch".format(pacman=pacman), cwd=capkpi_app_path, env=get_node_env()
 	)
 
 
@@ -285,10 +285,10 @@ def get_safe_max_old_space_size():
 def generate_assets_map():
 	symlinks = {}
 
-	for app_name in frappe.get_all_apps():
+	for app_name in capkpi.get_all_apps():
 		app_doc_path = None
 
-		pymodule = frappe.get_module(app_name)
+		pymodule = capkpi.get_module(app_name)
 		app_base_path = os.path.abspath(os.path.dirname(pymodule.__file__))
 		app_public_path = os.path.join(app_base_path, "public")
 		app_node_modules_path = os.path.join(app_base_path, "..", "node_modules")
@@ -456,7 +456,7 @@ def get_build_maps():
 						source_paths = []
 						for source in sources:
 							if isinstance(source, list):
-								s = frappe.get_pymodule_path(source[0], *source[1].split("/"))
+								s = capkpi.get_pymodule_path(source[0], *source[1].split("/"))
 							else:
 								s = os.path.join(app_path, source)
 							source_paths.append(s)
@@ -504,7 +504,7 @@ def pack(target, sources, no_compress, verbose):
 				if verbose:
 					print("{0}: {1}k".format(f, int(len(minified) / 1024)))
 			elif outtype == "js" and extn == "html":
-				# add to frappe.templates
+				# add to capkpi.templates
 				outtxt += html_to_js_template(f, data)
 			else:
 				outtxt += "\n/*\n *\t%s\n */" % f
@@ -512,7 +512,7 @@ def pack(target, sources, no_compress, verbose):
 
 		except Exception:
 			print("--Error in:" + f + "--")
-			print(frappe.get_traceback())
+			print(capkpi.get_traceback())
 
 	with open(target, "w") as f:
 		f.write(outtxt.encode("utf-8"))
@@ -521,8 +521,8 @@ def pack(target, sources, no_compress, verbose):
 
 
 def html_to_js_template(path, content):
-	"""returns HTML template content as Javascript code, adding it to `frappe.templates`"""
-	return """frappe.templates["{key}"] = '{content}';\n""".format(
+	"""returns HTML template content as Javascript code, adding it to `capkpi.templates`"""
+	return """capkpi.templates["{key}"] = '{content}';\n""".format(
 		key=path.rsplit("/", 1)[-1][:-5], content=scrub_html_template(content)
 	)
 

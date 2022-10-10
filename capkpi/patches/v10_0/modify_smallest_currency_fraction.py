@@ -3,8 +3,8 @@
 
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 
 def execute():
-	frappe.db.set_value("Currency", "USD", "smallest_currency_fraction_value", "0.01")
+	capkpi.db.set_value("Currency", "USD", "smallest_currency_fraction_value", "0.01")

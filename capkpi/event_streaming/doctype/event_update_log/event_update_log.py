@@ -4,10 +4,10 @@
 
 from __future__ import unicode_literals
 
-import frappe
-from frappe.model import no_value_fields, table_fields
-from frappe.model.document import Document
-from frappe.utils.background_jobs import get_jobs
+import capkpi
+from capkpi.model import no_value_fields, table_fields
+from capkpi.model.document import Document
+from capkpi.utils.background_jobs import get_jobs
 
 
 class EventUpdateLog(Document):
@@ -15,11 +15,11 @@ class EventUpdateLog(Document):
 		"""Send update notification updates to event consumers
 		whenever update log is generated"""
 		enqueued_method = (
-			"frappe.event_streaming.doctype.event_consumer.event_consumer.notify_event_consumers"
+			"capkpi.event_streaming.doctype.event_consumer.event_consumer.notify_event_consumers"
 		)
 		jobs = get_jobs()
-		if not jobs or enqueued_method not in jobs[frappe.local.site]:
-			frappe.enqueue(
+		if not jobs or enqueued_method not in jobs[capkpi.local.site]:
+			capkpi.enqueue(
 				enqueued_method, doctype=self.ref_doctype, queue="long", enqueue_after_commit=True
 			)
 
@@ -27,7 +27,7 @@ class EventUpdateLog(Document):
 def notify_consumers(doc, event):
 	"""called via hooks"""
 	# make event update log for doctypes having event consumers
-	if frappe.flags.in_install or frappe.flags.in_migrate:
+	if capkpi.flags.in_install or capkpi.flags.in_migrate:
 		return
 
 	consumers = check_doctype_has_consumers(doc.doctype)
@@ -48,7 +48,7 @@ def notify_consumers(doc, event):
 
 def check_doctype_has_consumers(doctype):
 	"""Check if doctype has event consumers for event streaming"""
-	return frappe.cache_manager.get_doctype_map(
+	return capkpi.cache_manager.get_doctype_map(
 		"Event Consumer Document Type",
 		doctype,
 		dict(ref_doctype=doctype, status="Approved", unsubscribed=0),
@@ -74,7 +74,7 @@ def get_update(old, new, for_child=False):
 	if not new:
 		return None
 
-	out = frappe._dict(changed={}, added={}, removed={}, row_changed={})
+	out = capkpi._dict(changed={}, added={}, removed={}, row_changed={})
 	for df in new.meta.fields:
 		if df.fieldtype in no_value_fields and df.fieldtype not in table_fields:
 			continue
@@ -99,10 +99,10 @@ def make_event_update_log(doc, update_type):
 	"""Save update info for doctypes that have event consumers"""
 	if update_type != "Delete":
 		# diff for update type, doc for create type
-		data = frappe.as_json(doc) if not doc.get("diff") else frappe.as_json(doc.diff)
+		data = capkpi.as_json(doc) if not doc.get("diff") else capkpi.as_json(doc.diff)
 	else:
 		data = None
-	return frappe.get_doc(
+	return capkpi.get_doc(
 		{
 			"doctype": "Event Update Log",
 			"update_type": update_type,
@@ -167,7 +167,7 @@ def is_consumer_uptodate(update_log, consumer):
 		# consumer is obviously up to date
 		return True
 
-	prev_logs = frappe.get_all(
+	prev_logs = capkpi.get_all(
 		"Event Update Log",
 		filters={
 			"ref_doctype": update_log.ref_doctype,
@@ -181,7 +181,7 @@ def is_consumer_uptodate(update_log, consumer):
 	if not len(prev_logs):
 		return False
 
-	prev_log_consumers = frappe.get_all(
+	prev_log_consumers = capkpi.get_all(
 		"Event Update Log Consumer",
 		fields=["consumer"],
 		filters={
@@ -198,12 +198,12 @@ def mark_consumer_read(update_log_name, consumer_name):
 	"""
 	This function appends the Consumer to the list of Consumers that has 'read' an Update Log
 	"""
-	update_log = frappe.get_doc("Event Update Log", update_log_name)
+	update_log = capkpi.get_doc("Event Update Log", update_log_name)
 	if len([x for x in update_log.consumers if x.consumer == consumer_name]):
 		return
 
-	frappe.get_doc(
-		frappe._dict(
+	capkpi.get_doc(
+		capkpi._dict(
 			doctype="Event Update Log Consumer",
 			consumer=consumer_name,
 			parent=update_log_name,
@@ -219,7 +219,7 @@ def get_unread_update_logs(consumer_name, dt, dn):
 	"""
 	already_consumed = [
 		x[0]
-		for x in frappe.db.sql(
+		for x in capkpi.db.sql(
 			"""
 		SELECT
 			update_log.name
@@ -235,7 +235,7 @@ def get_unread_update_logs(consumer_name, dt, dn):
 		)
 	]
 
-	logs = frappe.get_all(
+	logs = capkpi.get_all(
 		"Event Update Log",
 		fields=["update_type", "ref_doctype", "docname", "data", "name", "creation"],
 		filters={"ref_doctype": dt, "docname": dn, "name": ["not in", already_consumed]},
@@ -245,7 +245,7 @@ def get_unread_update_logs(consumer_name, dt, dn):
 	return logs
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def get_update_logs_for_consumer(event_consumer, doctypes, last_update):
 	"""
 	Fetches all the UpdateLogs for the consumer
@@ -253,12 +253,12 @@ def get_update_logs_for_consumer(event_consumer, doctypes, last_update):
 	"""
 
 	if isinstance(doctypes, str):
-		doctypes = frappe.parse_json(doctypes)
+		doctypes = capkpi.parse_json(doctypes)
 
-	from frappe.event_streaming.doctype.event_consumer.event_consumer import has_consumer_access
+	from capkpi.event_streaming.doctype.event_consumer.event_consumer import has_consumer_access
 
-	consumer = frappe.get_doc("Event Consumer", event_consumer)
-	docs = frappe.get_list(
+	consumer = capkpi.get_doc("Event Consumer", event_consumer)
+	docs = capkpi.get_list(
 		doctype="Event Update Log",
 		filters={"ref_doctype": ("in", doctypes), "creation": (">", last_update)},
 		fields=["update_type", "ref_doctype", "docname", "data", "name", "creation"],

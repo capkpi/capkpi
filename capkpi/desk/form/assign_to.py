@@ -7,28 +7,28 @@ from __future__ import unicode_literals
 
 import json
 
-import frappe
-import frappe.share
-import frappe.utils
-from frappe import _
-from frappe.desk.doctype.notification_log.notification_log import (
+import capkpi
+import capkpi.share
+import capkpi.utils
+from capkpi import _
+from capkpi.desk.doctype.notification_log.notification_log import (
 	enqueue_create_notification,
 	get_title,
 	get_title_html,
 )
-from frappe.desk.form.document_follow import follow_document
+from capkpi.desk.form.document_follow import follow_document
 
 
-class DuplicateToDoError(frappe.ValidationError):
+class DuplicateToDoError(capkpi.ValidationError):
 	pass
 
 
 def get(args=None):
 	"""get assigned to"""
 	if not args:
-		args = frappe.local.form_dict
+		args = capkpi.local.form_dict
 
-	return frappe.get_all(
+	return capkpi.get_all(
 		"ToDo",
 		fields=["owner", "name"],
 		filters=dict(
@@ -38,7 +38,7 @@ def get(args=None):
 	)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def add(args=None):
 	"""add in someone's to do list
 	args = {
@@ -51,12 +51,12 @@ def add(args=None):
 
 	"""
 	if not args:
-		args = frappe.local.form_dict
+		args = capkpi.local.form_dict
 
 	users_with_duplicate_todo = []
 	shared_with_users = []
 
-	for assign_to in frappe.parse_json(args.get("assign_to")):
+	for assign_to in capkpi.parse_json(args.get("assign_to")):
 		filters = {
 			"reference_type": args["doctype"],
 			"reference_name": args["name"],
@@ -64,15 +64,15 @@ def add(args=None):
 			"owner": assign_to,
 		}
 
-		if frappe.get_all("ToDo", filters=filters):
+		if capkpi.get_all("ToDo", filters=filters):
 			users_with_duplicate_todo.append(assign_to)
 		else:
-			from frappe.utils import nowdate
+			from capkpi.utils import nowdate
 
 			if not args.get("description"):
 				args["description"] = _("Assignment for {0} {1}").format(args["doctype"], args["name"])
 
-			d = frappe.get_doc(
+			d = capkpi.get_doc(
 				{
 					"doctype": "ToDo",
 					"owner": assign_to,
@@ -82,20 +82,20 @@ def add(args=None):
 					"priority": args.get("priority", "Medium"),
 					"status": "Open",
 					"date": args.get("date", nowdate()),
-					"assigned_by": args.get("assigned_by", frappe.session.user),
+					"assigned_by": args.get("assigned_by", capkpi.session.user),
 					"assignment_rule": args.get("assignment_rule"),
 				}
 			).insert(ignore_permissions=True)
 
 			# set assigned_to if field exists
-			if frappe.get_meta(args["doctype"]).get_field("assigned_to"):
-				frappe.db.set_value(args["doctype"], args["name"], "assigned_to", assign_to)
+			if capkpi.get_meta(args["doctype"]).get_field("assigned_to"):
+				capkpi.db.set_value(args["doctype"], args["name"], "assigned_to", assign_to)
 
-			doc = frappe.get_doc(args["doctype"], args["name"])
+			doc = capkpi.get_doc(args["doctype"], args["name"])
 
 			# if assignee does not have permissions, share
-			if not frappe.has_permission(doc=doc, user=assign_to):
-				frappe.share.add(doc.doctype, doc.name, assign_to)
+			if not capkpi.has_permission(doc=doc, user=assign_to):
+				capkpi.share.add(doc.doctype, doc.name, assign_to)
 				shared_with_users.append(assign_to)
 
 			# make this document followed by assigned user
@@ -113,21 +113,21 @@ def add(args=None):
 
 	if shared_with_users:
 		user_list = format_message_for_assign_to(shared_with_users)
-		frappe.msgprint(
+		capkpi.msgprint(
 			_("Shared with the following Users with Read access:{0}").format(user_list, alert=True)
 		)
 
 	if users_with_duplicate_todo:
 		user_list = format_message_for_assign_to(users_with_duplicate_todo)
-		frappe.msgprint(_("Already in the following Users ToDo list:{0}").format(user_list, alert=True))
+		capkpi.msgprint(_("Already in the following Users ToDo list:{0}").format(user_list, alert=True))
 
 	return get(args)
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def add_multiple(args=None):
 	if not args:
-		args = frappe.local.form_dict
+		args = capkpi.local.form_dict
 
 	docname_list = json.loads(args["name"])
 
@@ -137,7 +137,7 @@ def add_multiple(args=None):
 
 
 def close_all_assignments(doctype, name):
-	assignments = frappe.db.get_all(
+	assignments = capkpi.db.get_all(
 		"ToDo",
 		fields=["owner"],
 		filters=dict(reference_type=doctype, reference_name=name, status=("!=", "Cancelled")),
@@ -151,7 +151,7 @@ def close_all_assignments(doctype, name):
 	return True
 
 
-@frappe.whitelist()
+@capkpi.whitelist()
 def remove(doctype, name, assign_to):
 	return set_status(doctype, name, assign_to, status="Cancelled")
 
@@ -159,7 +159,7 @@ def remove(doctype, name, assign_to):
 def set_status(doctype, name, assign_to, status="Cancelled"):
 	"""remove from todo"""
 	try:
-		todo = frappe.db.get_value(
+		todo = capkpi.db.get_value(
 			"ToDo",
 			{
 				"reference_type": doctype,
@@ -169,17 +169,17 @@ def set_status(doctype, name, assign_to, status="Cancelled"):
 			},
 		)
 		if todo:
-			todo = frappe.get_doc("ToDo", todo)
+			todo = capkpi.get_doc("ToDo", todo)
 			todo.status = status
 			todo.save(ignore_permissions=True)
 
 			notify_assignment(todo.assigned_by, todo.owner, todo.reference_type, todo.reference_name)
-	except frappe.DoesNotExistError:
+	except capkpi.DoesNotExistError:
 		pass
 
 	# clear assigned_to if field exists
-	if frappe.get_meta(doctype).get_field("assigned_to") and status == "Cancelled":
-		frappe.db.set_value(doctype, name, "assigned_to", None)
+	if capkpi.get_meta(doctype).get_field("assigned_to") and status == "Cancelled":
+		capkpi.db.set_value(doctype, name, "assigned_to", None)
 
 	return get({"doctype": doctype, "name": name})
 
@@ -188,7 +188,7 @@ def clear(doctype, name):
 	"""
 	Clears assignments, return False if not assigned.
 	"""
-	assignments = frappe.db.get_all(
+	assignments = capkpi.db.get_all(
 		"ToDo", fields=["owner"], filters=dict(reference_type=doctype, reference_name=name)
 	)
 	if not assignments:
@@ -208,21 +208,21 @@ def notify_assignment(assigned_by, owner, doc_type, doc_name, action="CLOSE", de
 		return
 
 	# return if self assigned or user disabled
-	if assigned_by == owner or not frappe.db.get_value("User", owner, "enabled"):
+	if assigned_by == owner or not capkpi.db.get_value("User", owner, "enabled"):
 		return
 
 	# Search for email address in description -- i.e. assignee
-	user_name = frappe.get_cached_value("User", frappe.session.user, "full_name")
+	user_name = capkpi.get_cached_value("User", capkpi.session.user, "full_name")
 	title = get_title(doc_type, doc_name)
 	description_html = "<div>{0}</div>".format(description) if description else None
 
 	if action == "CLOSE":
 		subject = _("Your assignment on {0} {1} has been removed by {2}").format(
-			frappe.bold(doc_type), get_title_html(title), frappe.bold(user_name)
+			capkpi.bold(doc_type), get_title_html(title), capkpi.bold(user_name)
 		)
 	else:
-		user_name = frappe.bold(user_name)
-		document_type = frappe.bold(doc_type)
+		user_name = capkpi.bold(user_name)
+		document_type = capkpi.bold(doc_type)
 		title = get_title_html(title)
 		subject = _("{0} assigned a new task {1} {2} to you").format(user_name, document_type, title)
 
@@ -231,7 +231,7 @@ def notify_assignment(assigned_by, owner, doc_type, doc_name, action="CLOSE", de
 		"document_type": doc_type,
 		"subject": subject,
 		"document_name": doc_name,
-		"from_user": frappe.session.user,
+		"from_user": capkpi.session.user,
 		"email_content": description_html,
 	}
 

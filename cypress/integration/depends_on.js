@@ -2,8 +2,8 @@ context('Depends On', () => {
 	before(() => {
 		cy.login();
 		cy.visit('/app/website');
-		return cy.window().its('frappe').then(frappe => {
-			return frappe.xcall('frappe.tests.ui_test_helpers.create_child_doctype', {
+		return cy.window().its('capkpi').then(capkpi => {
+			return capkpi.xcall('capkpi.tests.ui_test_helpers.create_child_doctype', {
 				name: 'Child Test Depends On',
 				fields: [
 					{
@@ -26,8 +26,8 @@ context('Depends On', () => {
 					},
 				]
 			});
-		}).then(frappe => {
-			return frappe.xcall('frappe.tests.ui_test_helpers.create_doctype', {
+		}).then(capkpi => {
+			return capkpi.xcall('capkpi.tests.ui_test_helpers.create_doctype', {
 				name: 'Test Depends On',
 				fields: [
 					{
@@ -83,7 +83,7 @@ context('Depends On', () => {
 		cy.new_form('Test Depends On');
 		cy.fill_field('dependant_field', 'Some Value');
 		//cy.fill_field('test_field', 'Some Other Value');
-		cy.get('.frappe-control[data-fieldname="child_test_depends_on_field"]').as('table');
+		cy.get('.capkpi-control[data-fieldname="child_test_depends_on_field"]').as('table');
 		cy.get('@table').findByRole('button', {name: 'Add Row'}).click();
 		cy.get('@table').find('[data-idx="1"]').as('row1');
 		cy.get('@row1').find('.btn-open-row').click();

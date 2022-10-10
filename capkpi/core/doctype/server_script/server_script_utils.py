@@ -1,6 +1,6 @@
-import frappe
+import capkpi
 
-# this is a separate file since it is imported in frappe.model.document
+# this is a separate file since it is imported in capkpi.model.document
 # to avoid circular imports
 
 EVENT_MAP = {
@@ -26,17 +26,17 @@ def run_server_script_for_doc_event(doc, event):
 	if not event in EVENT_MAP:
 		return
 
-	if frappe.flags.in_install:
+	if capkpi.flags.in_install:
 		return
 
-	if frappe.flags.in_migrate:
+	if capkpi.flags.in_migrate:
 		return
 
 	scripts = get_server_script_map().get(doc.doctype, {}).get(EVENT_MAP[event], None)
 	if scripts:
 		# run all scripts for this doctype + event
 		for script_name in scripts:
-			frappe.get_doc("Server Script", script_name).execute_doc(doc)
+			capkpi.get_doc("Server Script", script_name).execute_doc(doc)
 
 
 def get_server_script_map():
@@ -52,13 +52,13 @@ def get_server_script_map():
 	# 		'DocType': '[server script]'
 	# 	}
 	# }
-	if frappe.flags.in_patch and not frappe.db.table_exists("Server Script"):
+	if capkpi.flags.in_patch and not capkpi.db.table_exists("Server Script"):
 		return {}
 
-	script_map = frappe.cache().get_value("server_script_map")
+	script_map = capkpi.cache().get_value("server_script_map")
 	if script_map is None:
 		script_map = {"permission_query": {}}
-		enabled_server_scripts = frappe.get_all(
+		enabled_server_scripts = capkpi.get_all(
 			"Server Script",
 			fields=("name", "reference_doctype", "doctype_event", "api_method", "script_type"),
 			filters={"disabled": 0},
@@ -73,6 +73,6 @@ def get_server_script_map():
 			else:
 				script_map.setdefault("_api", {})[script.api_method] = script.name
 
-		frappe.cache().set_value("server_script_map", script_map)
+		capkpi.cache().set_value("server_script_map", script_map)
 
 	return script_map

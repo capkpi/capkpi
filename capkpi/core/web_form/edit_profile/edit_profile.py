@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
 
-import frappe
+import capkpi
 
 
 def get_context(context):
